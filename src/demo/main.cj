@@ -38,22 +38,61 @@ class IndexPage <: Component {
     }
 }
 
-func renderPage(ctx: TangHttpContext, page: Component): Unit {
+// ---- HTTP ----
+
+func handleRoot(ctx: TangHttpContext): Unit {
     let html = generateHtmlShell("demo")
     ctx.contentType("text/html; charset=utf-8").writeString(html)
 }
 
-func handleRoot(ctx: TangHttpContext): Unit {
-    let pageOpt = RouteRegistry.global().create("/")
-    match (pageOpt) {
-        case Some(page) => renderPage(ctx, page)
-        case None => ctx.contentType("text/plain; charset=utf-8").writeString("404")
+// ---- WebSocket ----
+
+var globalPage: Option<IndexPage> = None
+var globalTree: Option<ComponentNode> = None
+
+func handleWS(ctx: TangHttpContext): Unit {
+    let ws = ctx.upgrade()
+    let page = IndexPage()
+    var tree = page.render()
+
+    globalPage = Some(page)
+    globalTree = Some(tree)
+
+    // 发送 connected + 初始 count
+    wsSendText(ws, "{\"type\":\"connected\"}")
+    wsSendText(ws, "{\"type\":\"patch\",\"patches\":[{\"op\":\"replace\",\"path\":\"\",\"value\":{\"type\":\"div\",\"children\":[{\"type\":\"h1\",\"children\":[{\"type\":\"text\",\"attrs\":{\"text\":\"cjxt Counter\"}}]},{\"type\":\"div\",\"attrs\":{\"class\":\"counter\"},\"children\":[{\"type\":\"button\",\"children\":[{\"type\":\"text\",\"attrs\":{\"text\":\"-\"}}],\"attrs\":{},\"actions\":{\"click\":\"decrement\"}},{\"type\":\"span\",\"children\":[{\"type\":\"text\",\"attrs\":{\"text\":\"${page.count}\"}}]},{\"type\":\"button\",\"children\":[{\"type\":\"text\",\"attrs\":{\"text\":\"+\"}}],\"attrs\":{},\"actions\":{\"click\":\"increment\"}}]}]}}]")
+
+    while (true) {
+        let msg = wsReadText(ws)
+        if (msg.contains("action")) {
+            let router = Router("demo", { p => () })
+            let ctx = ActionContext("demo", HashMap<String, String>(), router)
+
+            if (msg.contains("increment")) { page.increment(ctx) }
+            else if (msg.contains("decrement")) { page.decrement(ctx) }
+
+            let newTree = page.render()
+            let patches = diffTree(tree, newTree, "")
+            tree = newTree
+
+            // 简化 patch 序列化
+            var patchJson = "["
+            for (i in 0..patches.size) {
+                if (i > 0) { patchJson = patchJson + "," }
+                let p = patches[i]
+                patchJson = patchJson + "{\"op\":\"${p.op}\",\"path\":\"${p.path}\"}"
+            }
+            patchJson = patchJson + "]"
+
+            wsSendText(ws, "{\"type\":\"patch\",\"patches\":${patchJson}}")
+        }
     }
 }
 
 main() {
     let app = Tang()
     app.get("/", handleRoot)
+    app.get("/ws", handleWS)
     println("cjxt demo running on :8080")
     app.listen(8080)
 }

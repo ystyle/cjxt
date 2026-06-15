@@ -2,33 +2,38 @@ package cjxt
 
 let FRONTEND_JS = """
 class CangjieUI {
-    constructor(container, sessionId) {
+    constructor(container, sessionId, initialTree) {
         this.container = container;
         this.sessionId = sessionId;
-        this.tree = null;
+        this.tree = initialTree;
         this.ws = null;
+        this.init();
     }
-    init(tree) {
-        this.tree = tree;
-        this.renderTree(tree, this.container);
+    init() {
+        if (this.tree) this.renderTree(this.tree, this.container);
         this.connectWS();
     }
     connectWS() {
         const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-        this.ws = new WebSocket(proto + '//' + location.host + '/_ws');
+        this.ws = new WebSocket(proto + '//' + location.host + '/ws');
         this.ws.onopen = () => this.send({ type: 'connect', sessionId: this.sessionId });
         this.ws.onmessage = (e) => this.handleMsg(JSON.parse(e.data));
         this.ws.onclose = () => setTimeout(() => this.connectWS(), 3000);
     }
     handleMsg(msg) {
         switch (msg.type) {
-            case 'connected': this.ack('mount'); break;
-            case 'patch':     this.applyPatches(msg.patches); this.ack('update'); break;
-            case 'push':      this.applyPatches(msg.patches); break;
-            case 'fullTree':  this.loadNewPage(msg); break;
+            case 'connected':
+                this.send({ type: 'ack', event: 'mount', sessionId: this.sessionId });
+                break;
+            case 'patch':
+                this.applyPatches(msg.patches);
+                this.send({ type: 'ack', event: 'update', sessionId: this.sessionId });
+                break;
+            case 'fullTree':
+                this.loadNewPage(msg);
+                break;
         }
     }
-    ack(event) { this.send({ type: 'ack', event: event, sessionId: this.sessionId }); }
     send(data) {
         if (this.ws && this.ws.readyState === WebSocket.OPEN)
             this.ws.send(JSON.stringify(data));
@@ -36,32 +41,44 @@ class CangjieUI {
     loadNewPage(msg) {
         this.tree = msg.tree;
         this.container.innerHTML = '';
-        this.renderTree(msg.tree, this.container);
-        this.ack('mount');
+        this.renderTree(this.tree, this.container);
+        this.send({ type: 'ack', event: 'mount', sessionId: this.sessionId });
     }
     renderTree(node, parentEl) {
-        var el = document.createElement(node.type.toLowerCase());
-        for (var k in node.attrs || {}) {
-            if (k === 'text') { el.textContent = node.attrs[k]; continue; }
+        const type = (node.type || '').toLowerCase();
+        if (type === 'text') {
+            parentEl.appendChild(document.createTextNode(node.attrs ? (node.attrs.text || '') : ''));
+            return;
+        }
+        const el = document.createElement(type);
+        for (const k in node.attrs || {}) {
+            if (k === 'text') continue;
             el.setAttribute(k, node.attrs[k]);
         }
-        for (var ev in node.actions || {}) {
-            el.addEventListener(ev, (function(action) {
-                return function(e) {
-                    var params = {};
-                    for (var a of el.attributes) {
-                        if (a.name.startsWith('data-')) params[a.name.slice(5)] = a.value;
-                    }
-                    this.send({ type: 'action', name: action, params: params, sessionId: this.sessionId });
-                }.bind(this);
-            }).bind(this)(node.actions[ev]));
+        for (const ev in node.actions || {}) {
+            const action = node.actions[ev];
+            el.addEventListener(ev, (e) => {
+                const params = {};
+                for (const a of el.attributes) {
+                    if (a.name.startsWith('data-')) params[a.name.slice(5)] = a.value;
+                }
+                this.send({ type: 'action', name: action, params, sessionId: this.sessionId });
+            });
         }
-        for (var child of node.children || []) this.renderTree(child, el);
+        for (const child of node.children || []) this.renderTree(child, el);
         parentEl.appendChild(el);
     }
     applyPatches(patches) {
-        for (var p of patches) {
-            if (p.op === 'replace') { this.container.innerHTML = ''; this.renderTree(this.tree, this.container); break; }
+        for (const p of patches) {
+            if (p.op === 'replace') {
+                const path = p.path || '';
+                const parts = path.split('/').filter(Boolean);
+                if (parts.length === 0) {
+                    this.tree = p.value;
+                    this.container.innerHTML = '';
+                    this.renderTree(this.tree, this.container);
+                }
+            }
         }
     }
 }
@@ -78,13 +95,15 @@ public func generateHtmlShell(sessionId: String): String {
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        .counter { text-align: center; margin-top: 40px; }
+        .counter button { font-size: 24px; width: 48px; height: 48px; margin: 0 12px; cursor: pointer; }
+        .counter span { font-size: 32px; min-width: 48px; display: inline-block; }
     </style>
 </head>
 <body>
     <div id="app"></div>
     <script>
-        var __SESSION_ID__ = "${sessionId}";
-        var ui = new CangjieUI(document.getElementById('app'), __SESSION_ID__);
+        var ui = new CangjieUI(document.getElementById('app'), "${sessionId}", null);
     </script>
     <script>
 ${FRONTEND_JS}
