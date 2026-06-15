@@ -1,0 +1,27 @@
+[package]
+  cjc-version = "1.1.0"
+  name = "cjxt"
+  description = "Cangjie server-driven UI framework for enterprise applications"
+  version = "0.1.0"
+  output-type = "static"
+  compile-option = "-Woff unused"
+  link-option = "-L/home/ystyle/.config/cjvs/stdx/1.1.0-alpha.0421/linux_x86_64_cjnative/static/stdx -lcangjie-dynamicLoader-opensslFFI"
+
+[package.package-configuration."cjxt.demo"]
+output-type = "executable"
+
+[target.x86_64-unknown-linux-gnu.bin-dependencies]
+  path-option = ["${CANGJIE_STDX_PATH}"]
+[target.x86_64-apple-darwin.bin-dependencies]
+  path-option = ["${CANGJIE_STDX_PATH}"]
+[target.x86_64-w64-mingw32.bin-dependencies]
+  path-option = ["${CANGJIE_STDX_PATH}"]
+[target.aarch64-linux-ohos.bin-dependencies]
+  path-option = ["${CANGJIE_STDX_PATH}"]
+[target.x86_64-linux-ohos.bin-dependencies]
+  path-option = ["${CANGJIE_STDX_PATH}"]
+
+[dependencies]
+tang = { path = "../tang" }
+
+[test-dependencies]

@@ -1,0 +1,79 @@
+package cjxt
+
+import std.collection.*
+
+public enum WsState {
+    | Connecting | Connected | Disconnected
+}
+
+public class Session {
+    let id: String
+    var page: Component
+    var tree: ComponentNode
+    var wsState: WsState
+    var createdAt: Int64
+    var lastActiveAt: Int64
+
+    public init(id: String, page: Component, tree: ComponentNode) {
+        this.id = id
+        this.page = page
+        this.tree = tree
+        this.wsState = WsState.Connecting
+        this.createdAt = nowMillis()
+        this.lastActiveAt = nowMillis()
+    }
+
+    public func touch(): Unit {
+        this.lastActiveAt = nowMillis()
+    }
+
+    public func updatePage(page: Component, tree: ComponentNode): Unit {
+        this.page = page
+        this.tree = tree
+        this.touch()
+    }
+
+    public func isExpired(ttlMillis: Int64): Bool {
+        nowMillis() - this.lastActiveAt > ttlMillis
+    }
+}
+
+public class SessionManager {
+    let sessions = HashMap<String, Session>()
+    let ttlMillis: Int64
+
+    public init(ttlMillis: Int64) {
+        this.ttlMillis = ttlMillis
+    }
+
+    public func create(page: Component, tree: ComponentNode): Session {
+        let id = generateSessionId()
+        let session = Session(id, page, tree)
+        sessions.add(id, session)
+        session
+    }
+
+    public func get(id: String): Option<Session> {
+        sessions.get(id)
+    }
+
+    public func remove(id: String): Unit {
+        sessions.remove(id)
+    }
+
+    public func cleanup(): Unit {
+        for ((id, session) in sessions) {
+            if (session.isExpired(ttlMillis)) {
+                sessions.remove(id)
+            }
+        }
+    }
+
+    func generateSessionId(): String {
+        "${nowMillis()}"
+    }
+}
+
+func nowMillis(): Int64 {
+    0
+}
