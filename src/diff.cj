@@ -49,16 +49,16 @@ private func mergeKeys(a: ArrayList<String>, b: ArrayList<String>): ArrayList<St
 public func diffTree(old: ComponentNode, newTree: ComponentNode, basePath: String): ArrayList<PatchEntry> {
     let patches = ArrayList<PatchEntry>()
 
-    if (old.typ != newTree.typ || !eqOpt(old.key, newTree.key)) {
+    if (old._typ != newTree._typ || !eqOpt(old._key, newTree._key)) {
         patches.add(PatchEntry("replace", basePath, Some(""), None))
         return patches
     }
 
     // attrs
-    let attrKeys = mergeKeys(optKeys(old.attrs), optKeys(newTree.attrs))
+    let attrKeys = mergeKeys(optKeys(old._attrs), optKeys(newTree._attrs))
     for (key in attrKeys) {
-        let oldV = optGet(old.attrs, key)
-        let newV = optGet(newTree.attrs, key)
+        let oldV = optGet(old._attrs, key)
+        let newV = optGet(newTree._attrs, key)
         if (oldV != newV) {
             let ap = if (basePath == "") { "/attrs/${key}" } else { "${basePath}/attrs/${key}" }
             match (newV) {
@@ -69,10 +69,10 @@ public func diffTree(old: ComponentNode, newTree: ComponentNode, basePath: Strin
     }
 
     // actions
-    let actKeys = mergeKeys(optKeys(old.actions), optKeys(newTree.actions))
+    let actKeys = mergeKeys(optKeys(old._actions), optKeys(newTree._actions))
     for (key in actKeys) {
-        let oldA = optGet(old.actions, key)
-        let newA = optGet(newTree.actions, key)
+        let oldA = optGet(old._actions, key)
+        let newA = optGet(newTree._actions, key)
         if (oldA != newA) {
             let ap = if (basePath == "") { "/actions/${key}" } else { "${basePath}/actions/${key}" }
             match (newA) {
@@ -83,15 +83,15 @@ public func diffTree(old: ComponentNode, newTree: ComponentNode, basePath: Strin
     }
 
     // children
-    let maxLen = if (old.children.size > newTree.children.size) { old.children.size } else { newTree.children.size }
+    let maxLen = if (old._children.size > newTree._children.size) { old._children.size } else { newTree._children.size }
     for (i in 0..maxLen) {
         let cp = if (basePath == "") { "/children/${i}" } else { "${basePath}/children/${i}" }
-        if (i >= old.children.size) {
+        if (i >= old._children.size) {
             patches.add(PatchEntry("add", cp, Some(""), None))
-        } else if (i >= newTree.children.size) {
+        } else if (i >= newTree._children.size) {
             patches.add(PatchEntry("remove", cp, None, None))
         } else {
-            let sub = diffTree(old.children[i], newTree.children[i], cp)
+            let sub = diffTree(old._children[i], newTree._children[i], cp)
             for (p in sub) { patches.add(p) }
         }
     }

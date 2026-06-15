@@ -5,21 +5,21 @@ import std.unittest.*
 import std.unittest.testmacro.*
 
 func getAttr(node: ComponentNode, key: String): Option<String> {
-    match (node.attrs) {
+    match (node._attrs) {
         case Some(m) => m.get(key)
         case None => None
     }
 }
 
 func assertAction(node: ComponentNode, key: String, expected: String): Unit {
-    match (node.actions) {
+    match (node._actions) {
         case Some(m) => @Expect(m.get(key), Some(expected))
         case None => @Fail("no actions")
     }
 }
 
 func assertAttr(node: ComponentNode, key: String, expected: String): Unit {
-    match (node.attrs) {
+    match (node._attrs) {
         case Some(m) => @Expect(m.get(key), Some(expected))
         case None => @Fail("no attrs")
     }
@@ -30,13 +30,13 @@ public class VnodeTest {
     @TestCase
     public func testCreateDiv(): Unit {
         let node = div()
-        @Expect(node.typ, ComponentType.Div)
+        @Expect(node._typ, ComponentType.Div)
     }
 
     @TestCase
     public func testCreateText(): Unit {
         let node = text("hello")
-        @Expect(node.typ, ComponentType.Text)
+        @Expect(node._typ, ComponentType.Text)
         @Expect(getAttr(node, "text"), Some("hello"))
     }
 
@@ -46,9 +46,9 @@ public class VnodeTest {
             h1([text("title")]),
             p([text("content")])
         ])
-        @Expect(node.children.size, 2)
-        @Expect(node.children[0].typ, ComponentType.H1)
-        @Expect(node.children[1].typ, ComponentType.P)
+        @Expect(node._children.size, 2)
+        @Expect(node._children[0]._typ, ComponentType.H1)
+        @Expect(node._children[1]._typ, ComponentType.P)
     }
 
     @TestCase
@@ -66,15 +66,15 @@ public class VnodeTest {
                 li([text("item2")])
             ])
         ])
-        @Expect(node.children[0].typ, ComponentType.Ul)
-        @Expect(node.children[0].children.size, 2)
+        @Expect(node._children[0]._typ, ComponentType.Ul)
+        @Expect(node._children[0]._children.size, 2)
     }
 
     @TestCase
     public func testKeyAndAttrs(): Unit {
         let attrs = HashMap<String, String>([("class", "container"), ("id", "main")])
         let node = div([], attrs: attrs, key: Some("root"))
-        @Expect(node.key, Some("root"))
+        @Expect(node._key, Some("root"))
         assertAttr(node, "class", "container")
         assertAttr(node, "id", "main")
     }

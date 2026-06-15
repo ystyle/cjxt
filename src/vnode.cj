@@ -40,39 +40,51 @@ public type Attributes = HashMap<String, String>
 public type ActionMap = HashMap<String, String>
 
 public struct ComponentNode <: JsonSerializable {
-    let typ: ComponentType
-    let attrs: Option<Attributes>
-    let children: Array<ComponentNode>
-    let key: Option<String>
-    let actions: Option<ActionMap>
+    let _typ: ComponentType
+    let _attrs: Option<Attributes>
+    let _children: Array<ComponentNode>
+    let _key: Option<String>
+    let _actions: Option<ActionMap>
 
     public init(typ: ComponentType, children: Array<ComponentNode>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None) {
-        this.typ = typ
-        this.attrs = attrs
-        this.children = children
-        this.key = key
-        this.actions = actions
+        this._typ = typ
+        this._attrs = attrs
+        this._children = children
+        this._key = key
+        this._actions = actions
     }
 
     public func toJson(w: JsonWriter): Unit {
         w.startObject()
-        w.writeName("type").writeValue(this.typ.toString())
-        w.writeName("attrs").writeValue(this.attrs)
-        w.writeName("actions").writeValue(this.actions)
-        w.writeName("children").writeValue(this.children)
+        w.writeName("type").writeValue(this._typ.toString())
+        w.writeName("attrs").writeValue(this._attrs)
+        w.writeName("actions").writeValue(this._actions)
+        w.writeName("children").writeValue(this._children)
         w.endObject()
     }
 
-    public func attr(k: String, v: String): ComponentNode {
-        let m = HashMap<String, String>()
-        m[k] = v
-        ComponentNode(this.typ, this.children, attrs: Some(m), key: this.key, actions: this.actions)
+    // ---- 链式方法 ----
+
+    public func attrs(m: HashMap<String, String>): ComponentNode {
+        ComponentNode(this._typ, this._children, attrs: Some(m), key: this._key, actions: this._actions)
+    }
+
+    public func actions(m: HashMap<String, String>): ComponentNode {
+        ComponentNode(this._typ, this._children, attrs: this._attrs, key: this._key, actions: Some(m))
+    }
+
+    public func children(c: Array<ComponentNode>): ComponentNode {
+        ComponentNode(this._typ, c, attrs: this._attrs, key: this._key, actions: this._actions)
+    }
+
+    public func key(k: String): ComponentNode {
+        ComponentNode(this._typ, this._children, attrs: this._attrs, key: Some(k), actions: this._actions)
     }
 
     public func onClick(name: String): ComponentNode {
         let m = HashMap<String, String>()
         m["click"] = name
-        ComponentNode(this.typ, this.children, attrs: this.attrs, key: this.key, actions: Some(m))
+        this.actions(m)
     }
 
     public func style(v: String): ComponentNode {
@@ -82,7 +94,15 @@ public struct ComponentNode <: JsonSerializable {
     public func className(v: String): ComponentNode {
         this.attr("class", v)
     }
+
+    public func attr(k: String, v: String): ComponentNode {
+        let m = HashMap<String, String>()
+        m[k] = v
+        this.attrs(m)
+    }
 }
+
+// ---- 标签辅助函数 ----
 
 public func div(children: Array<ComponentNode>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): ComponentNode {
     ComponentNode(ComponentType.Div, children, attrs: attrs, key: key, actions: actions)
