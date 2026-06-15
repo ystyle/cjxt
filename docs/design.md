@@ -343,10 +343,10 @@ div([], attrs: Some(HashMap([("class", css.get("btn"))])))
 - [x] 实现 `defineCSS` 宏（纯 CSS 模式）。
 
 ### Phase 4: 增强特性
-- [x] ~~构建时 SSG~~（后台系统场景不需要，首屏优化走服务端缓存）
+- [x] ~~构建时 SSG~~（后台系统场景不需要）
 - [x] `defineCSS` / `@sass` 宏 + CssModule + `build.cj` 编译集成。
-- [ ] WS 主动推送。
-- [ ] 开发模式热重载。
+- [x] WS 主动推送（`ctx.push`）。
+- [ ] 开发模式热重载（延迟到后期）。
 - [ ] WS 断线重连与 session 恢复。
 - [ ] 应用配置（theme、layout）。
 
