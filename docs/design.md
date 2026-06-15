@@ -395,9 +395,6 @@ div([], attrs: Some(HashMap([("class", css.get("btn"))])))
 - [ ] 组件库抽象（Button、Form、Table、Modal 等）。
 - [ ] 性能优化（缓存策略）。
 - [ ] 文档与示例应用。
-- [ ] diff 算法优化、缓存策略。
-- [ ] LRU 会话淘汰与内存监控。
-- [ ] 文档与示例应用。
 
 ## 6. 风险与应对
 

@@ -8,9 +8,11 @@ class SessionState {
     var page: Component
     var actions: HashMap<String, ActionHandler>
     var handlers: HashMap<String, ActionHandler>
+    var path: String
 
-    public init(page: Component) {
+    public init(page: Component, path: String) {
         this.page = page
+        this.path = path
         this.actions = page.getActions()
         this.handlers = HashMap<String, ActionHandler>()
     }
@@ -77,7 +79,7 @@ public class App {
     private func resumeSession(ws: WebSocket, session: Session): Unit {
         session.wsState = WsState.Connected
         session.touch()
-        let state = SessionState(session.page)
+        let state = SessionState(session.page, session.path)
         let tree = applyLayout(session.path, session.tree)
         state.refresh(tree)
         wsSendJson(ws, ConnectedMsg())
@@ -101,16 +103,30 @@ public class App {
     }
 
     private func startSession(ws: WebSocket, sid: String, page: Component): Unit {
-        let state = SessionState(page)
-        let raw = page.render()
-        let tree = applyLayout("/", raw)
-        state.refresh(tree)
-        let session = sessions.save(sid, page, tree)
+        let session = sessions.save(sid, page, div([text("")]))
+        let state = SessionState(page, "/")
         session.path = "/"
+        this.initSignals(ws, state, session)
         wsSendJson(ws, ConnectedMsg())
-        wsSendJson(ws, PatchMsg([PatchEntryMsg("replace", "", tree)]))
+        wsSendJson(ws, PatchMsg([PatchEntryMsg("replace", "", session.tree)]))
         sendTitle(ws, "/")
         this.listenLoop(ws, state, session)
+    }
+
+    private func initSignals(ws: WebSocket, state: SessionState, session: Session): Unit {
+        let reRender = { =>
+            let raw = state.page.render()
+            let tree = applyLayout(state.path, raw)
+            state.refresh(tree)
+            session.tree = raw
+            wsSendJson(ws, PatchMsg([PatchEntryMsg("replace", "", tree)]))
+        }
+        SignalTracker.pendingSub = Some(reRender)
+        let raw = state.page.render()
+        SignalTracker.pendingSub = None
+        let tree = applyLayout(state.path, raw)
+        state.refresh(tree)
+        session.tree = raw
     }
 
     private func listenLoop(ws: WebSocket, state: SessionState, session: Session): Unit {
@@ -187,6 +203,7 @@ public class App {
 
     private func applyNav(ws: WebSocket, state: SessionState, session: Session, newPage: Component, path: String): Unit {
         state.page = newPage
+        state.path = path
         state.actions = newPage.getActions()
         let raw = newPage.render()
         let tree = applyLayout(path, raw)
@@ -206,7 +223,7 @@ public class App {
 
     private func sendPatch(ws: WebSocket, state: SessionState, session: Session): Unit {
         let raw = state.page.render()
-        let tree = applyLayout(session.path, raw)
+        let tree = applyLayout(state.path, raw)
         state.refresh(tree)
         session.tree = raw
         wsSendJson(ws, PatchMsg([PatchEntryMsg("replace", "", tree)]))
