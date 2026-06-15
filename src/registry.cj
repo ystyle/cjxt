@@ -44,11 +44,13 @@ private func extractParamNames(path: String): Array<String> {
 }
 
 public type RouteFactory = () -> Component
+public type LayoutFn = (ComponentNode) -> ComponentNode
 
 public class RouteRegistry {
     let entries = HashMap<String, RouteFactory>()
     let titles = HashMap<String, String>()
     let guards = HashMap<String, (HashMap<String, String>) -> Bool>()
+    let layouts = HashMap<String, LayoutFn>()
 
     private static var inst: Option<RouteRegistry> = None
 
@@ -80,6 +82,13 @@ public class RouteRegistry {
         guards.add(path, guard)
     }
 
+    public func register(path: String, factory: RouteFactory, title: String, guard: (HashMap<String, String>) -> Bool, layout: LayoutFn): Unit {
+        entries.add(path, factory)
+        titles.add(path, title)
+        guards.add(path, guard)
+        layouts.add(path, layout)
+    }
+
     public func create(path: String): Option<Component> {
         match (entries.get(path)) {
             case Some(f) => Some(f())
@@ -96,5 +105,9 @@ public class RouteRegistry {
             case Some(fn) => fn(ctx)
             case None => true
         }
+    }
+
+    public func getLayout(path: String): Option<LayoutFn> {
+        layouts.get(path)
     }
 }

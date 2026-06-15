@@ -12,6 +12,12 @@ func needCount10(ctx: HashMap<String, String>): Bool {
     }
 }
 
+func cardLayout(page: ComponentNode): ComponentNode {
+    div(
+        div(page).style("max-width: 600px; margin: 2em auto; padding: 2em; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1)")
+    ).style("background: #f5f5f5; min-height: 100vh")
+}
+
 @Page["/", "cjxt Counter"]
 class HomePage <: Component {
     var count: Int64 = 0
@@ -33,7 +39,7 @@ class HomePage <: Component {
     }
 }
 
-@Page["/secret", "秘密页面", needCount10]
+@Page["/secret", "秘密页面", needCount10, cardLayout]
 class SecretPage <: Component {
     public func render(): ComponentNode {
         div(

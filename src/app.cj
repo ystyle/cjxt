@@ -78,9 +78,10 @@ public class App {
         session.wsState = WsState.Connected
         session.touch()
         let state = SessionState(session.page)
-        state.refresh(session.tree)
+        let tree = applyLayout(session.path, session.tree)
+        state.refresh(tree)
         wsSendJson(ws, ConnectedMsg())
-        wsSendJson(ws, PatchMsg([PatchEntryMsg("replace", "", session.tree)]))
+        wsSendJson(ws, PatchMsg([PatchEntryMsg("replace", "", tree)]))
         sendTitle(ws, session.path)
         this.listenLoop(ws, state, session)
     }
@@ -92,9 +93,17 @@ public class App {
         }
     }
 
+    private func applyLayout(path: String, raw: ComponentNode): ComponentNode {
+        match (RouteRegistry.global().getLayout(path)) {
+            case Some(fn) => fn(raw)
+            case None => raw
+        }
+    }
+
     private func startSession(ws: WebSocket, sid: String, page: Component): Unit {
         let state = SessionState(page)
-        let tree = page.render()
+        let raw = page.render()
+        let tree = applyLayout("/", raw)
         state.refresh(tree)
         let session = sessions.save(sid, page, tree)
         session.path = "/"
@@ -179,9 +188,10 @@ public class App {
     private func applyNav(ws: WebSocket, state: SessionState, session: Session, newPage: Component, path: String): Unit {
         state.page = newPage
         state.actions = newPage.getActions()
-        let tree = newPage.render()
+        let raw = newPage.render()
+        let tree = applyLayout(path, raw)
         state.refresh(tree)
-        session.updatePage(newPage, tree)
+        session.updatePage(newPage, raw)
         session.path = path
         wsSendJson(ws, FullTreeMsg(tree))
         sendTitle(ws, path)
@@ -195,9 +205,10 @@ public class App {
     }
 
     private func sendPatch(ws: WebSocket, state: SessionState, session: Session): Unit {
-        let tree = state.page.render()
+        let raw = state.page.render()
+        let tree = applyLayout(session.path, raw)
         state.refresh(tree)
-        session.tree = tree
+        session.tree = raw
         wsSendJson(ws, PatchMsg([PatchEntryMsg("replace", "", tree)]))
     }
 }
