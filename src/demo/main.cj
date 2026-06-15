@@ -7,14 +7,13 @@ import std.collection.HashMap
 @Page["/"]
 class HomePage <: Component {
     var count: Int64 = 0
-    let acts = HashMap<String, String>([("click", "increment")])
 
     public func render(): ComponentNode {
         div([
             h1([text("cjxt Counter")]),
             p([text("count: ${count}")]),
-            button([text("+")], actions: Some(acts)),
-            button([text("关于")], actions: Some(HashMap<String, String>([("click", "goAbout")])))
+            button([text("+")]).onClick("increment"),
+            button([text("关于")]).onClick("goAbout")
         ])
     }
 
@@ -30,9 +29,9 @@ class HomePage <: Component {
 class AboutPage <: Component {
     public func render(): ComponentNode {
         div([
-            h1([text("关于 cjxt")]),
+            h1([text("关于 cjxt")]).style("color: #2c6b9e; font-family: sans-serif;"),
             p([text("服务端驱动 UI 框架，纯仓颉实现。")]),
-            button([text("返回")], actions: Some(HashMap<String, String>([("click", "goBack")])))
+            button([text("返回")]).onClick("goBack")
         ])
     }
 
