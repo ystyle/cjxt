@@ -174,9 +174,10 @@ public class App {
         let ctx = ActionContext("", session.context, HashMap<String, String>(), router, pushFn: { patches =>
             wsSendJson(ws, PushMsg(patches))
         })
+        SignalTracker.rendered = false
         try {
             match (fn(ctx)) {
-                case PatchResult.ReRender => if (!flag.done) { this.sendPatch(ws, state, session) }
+                case PatchResult.ReRender => if (!flag.done && !SignalTracker.rendered) { this.sendPatch(ws, state, session) }
                 case _ => ()
             }
         } catch (e: Error) {

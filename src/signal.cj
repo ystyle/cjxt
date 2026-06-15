@@ -4,6 +4,7 @@ import std.collection.ArrayList
 
 public class SignalTracker {
     public static var pendingSub: Option<() -> Unit> = None
+    public static var rendered: Bool = false
 }
 
 public class Signal<T> {

@@ -31,6 +31,7 @@ class HomePage <: Component {
             p(text("global: ${store.get()}")),
             button(text("+")).onClick({ ctx =>
                 this.count = this.count + 1
+                ctx.context["count"] = "${this.count}"
                 PatchResult.ReRender
             }),
             button(text("global+")).onClick({ ctx =>
