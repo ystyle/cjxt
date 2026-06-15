@@ -2,3 +2,4 @@ target/
 .cache/
 build-script-cache/
 *.log
+*.macrocall
