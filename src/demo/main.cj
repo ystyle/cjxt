@@ -28,11 +28,11 @@ class HomePage <: Component {
 
 @Page["/about"]
 class AboutPage <: Component {
-    let headingStyle: String = @sass(".about-title { color: #2c6b9e; }")
+    let css: CssModule = @defineCSS("\$primary: #2c6b9e; .about-title { color: \$primary; font-family: sans-serif; }")
 
     public func render(): ComponentNode {
         div([
-            h1([text("关于 cjxt")], attrs: Some(HashMap<String, String>([("class", "about-title")]))),
+            h1([text("关于 cjxt")], attrs: Some(HashMap<String, String>([("class", css.get("about-title"))]))),
             p([text("服务端驱动 UI 框架，纯仓颉实现。")]),
             button([text("返回")], actions: HashMap<String, String>([("click", "goBack")]))
         ])
