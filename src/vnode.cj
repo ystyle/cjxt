@@ -6,7 +6,7 @@ import stdx.encoding.json.stream.{JsonWriter, JsonSerializable}
 public enum ComponentType <: ToString & Equatable<ComponentType> {
     | Div | Span | Button | Input | Form
     | Table | Text | Image | H1 | H2 | H3
-    | P | Select | Textarea | A | Ul | Li
+    | P | Select | Textarea | A | Ul | Li | Style
 
     public func toString(): String {
         match (this) {
@@ -27,6 +27,7 @@ public enum ComponentType <: ToString & Equatable<ComponentType> {
             case A => "a"
             case Ul => "ul"
             case Li => "li"
+            case Style => "style"
         }
     }
 
@@ -115,4 +116,10 @@ public func ul(children: Array<ComponentNode>, attrs!: Option<Attributes> = None
 
 public func li(children: Array<ComponentNode>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): ComponentNode {
     ComponentNode(ComponentType.Li, children, attrs: attrs, key: key, actions: actions)
+}
+
+public func cssStyle(content: String): ComponentNode {
+    let a = HashMap<String, String>()
+    a["text"] = content
+    ComponentNode(ComponentType.Style, [], attrs: Some(a))
 }

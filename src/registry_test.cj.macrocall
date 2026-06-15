@@ -1,0 +1,164 @@
+package cjxt
+
+import std.collection.*
+import std.unittest.*
+import std.unittest.testmacro.*
+
+func checkResult(result: Option<HashMap<String, String>>): HashMap<String, String> {
+    match (result) {
+        case Some(params) => params
+        case None => throw Exception("expected match")
+    }
+}
+
+func checkVal(val: Option<String>, expected: String): Unit {
+    match (val) {
+        case Some(v) => /* ===== Emitted by MacroCall @Expect in registry_test.cj:16:25 ===== *//* 16.1 */ expectEqual("v", "expected", v, expected, isDelta: false,) /* ===== End of the Emit ===== */
+        case None => /* ===== Emitted by MacroCall @Fail in registry_test.cj:17:22 ===== *//* 17.1 */ fail("expected value") /* ===== End of the Emit ===== */
+    }
+}
+
+/* ===== Emitted by MacroCall @Test in registry_test.cj:21:1 ===== */
+/* 21.1 */@Attribute[TEST_GENERATED] class RegistryTest <: TestClass {
+/* 21.2 */    @Attribute[TestCase_0]
+/* 21.3 */    public func testExactMatch(): Unit {
+/* 21.4 */        let entry = RouteEntry("/order/list")
+/* 21.5 */        let params = checkResult(entry.doMatch("/order/list"))
+/* 21.6 */        expectEqual("params.size", "0", params.size, 0, isDelta: false)
+/* 21.7 */    }
+/* 21.8 */    
+/* 21.9 */    @Attribute[TestCase_1]
+/* 21.10 */    public func testDynamicMatch(): Unit {
+/* 21.11 */        let entry = RouteEntry("/order/[id]")
+/* 21.12 */        let params = checkResult(entry.doMatch("/order/123"))
+/* 21.13 */        checkVal(params.get("id"), "123")
+/* 21.14 */    }
+/* 21.15 */    
+/* 21.16 */    @Attribute[TestCase_2]
+/* 21.17 */    public func testMismatchPath(): Unit {
+/* 21.18 */        let entry = RouteEntry("/order/list")
+/* 21.19 */        let result = entry.doMatch("/user/list")
+/* 21.20 */        match(result) {
+/* 21.21 */            case Some(_) => fail("expected no match")
+/* 21.22 */            case None => expectEqual("true", "true", true, true, isDelta: false)
+/* 21.23 */        }
+/* 21.24 */    }
+/* 21.25 */    
+/* 21.26 */    @Attribute[TestCase_3]
+/* 21.27 */    public func testMismatchDynamic(): Unit {
+/* 21.28 */        let entry = RouteEntry("/order/[id]")
+/* 21.29 */        let result = entry.doMatch("/order")
+/* 21.30 */        match(result) {
+/* 21.31 */            case Some(_) => fail("expected no match")
+/* 21.32 */            case None => expectEqual("true", "true", true, true, isDelta: false)
+/* 21.33 */        }
+/* 21.34 */    }
+/* 21.35 */    
+/* 21.36 */    @Attribute[TestCase_4]
+/* 21.37 */    public func testMultipleDynamics(): Unit {
+/* 21.38 */        let entry = RouteEntry("/order/[year]/[month]")
+/* 21.39 */        let params = checkResult(entry.doMatch("/order/2026/06"))
+/* 21.40 */        checkVal(params.get("year"), "2026")
+/* 21.41 */        checkVal(params.get("month"), "06")
+/* 21.42 */    }
+/* 21.43 */    
+/* 21.44 */    init() {
+/* 21.45 */    }
+/* 21.46 */    private func classConfiguration(): Configuration {
+/* 21.47 */        let configuration = Configuration()
+/* 21.48 */        
+/* 21.49 */        return configuration
+/* 21.50 */    }
+/* 21.51 */    public override func asTestSuite(): TestSuite {
+/* 21.52 */        
+/* 21.53 */        let suiteConfiguration = classConfiguration()
+/* 21.54 */        let suiteBuilder = TestSuite.builder("RegistryTest").configure(suiteConfiguration)
+/* 21.55 */        
+/* 21.56 */        { => let caseConfig = Configuration()
+/* 21.57 */            
+/* 21.58 */            let testExactMatchTestFunc = { => testExactMatch();() }
+/* 21.59 */            suiteBuilder.add(
+/* 21.60 */            UnitTestCase.create(
+/* 21.61 */            "testExactMatch",
+/* 21.62 */            configuration: caseConfig,
+/* 21.63 */            body: testExactMatchTestFunc
+/* 21.64 */            )
+/* 21.65 */            )
+/* 21.66 */            
+/* 21.67 */        }()
+/* 21.68 */        
+/* 21.69 */        
+/* 21.70 */        { => let caseConfig = Configuration()
+/* 21.71 */            
+/* 21.72 */            let testDynamicMatchTestFunc = { => testDynamicMatch();() }
+/* 21.73 */            suiteBuilder.add(
+/* 21.74 */            UnitTestCase.create(
+/* 21.75 */            "testDynamicMatch",
+/* 21.76 */            configuration: caseConfig,
+/* 21.77 */            body: testDynamicMatchTestFunc
+/* 21.78 */            )
+/* 21.79 */            )
+/* 21.80 */            
+/* 21.81 */        }()
+/* 21.82 */        
+/* 21.83 */        
+/* 21.84 */        { => let caseConfig = Configuration()
+/* 21.85 */            
+/* 21.86 */            let testMismatchPathTestFunc = { => testMismatchPath();() }
+/* 21.87 */            suiteBuilder.add(
+/* 21.88 */            UnitTestCase.create(
+/* 21.89 */            "testMismatchPath",
+/* 21.90 */            configuration: caseConfig,
+/* 21.91 */            body: testMismatchPathTestFunc
+/* 21.92 */            )
+/* 21.93 */            )
+/* 21.94 */            
+/* 21.95 */        }()
+/* 21.96 */        
+/* 21.97 */        
+/* 21.98 */        { => let caseConfig = Configuration()
+/* 21.99 */            
+/* 21.100 */            let testMismatchDynamicTestFunc = { => testMismatchDynamic();() }
+/* 21.101 */            suiteBuilder.add(
+/* 21.102 */            UnitTestCase.create(
+/* 21.103 */            "testMismatchDynamic",
+/* 21.104 */            configuration: caseConfig,
+/* 21.105 */            body: testMismatchDynamicTestFunc
+/* 21.106 */            )
+/* 21.107 */            )
+/* 21.108 */            
+/* 21.109 */        }()
+/* 21.110 */        
+/* 21.111 */        
+/* 21.112 */        { => let caseConfig = Configuration()
+/* 21.113 */            
+/* 21.114 */            let testMultipleDynamicsTestFunc = { => testMultipleDynamics();() }
+/* 21.115 */            suiteBuilder.add(
+/* 21.116 */            UnitTestCase.create(
+/* 21.117 */            "testMultipleDynamics",
+/* 21.118 */            configuration: caseConfig,
+/* 21.119 */            body: testMultipleDynamicsTestFunc
+/* 21.120 */            )
+/* 21.121 */            )
+/* 21.122 */            
+/* 21.123 */        }()
+/* 21.124 */        
+/* 21.125 */        return suiteBuilder.build()
+/* 21.126 */    }
+/* 21.127 */    private func inheritedFromClassAnnotatedByTestTemplate < T >(): TestSuite where T <: TestClass {
+/* 21.128 */        throw Exception("Unreachable code")
+/* 21.129 */    }
+/* 21.130 */}
+/* 21.131 */
+/* 21.132 */
+/* 21.133 */interface TestPackageExtension_RegistryTest {
+/* 21.134 */    func registerRegistryTest(): Unit
+/* 21.135 */}
+/* 21.136 */extend TestPackage <: TestPackageExtension_RegistryTest {
+/* 21.137 */    @Attribute[TEST_REGISTER]
+/* 21.138 */    public func registerRegistryTest() {
+/* 21.139 */        registerSuite({ => RegistryTest().asTestSuite() })
+/* 21.140 */    }
+/* 21.141 */}
+/* 21.142 */
+/* ===== End of the Emit ===== */

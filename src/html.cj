@@ -56,6 +56,12 @@ class CangjieUI {
             parentEl.appendChild(document.createTextNode(node.attrs ? (node.attrs.text || '') : ''));
             return;
         }
+        if (type === 'style') {
+            const el = document.createElement('style');
+            el.textContent = node.attrs ? (node.attrs.text || '') : '';
+            parentEl.appendChild(el);
+            return;
+        }
         const el = document.createElement(type);
         for (const k in node.attrs || {}) {
             if (k === 'text') continue;

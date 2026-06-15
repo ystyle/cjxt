@@ -90,6 +90,12 @@ func compile(content: String): String {
     }
 }
 
-public macro defineCSS(input: Tokens): Tokens {
-    processCSS(compile(input[0].value))
+public macro defineCSS(attr: Tokens, input: Tokens): Tokens {
+    let kind = if (attr.size > 1) { attr[0].value } else { "css" }
+    let content = if (attr.size > 1) { attr[1].value } else { attr[0].value }
+    if (kind == "sass") {
+        processCSS(compile(content))
+    } else {
+        processCSS(content)
+    }
 }
