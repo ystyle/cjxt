@@ -49,6 +49,7 @@ cjpm clean
 
 - 日常开发只需 `cjpm build` 和 `cjpm test`
 - 单独跑某个测试: `cjpm test --filter 'TestName.testMethod'`
+- 使用 `@sass` 宏需要安装 `sass`：`npm install -g sass`
 
 ## 浏览器测试
 
