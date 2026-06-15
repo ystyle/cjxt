@@ -2,15 +2,18 @@ package cjxt
 
 import std.collection.*
 
+public type ActionHandler = (ActionContext) -> PatchResult
+
 public interface Component {
     func render(): ComponentNode
 
+    func getActions(): HashMap<String, ActionHandler> {
+        HashMap<String, ActionHandler>()
+    }
+
     func onMount(ctx: LifecycleContext): Unit {}
-
     func onUpdate(ctx: LifecycleContext): Unit {}
-
     func onUnmount(ctx: LifecycleContext): Unit {}
-
     func onError(ctx: ErrorContext): Unit {}
 }
 
