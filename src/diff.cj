@@ -15,10 +15,24 @@ private func eqOpt(a: Option<String>, b: Option<String>): Bool {
     }
 }
 
-private func collectKeys(m: HashMap<String, String>): ArrayList<String> {
+private func optKeys(m: Option<HashMap<String, String>>): ArrayList<String> {
+    match (m) {
+        case Some(h) => doKeys(h)
+        case None => ArrayList<String>()
+    }
+}
+
+private func doKeys(h: HashMap<String, String>): ArrayList<String> {
     let ks = ArrayList<String>()
-    for (k in m.keys()) { ks.add(k) }
+    for (k in h.keys()) { ks.add(k) }
     ks
+}
+
+private func optGet(m: Option<HashMap<String, String>>, k: String): Option<String> {
+    match (m) {
+        case Some(h) => h.get(k)
+        case None => None
+    }
 }
 
 private func mergeKeys(a: ArrayList<String>, b: ArrayList<String>): ArrayList<String> {
@@ -41,10 +55,10 @@ public func diffTree(old: ComponentNode, newTree: ComponentNode, basePath: Strin
     }
 
     // attrs
-    let attrKeys = mergeKeys(collectKeys(old.attrs), collectKeys(newTree.attrs))
+    let attrKeys = mergeKeys(optKeys(old.attrs), optKeys(newTree.attrs))
     for (key in attrKeys) {
-        let oldV = old.attrs.get(key)
-        let newV = newTree.attrs.get(key)
+        let oldV = optGet(old.attrs, key)
+        let newV = optGet(newTree.attrs, key)
         if (oldV != newV) {
             let ap = if (basePath == "") { "/attrs/${key}" } else { "${basePath}/attrs/${key}" }
             match (newV) {
@@ -55,10 +69,10 @@ public func diffTree(old: ComponentNode, newTree: ComponentNode, basePath: Strin
     }
 
     // actions
-    let actKeys = mergeKeys(collectKeys(old.actions), collectKeys(newTree.actions))
+    let actKeys = mergeKeys(optKeys(old.actions), optKeys(newTree.actions))
     for (key in actKeys) {
-        let oldA = old.actions.get(key)
-        let newA = newTree.actions.get(key)
+        let oldA = optGet(old.actions, key)
+        let newA = optGet(newTree.actions, key)
         if (oldA != newA) {
             let ap = if (basePath == "") { "/actions/${key}" } else { "${basePath}/actions/${key}" }
             match (newA) {
