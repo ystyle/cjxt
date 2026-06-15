@@ -11,10 +11,10 @@ public interface Component {
         HashMap<String, ActionHandler>()
     }
 
-    func onMount(_: LifecycleContext): Unit {}
-    func onUpdate(_: LifecycleContext): Unit {}
-    func onUnmount(_: LifecycleContext): Unit {}
-    func onError(_: ErrorContext): Unit {}
+    func onMount(ctx: LifecycleContext): Unit {}
+    func onUpdate(ctx: LifecycleContext): Unit {}
+    func onUnmount(ctx: LifecycleContext): Unit {}
+    func onError(ctx: ErrorContext): Unit {}
 }
 
 public struct LifecycleContext {

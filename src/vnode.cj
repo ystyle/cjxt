@@ -62,6 +62,26 @@ public struct ComponentNode <: JsonSerializable {
         w.writeName("children").writeValue(this.children)
         w.endObject()
     }
+
+    public func attr(k: String, v: String): ComponentNode {
+        let m = HashMap<String, String>()
+        m[k] = v
+        ComponentNode(this.typ, this.children, attrs: Some(m), key: this.key, actions: this.actions)
+    }
+
+    public func onClick(name: String): ComponentNode {
+        let m = HashMap<String, String>()
+        m["click"] = name
+        ComponentNode(this.typ, this.children, attrs: this.attrs, key: this.key, actions: Some(m))
+    }
+
+    public func style(v: String): ComponentNode {
+        this.attr("style", v)
+    }
+
+    public func className(v: String): ComponentNode {
+        this.attr("class", v)
+    }
 }
 
 public func div(children: Array<ComponentNode>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): ComponentNode {

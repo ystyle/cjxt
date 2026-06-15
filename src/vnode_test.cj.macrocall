@@ -1,0 +1,187 @@
+package cjxt
+
+import std.collection.*
+import std.unittest.*
+import std.unittest.testmacro.*
+
+func getAttr(node: ComponentNode, key: String): Option<String> {
+    match (node.attrs) {
+        case Some(m) => m.get(key)
+        case None => None
+    }
+}
+
+func assertAction(node: ComponentNode, key: String, expected: String): Unit {
+    match (node.actions) {
+        case Some(m) => /* ===== Emitted by MacroCall @Expect in vnode_test.cj:16:25 ===== *//* 16.1 */ expectEqual("m.get(key)", "Some(expected)", m.get(key), Some(expected), isDelta: false,) /* ===== End of the Emit ===== */
+        case None => /* ===== Emitted by MacroCall @Fail in vnode_test.cj:17:22 ===== *//* 17.1 */ fail("no actions") /* ===== End of the Emit ===== */
+    }
+}
+
+func assertAttr(node: ComponentNode, key: String, expected: String): Unit {
+    match (node.attrs) {
+        case Some(m) => /* ===== Emitted by MacroCall @Expect in vnode_test.cj:23:25 ===== *//* 23.1 */ expectEqual("m.get(key)", "Some(expected)", m.get(key), Some(expected), isDelta: false,) /* ===== End of the Emit ===== */
+        case None => /* ===== Emitted by MacroCall @Fail in vnode_test.cj:24:22 ===== *//* 24.1 */ fail("no attrs") /* ===== End of the Emit ===== */
+    }
+}
+
+/* ===== Emitted by MacroCall @Test in vnode_test.cj:28:1 ===== */
+/* 28.1 */@Attribute[TEST_GENERATED] class VnodeTest <: TestClass {
+/* 28.2 */    @Attribute[TestCase_12]
+/* 28.3 */    public func testCreateDiv(): Unit {
+/* 28.4 */        let node = div()
+/* 28.5 */        expectEqual("node.typ", "ComponentType.Div", node.typ, ComponentType.Div, isDelta: false)
+/* 28.6 */    }
+/* 28.7 */    
+/* 28.8 */    @Attribute[TestCase_13]
+/* 28.9 */    public func testCreateText(): Unit {
+/* 28.10 */        let node = text("hello")
+/* 28.11 */        expectEqual("node.typ", "ComponentType.Text", node.typ, ComponentType.Text, isDelta: false)
+/* 28.12 */        expectEqual("getAttr(node, \"text\")", "Some(\"hello\")", getAttr(node, "text"), Some("hello"), isDelta: false)
+/* 28.13 */    }
+/* 28.14 */    
+/* 28.15 */    @Attribute[TestCase_14]
+/* 28.16 */    public func testDivWithChildren(): Unit {
+/* 28.17 */        let node = div([h1([text("title")]), p([text("content")])])
+/* 28.18 */        expectEqual("node.children.size", "2", node.children.size, 2, isDelta: false)
+/* 28.19 */        expectEqual("node.children[0].typ", "ComponentType.H1", node.children[0].typ, ComponentType.H1, isDelta: false)
+/* 28.20 */        expectEqual("node.children[1].typ", "ComponentType.P", node.children[1].typ, ComponentType.P, isDelta: false)
+/* 28.21 */    }
+/* 28.22 */    
+/* 28.23 */    @Attribute[TestCase_15]
+/* 28.24 */    public func testButtonWithAction(): Unit {
+/* 28.25 */        let acts = HashMap < String, String >([("click", "submit")])
+/* 28.26 */        let node = button(actions: acts)
+/* 28.27 */        assertAction(node, "click", "submit")
+/* 28.28 */    }
+/* 28.29 */    
+/* 28.30 */    @Attribute[TestCase_16]
+/* 28.31 */    public func testNestedStructure(): Unit {
+/* 28.32 */        let node = div([ul([li([text("item1")]), li([text("item2")])])])
+/* 28.33 */        expectEqual("node.children[0].typ", "ComponentType.Ul", node.children[0].typ, ComponentType.Ul, isDelta: false)
+/* 28.34 */        expectEqual("node.children[0].children.size", "2", node.children[0].children.size, 2, isDelta: false)
+/* 28.35 */    }
+/* 28.36 */    
+/* 28.37 */    @Attribute[TestCase_17]
+/* 28.38 */    public func testKeyAndAttrs(): Unit {
+/* 28.39 */        let attrs = HashMap < String, String >([("class", "container"),("id", "main")])
+/* 28.40 */        let node = div([], attrs: attrs, key: Some("root"))
+/* 28.41 */        expectEqual("node.key", "Some(\"root\")", node.key, Some("root"), isDelta: false)
+/* 28.42 */        assertAttr(node, "class", "container")
+/* 28.43 */        assertAttr(node, "id", "main")
+/* 28.44 */    }
+/* 28.45 */    
+/* 28.46 */    init() {
+/* 28.47 */    }
+/* 28.48 */    private func classConfiguration(): Configuration {
+/* 28.49 */        let configuration = Configuration()
+/* 28.50 */        
+/* 28.51 */        return configuration
+/* 28.52 */    }
+/* 28.53 */    public override func asTestSuite(): TestSuite {
+/* 28.54 */        
+/* 28.55 */        let suiteConfiguration = classConfiguration()
+/* 28.56 */        let suiteBuilder = TestSuite.builder("VnodeTest").configure(suiteConfiguration)
+/* 28.57 */        
+/* 28.58 */        { => let caseConfig = Configuration()
+/* 28.59 */            
+/* 28.60 */            let testCreateDivTestFunc = { => testCreateDiv();() }
+/* 28.61 */            suiteBuilder.add(
+/* 28.62 */            UnitTestCase.create(
+/* 28.63 */            "testCreateDiv",
+/* 28.64 */            configuration: caseConfig,
+/* 28.65 */            body: testCreateDivTestFunc
+/* 28.66 */            )
+/* 28.67 */            )
+/* 28.68 */            
+/* 28.69 */        }()
+/* 28.70 */        
+/* 28.71 */        
+/* 28.72 */        { => let caseConfig = Configuration()
+/* 28.73 */            
+/* 28.74 */            let testCreateTextTestFunc = { => testCreateText();() }
+/* 28.75 */            suiteBuilder.add(
+/* 28.76 */            UnitTestCase.create(
+/* 28.77 */            "testCreateText",
+/* 28.78 */            configuration: caseConfig,
+/* 28.79 */            body: testCreateTextTestFunc
+/* 28.80 */            )
+/* 28.81 */            )
+/* 28.82 */            
+/* 28.83 */        }()
+/* 28.84 */        
+/* 28.85 */        
+/* 28.86 */        { => let caseConfig = Configuration()
+/* 28.87 */            
+/* 28.88 */            let testDivWithChildrenTestFunc = { => testDivWithChildren();() }
+/* 28.89 */            suiteBuilder.add(
+/* 28.90 */            UnitTestCase.create(
+/* 28.91 */            "testDivWithChildren",
+/* 28.92 */            configuration: caseConfig,
+/* 28.93 */            body: testDivWithChildrenTestFunc
+/* 28.94 */            )
+/* 28.95 */            )
+/* 28.96 */            
+/* 28.97 */        }()
+/* 28.98 */        
+/* 28.99 */        
+/* 28.100 */        { => let caseConfig = Configuration()
+/* 28.101 */            
+/* 28.102 */            let testButtonWithActionTestFunc = { => testButtonWithAction();() }
+/* 28.103 */            suiteBuilder.add(
+/* 28.104 */            UnitTestCase.create(
+/* 28.105 */            "testButtonWithAction",
+/* 28.106 */            configuration: caseConfig,
+/* 28.107 */            body: testButtonWithActionTestFunc
+/* 28.108 */            )
+/* 28.109 */            )
+/* 28.110 */            
+/* 28.111 */        }()
+/* 28.112 */        
+/* 28.113 */        
+/* 28.114 */        { => let caseConfig = Configuration()
+/* 28.115 */            
+/* 28.116 */            let testNestedStructureTestFunc = { => testNestedStructure();() }
+/* 28.117 */            suiteBuilder.add(
+/* 28.118 */            UnitTestCase.create(
+/* 28.119 */            "testNestedStructure",
+/* 28.120 */            configuration: caseConfig,
+/* 28.121 */            body: testNestedStructureTestFunc
+/* 28.122 */            )
+/* 28.123 */            )
+/* 28.124 */            
+/* 28.125 */        }()
+/* 28.126 */        
+/* 28.127 */        
+/* 28.128 */        { => let caseConfig = Configuration()
+/* 28.129 */            
+/* 28.130 */            let testKeyAndAttrsTestFunc = { => testKeyAndAttrs();() }
+/* 28.131 */            suiteBuilder.add(
+/* 28.132 */            UnitTestCase.create(
+/* 28.133 */            "testKeyAndAttrs",
+/* 28.134 */            configuration: caseConfig,
+/* 28.135 */            body: testKeyAndAttrsTestFunc
+/* 28.136 */            )
+/* 28.137 */            )
+/* 28.138 */            
+/* 28.139 */        }()
+/* 28.140 */        
+/* 28.141 */        return suiteBuilder.build()
+/* 28.142 */    }
+/* 28.143 */    private func inheritedFromClassAnnotatedByTestTemplate < T >(): TestSuite where T <: TestClass {
+/* 28.144 */        throw Exception("Unreachable code")
+/* 28.145 */    }
+/* 28.146 */}
+/* 28.147 */
+/* 28.148 */
+/* 28.149 */interface TestPackageExtension_VnodeTest {
+/* 28.150 */    func registerVnodeTest(): Unit
+/* 28.151 */}
+/* 28.152 */extend TestPackage <: TestPackageExtension_VnodeTest {
+/* 28.153 */    @Attribute[TEST_REGISTER]
+/* 28.154 */    public func registerVnodeTest() {
+/* 28.155 */        registerSuite({ => VnodeTest().asTestSuite() })
+/* 28.156 */    }
+/* 28.157 */}
+/* 28.158 */
+/* ===== End of the Emit ===== */

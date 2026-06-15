@@ -1,0 +1,164 @@
+package cjxt
+
+import std.collection.*
+import std.unittest.*
+import std.unittest.testmacro.*
+
+class RouterSpy {
+    var lastPath: String = ""
+
+    public func record(path: String): Unit {
+        this.lastPath = path
+    }
+}
+
+/* ===== Emitted by MacroCall @Test in action_test.cj:15:1 ===== */
+/* 15.1 */@Attribute[TEST_GENERATED] class ActionTest <: TestClass {
+/* 15.2 */    @Attribute[TestCase_6]
+/* 15.3 */    public func testRouterPush(): Unit {
+/* 15.4 */        let spy = RouterSpy()
+/* 15.5 */        let router = Router("s1", { path =>
+/* 15.6 */            spy.record(path)
+/* 15.7 */        })
+/* 15.8 */        router.push("/order/list")
+/* 15.9 */        expectEqual("spy.lastPath", "\"/order/list\"", spy.lastPath, "/order/list", isDelta: false)
+/* 15.10 */    }
+/* 15.11 */    
+/* 15.12 */    @Attribute[TestCase_7]
+/* 15.13 */    public func testPatchEntry(): Unit {
+/* 15.14 */        let p = PatchEntry("replace", "/children/0", Some("hello"), None)
+/* 15.15 */        expectEqual("p.op", "\"replace\"", p.op, "replace", isDelta: false)
+/* 15.16 */        expectEqual("p.path", "\"/children/0\"", p.path, "/children/0", isDelta: false)
+/* 15.17 */    }
+/* 15.18 */    
+/* 15.19 */    @Attribute[TestCase_8]
+/* 15.20 */    public func testPatchEntryNone(): Unit {
+/* 15.21 */        let p = PatchEntry("remove", "/children/0", None, None)
+/* 15.22 */        expectEqual("p.op", "\"remove\"", p.op, "remove", isDelta: false)
+/* 15.23 */        expectEqual("p.path", "\"/children/0\"", p.path, "/children/0", isDelta: false)
+/* 15.24 */    }
+/* 15.25 */    
+/* 15.26 */    @Attribute[TestCase_9]
+/* 15.27 */    public func testActionContext(): Unit {
+/* 15.28 */        let params = HashMap < String, String >()
+/* 15.29 */        params["id"] = "123"
+/* 15.30 */        let router = Router("s1", { _ =>
+/* 15.31 */            ()
+/* 15.32 */        })
+/* 15.33 */        let ctx = ActionContext("s1", params, router)
+/* 15.34 */        expectEqual("ctx.sessionId", "\"s1\"", ctx.sessionId, "s1", isDelta: false)
+/* 15.35 */        match(ctx.params.get("id")) {
+/* 15.36 */            case Some(v) => expectEqual("v", "\"123\"", v, "123", isDelta: false)
+/* 15.37 */            case None => fail("expected id")
+/* 15.38 */        }
+/* 15.39 */    }
+/* 15.40 */    
+/* 15.41 */    @Attribute[TestCase_10]
+/* 15.42 */    public func testPatchResultReRender(): Unit {
+/* 15.43 */        let r = PatchResult.ReRender
+/* 15.44 */        match(r) {
+/* 15.45 */            case ReRender => expectEqual("true", "true", true, true, isDelta: false)
+/* 15.46 */            case _ => fail("expected ReRender")
+/* 15.47 */        }
+/* 15.48 */    }
+/* 15.49 */    
+/* 15.50 */    init() {
+/* 15.51 */    }
+/* 15.52 */    private func classConfiguration(): Configuration {
+/* 15.53 */        let configuration = Configuration()
+/* 15.54 */        
+/* 15.55 */        return configuration
+/* 15.56 */    }
+/* 15.57 */    public override func asTestSuite(): TestSuite {
+/* 15.58 */        
+/* 15.59 */        let suiteConfiguration = classConfiguration()
+/* 15.60 */        let suiteBuilder = TestSuite.builder("ActionTest").configure(suiteConfiguration)
+/* 15.61 */        
+/* 15.62 */        { => let caseConfig = Configuration()
+/* 15.63 */            
+/* 15.64 */            let testRouterPushTestFunc = { => testRouterPush();() }
+/* 15.65 */            suiteBuilder.add(
+/* 15.66 */            UnitTestCase.create(
+/* 15.67 */            "testRouterPush",
+/* 15.68 */            configuration: caseConfig,
+/* 15.69 */            body: testRouterPushTestFunc
+/* 15.70 */            )
+/* 15.71 */            )
+/* 15.72 */            
+/* 15.73 */        }()
+/* 15.74 */        
+/* 15.75 */        
+/* 15.76 */        { => let caseConfig = Configuration()
+/* 15.77 */            
+/* 15.78 */            let testPatchEntryTestFunc = { => testPatchEntry();() }
+/* 15.79 */            suiteBuilder.add(
+/* 15.80 */            UnitTestCase.create(
+/* 15.81 */            "testPatchEntry",
+/* 15.82 */            configuration: caseConfig,
+/* 15.83 */            body: testPatchEntryTestFunc
+/* 15.84 */            )
+/* 15.85 */            )
+/* 15.86 */            
+/* 15.87 */        }()
+/* 15.88 */        
+/* 15.89 */        
+/* 15.90 */        { => let caseConfig = Configuration()
+/* 15.91 */            
+/* 15.92 */            let testPatchEntryNoneTestFunc = { => testPatchEntryNone();() }
+/* 15.93 */            suiteBuilder.add(
+/* 15.94 */            UnitTestCase.create(
+/* 15.95 */            "testPatchEntryNone",
+/* 15.96 */            configuration: caseConfig,
+/* 15.97 */            body: testPatchEntryNoneTestFunc
+/* 15.98 */            )
+/* 15.99 */            )
+/* 15.100 */            
+/* 15.101 */        }()
+/* 15.102 */        
+/* 15.103 */        
+/* 15.104 */        { => let caseConfig = Configuration()
+/* 15.105 */            
+/* 15.106 */            let testActionContextTestFunc = { => testActionContext();() }
+/* 15.107 */            suiteBuilder.add(
+/* 15.108 */            UnitTestCase.create(
+/* 15.109 */            "testActionContext",
+/* 15.110 */            configuration: caseConfig,
+/* 15.111 */            body: testActionContextTestFunc
+/* 15.112 */            )
+/* 15.113 */            )
+/* 15.114 */            
+/* 15.115 */        }()
+/* 15.116 */        
+/* 15.117 */        
+/* 15.118 */        { => let caseConfig = Configuration()
+/* 15.119 */            
+/* 15.120 */            let testPatchResultReRenderTestFunc = { => testPatchResultReRender();() }
+/* 15.121 */            suiteBuilder.add(
+/* 15.122 */            UnitTestCase.create(
+/* 15.123 */            "testPatchResultReRender",
+/* 15.124 */            configuration: caseConfig,
+/* 15.125 */            body: testPatchResultReRenderTestFunc
+/* 15.126 */            )
+/* 15.127 */            )
+/* 15.128 */            
+/* 15.129 */        }()
+/* 15.130 */        
+/* 15.131 */        return suiteBuilder.build()
+/* 15.132 */    }
+/* 15.133 */    private func inheritedFromClassAnnotatedByTestTemplate < T >(): TestSuite where T <: TestClass {
+/* 15.134 */        throw Exception("Unreachable code")
+/* 15.135 */    }
+/* 15.136 */}
+/* 15.137 */
+/* 15.138 */
+/* 15.139 */interface TestPackageExtension_ActionTest {
+/* 15.140 */    func registerActionTest(): Unit
+/* 15.141 */}
+/* 15.142 */extend TestPackage <: TestPackageExtension_ActionTest {
+/* 15.143 */    @Attribute[TEST_REGISTER]
+/* 15.144 */    public func registerActionTest() {
+/* 15.145 */        registerSuite({ => ActionTest().asTestSuite() })
+/* 15.146 */    }
+/* 15.147 */}
+/* 15.148 */
+/* ===== End of the Emit ===== */
