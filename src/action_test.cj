@@ -41,7 +41,7 @@ public class ActionTest {
         let params = HashMap<String, String>()
         params["id"] = "123"
         let router = Router("s1", { _ => () })
-        let ctx = ActionContext("s1", params, router)
+        let ctx = ActionContext("s1", HashMap<String, String>(), params, router)
         @Expect(ctx.sessionId, "s1")
         match (ctx.params.get("id")) {
             case Some(v) => @Expect(v, "123")

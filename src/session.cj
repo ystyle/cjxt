@@ -2,6 +2,7 @@ package cjxt
 
 import std.collection.HashMap
 import std.time.{DateTime, TimeZone}
+import opencj::ulid.*
 
 public enum WsState {
     | Connecting | Connected | Disconnected
@@ -81,7 +82,7 @@ public class SessionManager {
     }
 
     public func generateId(): String {
-        "${nowMillis()}"
+        nextId()
     }
 }
 
