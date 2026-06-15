@@ -48,7 +48,13 @@ public class SessionManager {
     }
 
     public func create(page: Component, tree: ComponentNode): Session {
-        let id = generateSessionId()
+        let id = this.generateId()
+        let session = Session(id, page, tree)
+        sessions.add(id, session)
+        session
+    }
+
+    public func save(id: String, page: Component, tree: ComponentNode): Session {
         let session = Session(id, page, tree)
         sessions.add(id, session)
         session
@@ -70,7 +76,7 @@ public class SessionManager {
         }
     }
 
-    func generateSessionId(): String {
+    public func generateId(): String {
         "${nowMillis()}"
     }
 }
