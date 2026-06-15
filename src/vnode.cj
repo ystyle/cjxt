@@ -39,19 +39,28 @@ public enum ComponentType <: ToString & Equatable<ComponentType> {
 public type Attributes = HashMap<String, String>
 public type ActionMap = HashMap<String, String>
 
+let _hid = [0]
+
+func nextHid(): String {
+    _hid[0] = _hid[0] + 1
+    "_h${_hid[0]}"
+}
+
 public struct ComponentNode <: JsonSerializable {
     let _typ: ComponentType
     let _attrs: Option<Attributes>
     let _children: Array<ComponentNode>
     let _key: Option<String>
     let _actions: Option<ActionMap>
+    let _handlers: Option<HashMap<String, ActionHandler>>
 
-    public init(typ: ComponentType, children: Array<ComponentNode>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None) {
+    public init(typ: ComponentType, children: Array<ComponentNode>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None, handlers!: Option<HashMap<String, ActionHandler>> = None) {
         this._typ = typ
         this._attrs = attrs
         this._children = children
         this._key = key
         this._actions = actions
+        this._handlers = handlers
     }
 
     public func toJson(w: JsonWriter): Unit {
@@ -66,25 +75,34 @@ public struct ComponentNode <: JsonSerializable {
     // ---- 链式方法 ----
 
     public func attrs(m: HashMap<String, String>): ComponentNode {
-        ComponentNode(this._typ, this._children, attrs: Some(m), key: this._key, actions: this._actions)
+        ComponentNode(this._typ, this._children, attrs: Some(m), key: this._key, actions: this._actions, handlers: this._handlers)
     }
 
     public func actions(m: HashMap<String, String>): ComponentNode {
-        ComponentNode(this._typ, this._children, attrs: this._attrs, key: this._key, actions: Some(m))
+        ComponentNode(this._typ, this._children, attrs: this._attrs, key: this._key, actions: Some(m), handlers: this._handlers)
     }
 
     public func children(c: Array<ComponentNode>): ComponentNode {
-        ComponentNode(this._typ, c, attrs: this._attrs, key: this._key, actions: this._actions)
+        ComponentNode(this._typ, c, attrs: this._attrs, key: this._key, actions: this._actions, handlers: this._handlers)
     }
 
     public func key(k: String): ComponentNode {
-        ComponentNode(this._typ, this._children, attrs: this._attrs, key: Some(k), actions: this._actions)
+        ComponentNode(this._typ, this._children, attrs: this._attrs, key: Some(k), actions: this._actions, handlers: this._handlers)
     }
 
     public func onClick(name: String): ComponentNode {
         let m = HashMap<String, String>()
         m["click"] = name
         this.actions(m)
+    }
+
+    public func onClick(h: ActionHandler): ComponentNode {
+        let id = nextHid()
+        let acts = HashMap<String, String>()
+        acts["click"] = id
+        let hmap = HashMap<String, ActionHandler>()
+        hmap[id] = h
+        ComponentNode(this._typ, this._children, attrs: this._attrs, key: this._key, actions: Some(acts), handlers: Some(hmap))
     }
 
     public func style(v: String): ComponentNode {
@@ -100,6 +118,18 @@ public struct ComponentNode <: JsonSerializable {
         m[k] = v
         this.attrs(m)
     }
+}
+
+public func collectHandlers(node: ComponentNode, out: HashMap<String, ActionHandler>): Unit {
+    match (node._handlers) {
+        case Some(m) => doCollect(m, out)
+        case None => ()
+    }
+    for (c in node._children) { collectHandlers(c, out) }
+}
+
+func doCollect(m: HashMap<String, ActionHandler>, out: HashMap<String, ActionHandler>): Unit {
+    for ((k, v) in m) { out.add(k, v) }
 }
 
 // ---- 标签辅助函数 ----

@@ -7,10 +7,17 @@ import tang.{Tang, TangHttpContext}
 class SessionState {
     var page: Component
     var actions: HashMap<String, ActionHandler>
+    var handlers: HashMap<String, ActionHandler>
 
     public init(page: Component) {
         this.page = page
         this.actions = page.getActions()
+        this.handlers = HashMap<String, ActionHandler>()
+    }
+
+    public func refresh(tree: ComponentNode): Unit {
+        this.handlers = HashMap<String, ActionHandler>()
+        collectHandlers(tree, this.handlers)
     }
 }
 
@@ -49,7 +56,9 @@ public class App {
     private func sessionLoop(ws: WebSocket, page: Component): Unit {
         let state = SessionState(page)
         wsSendJson(ws, ConnectedMsg())
-        wsSendJson(ws, PatchMsg([PatchEntryMsg("replace", "", page.render())]))
+        let tree = page.render()
+        state.refresh(tree)
+        wsSendJson(ws, PatchMsg([PatchEntryMsg("replace", "", tree)]))
         this.readLoop(ws, state)
         state.page.onUnmount(LifecycleContext("", HashMap<String, String>(), None, None))
     }
@@ -84,7 +93,10 @@ public class App {
     private func dispatchAction(ws: WebSocket, state: SessionState, name: String): Unit {
         match (state.actions.get(name)) {
             case Some(fn) => this.runAction(ws, state, name, fn)
-            case None => ()
+            case None => match (state.handlers.get(name)) {
+                case Some(fn) => this.runAction(ws, state, name, fn)
+                case None => ()
+            }
         }
     }
 
@@ -94,7 +106,7 @@ public class App {
         let ctx = ActionContext("", HashMap<String, String>(), router)
         try {
             match (fn(ctx)) {
-                case PatchResult.ReRender => if (!flag.done) { this.sendPatch(ws, state.page) }
+                case PatchResult.ReRender => if (!flag.done) { this.sendPatch(ws, state) }
                 case _ => ()
             }
         } catch (e: Error) {
@@ -118,11 +130,15 @@ public class App {
     private func applyNav(ws: WebSocket, state: SessionState, newPage: Component): Unit {
         state.page = newPage
         state.actions = newPage.getActions()
-        wsSendJson(ws, FullTreeMsg(newPage.render()))
+        let tree = newPage.render()
+        state.refresh(tree)
+        wsSendJson(ws, FullTreeMsg(tree))
     }
 
-    private func sendPatch(ws: WebSocket, page: Component): Unit {
-        wsSendJson(ws, PatchMsg([PatchEntryMsg("replace", "", page.render())]))
+    private func sendPatch(ws: WebSocket, state: SessionState): Unit {
+        let tree = state.page.render()
+        state.refresh(tree)
+        wsSendJson(ws, PatchMsg([PatchEntryMsg("replace", "", tree)]))
     }
 }
 
