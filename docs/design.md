@@ -376,11 +376,12 @@ div([], attrs: Some(HashMap([("class", css.get("btn"))])))
 
 ### Phase 4: 增强特性
 - [x] ~~构建时 SSG~~（后台系统场景不需要）
-- [x] `defineCSS` / `@sass` 宏 + CssModule + `build.cj` 编译集成。
+- [x] `defineCSS` / `@sass` 宏 + CssModule 样式系统。
 - [x] WS 主动推送（`ctx.push`）。
-- [ ] 开发模式热重载（延迟到后期）。
+- [x] 路由守卫（`@Page` 第三参数 + `Session.context`）。
 - [x] WS 断线重连与 session 恢复。
-- [ ] 应用配置（theme、layout）。
+- [x] 应用配置（title、favicon、links、scripts、theme）。
+- [ ] 开发模式热重载（延迟到后期）。
 
 ### Phase 5: 优化与生态
 - [ ] 组件库抽象（Button、Form、Table、Modal 等）。
