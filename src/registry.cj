@@ -2,8 +2,6 @@ package cjxt
 
 import std.collection.{HashMap, ArrayList}
 
-// ---- 路由条目 ----
-
 public struct RouteEntry {
     let path: String
     let paramNames: Array<String>
@@ -45,12 +43,11 @@ private func extractParamNames(path: String): Array<String> {
     names.toArray()
 }
 
-// ---- 全局路由注册表 ----
-
 public type RouteFactory = () -> Component
 
 public class RouteRegistry {
     let entries = HashMap<String, RouteFactory>()
+    let titles = HashMap<String, String>()
 
     private static var inst: Option<RouteRegistry> = None
 
@@ -71,10 +68,19 @@ public class RouteRegistry {
         entries.add(path, factory)
     }
 
+    public func register(path: String, factory: RouteFactory, title: String): Unit {
+        entries.add(path, factory)
+        titles.add(path, title)
+    }
+
     public func create(path: String): Option<Component> {
         match (entries.get(path)) {
             case Some(f) => Some(f())
             case None => None
         }
+    }
+
+    public func getTitle(path: String): Option<String> {
+        titles.get(path)
     }
 }

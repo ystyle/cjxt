@@ -5,11 +5,19 @@ import std.ast.*
 public macro Page(attr: Tokens, input: Tokens): Tokens {
     if (attr.size == 0) { return input }
 
-    // 提取路径
+    // 提取路径和标题
     var path = ""
+    var title = ""
+    var idx = 0
     for (i in 0..attr.size) {
         if (attr[i].kind == TokenKind.STRING_LITERAL) {
-            path = attr[i].value
+            if (idx == 0) {
+                path = attr[i].value
+                idx = 1
+            } else if (idx == 1) {
+                title = attr[i].value
+                idx = 2
+            }
         }
     }
     if (path == "") { return input }
@@ -26,7 +34,7 @@ public macro Page(attr: Tokens, input: Tokens): Tokens {
     }
     if (className == "") { return input }
 
-    // 构造: let __reg_X = cjxt.RouteRegistry.global().register(path, { => ClassName() })
+    // 构造: let __reg_X = RouteRegistry.global().register(path, { => ClassName() }[, title])
     var reg = Tokens()
     reg = reg + Token(TokenKind.LET)
     reg = reg + Token(TokenKind.IDENTIFIER, "__reg_${className}")
@@ -47,6 +55,10 @@ public macro Page(attr: Tokens, input: Tokens): Tokens {
     reg = reg + Token(TokenKind.LPAREN)
     reg = reg + Token(TokenKind.RPAREN)
     reg = reg + Token(TokenKind.RCURL)
+    if (title != "") {
+        reg = reg + Token(TokenKind.COMMA)
+        reg = reg + Token(TokenKind.STRING_LITERAL, title)
+    }
     reg = reg + Token(TokenKind.RPAREN)
     reg = reg + Token(TokenKind.NL)
 

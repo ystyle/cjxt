@@ -97,7 +97,7 @@ public class App {
         let session = sessions.save(sid, page, tree)
         wsSendJson(ws, ConnectedMsg())
         wsSendJson(ws, PatchMsg([PatchEntryMsg("replace", "", tree)]))
-        sendTitle(ws, page)
+        sendTitle(ws, "/")
         this.listenLoop(ws, state, session)
     }
 
@@ -164,23 +164,23 @@ public class App {
     private func handleNavigate(ws: WebSocket, state: SessionState, session: Session, path: String): Unit {
         state.page.onUnmount(LifecycleContext("", HashMap<String, String>(), None, None))
         match (RouteRegistry.global().create(path)) {
-            case Some(newPage) => applyNav(ws, state, session, newPage)
+            case Some(newPage) => applyNav(ws, state, session, newPage, path)
             case None => ()
         }
     }
 
-    private func applyNav(ws: WebSocket, state: SessionState, session: Session, newPage: Component): Unit {
+    private func applyNav(ws: WebSocket, state: SessionState, session: Session, newPage: Component, path: String): Unit {
         state.page = newPage
         state.actions = newPage.getActions()
         let tree = newPage.render()
         state.refresh(tree)
         session.updatePage(newPage, tree)
         wsSendJson(ws, FullTreeMsg(tree))
-        sendTitle(ws, newPage)
+        sendTitle(ws, path)
     }
 
-    private func sendTitle(ws: WebSocket, page: Component): Unit {
-        match (page.getTitle()) {
+    private func sendTitle(ws: WebSocket, path: String): Unit {
+        match (RouteRegistry.global().getTitle(path)) {
             case Some(t) => wsSendJson(ws, TitleMsg(t))
             case None => ()
         }

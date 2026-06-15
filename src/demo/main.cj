@@ -3,7 +3,7 @@ package cjxt.demo
 import cjxt.*
 import cjxt.macros.*
 
-@Page["/"]
+@Page["/", "cjxt Counter"]
 class HomePage <: Component {
     var count: Int64 = 0
 
@@ -23,7 +23,7 @@ class HomePage <: Component {
     }
 }
 
-@Page["/about"]
+@Page["/about", "关于 - cjxt"]
 class AboutPage <: Component {
     public func render(): ComponentNode {
         div(
