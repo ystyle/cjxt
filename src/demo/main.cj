@@ -7,14 +7,13 @@ import std.collection.HashMap
 @Page["/"]
 class HomePage <: Component {
     var count: Int64 = 0
+    let acts = HashMap<String, String>([("click", "increment")])
 
     public func render(): ComponentNode {
-        let acts = HashMap<String, String>()
-        acts["click"] = "increment"
         div([
             h1([text("cjxt Counter")]),
             p([text("count: ${count}")]),
-            button([text("+")], actions: Some(acts))
+            button([text("+")], actions: this.acts)
         ])
     }
 
