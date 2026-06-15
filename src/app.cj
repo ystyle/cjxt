@@ -6,15 +6,29 @@ import tang.{Tang, TangHttpContext}
 
 public class App {
     let tangApp: Tang
+    var bindHost: String
+    var bindPort: UInt16
 
     public init() {
         this.tangApp = Tang()
+        this.bindHost = "0.0.0.0"
+        this.bindPort = 8080
         this.tangApp.get("/", { ctx => renderHTTP(ctx) })
         this.tangApp.get("/ws", { ctx => upgradeWS(ctx) })
     }
 
+    public func host(h: String): App {
+        this.bindHost = h
+        this
+    }
+
+    public func port(p: UInt16): App {
+        this.bindPort = p
+        this
+    }
+
     public func serve(): Unit {
-        tangApp.listen(8080)
+        tangApp.setHost(bindHost).setPort(bindPort).listen()
     }
 }
 

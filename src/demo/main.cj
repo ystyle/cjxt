@@ -17,12 +17,12 @@ class HomePage <: Component {
     }
 
     public func getActions(): HashMap<String, ActionHandler> {
-        let m = HashMap<String, ActionHandler>()
-        m["increment"] = { ctx => this.count = this.count + 1; PatchResult.ReRender }
-        m
+        HashMap<String, ActionHandler>([
+            ("increment", { ctx => this.count = this.count + 1; PatchResult.ReRender })
+        ])
     }
 }
 
 main() {
-    App().serve()
+    App().host("0.0.0.0").port(8080).serve()
 }
