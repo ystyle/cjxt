@@ -1,6 +1,6 @@
 version = 0
 
 [requires]
-  sonyflake = {version = "1.0.9"}
   cjpminfo = {version = "1.2.0"}
+  sonyflake = {version = "1.0.9"}
   "opencj::multipart" = {version = "0.1.3"}
