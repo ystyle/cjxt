@@ -1,6 +1,7 @@
 package cjxt
 
 import std.collection.*
+import stdx.encoding.json.{JsonObject, JsonArray, JsonString, JsonValue}
 
 public enum ComponentType {
     | Div | Span | Button | Input | Form
@@ -103,4 +104,42 @@ public func ul(children: Array<ComponentNode>, attrs: Attributes, key: Option<St
 
 public func li(children: Array<ComponentNode>, attrs: Attributes, key: Option<String>, actions: ActionMap): ComponentNode {
     ComponentNode(ComponentType.Li, attrs, children, key, actions)
+}
+
+// ---- JSON 序列化 ----
+
+public func treeToJson(node: ComponentNode): JsonObject {
+    let obj = JsonObject()
+    obj.put("type", JsonString(typeToStr(node.typ)))
+
+    let attrs = JsonObject()
+    for ((k, v) in node.attrs) {
+        attrs.put(k, JsonString(v))
+    }
+    obj.put("attrs", attrs)
+
+    let actions = JsonObject()
+    for ((k, v) in node.actions) {
+        actions.put(k, JsonString(v))
+    }
+    obj.put("actions", actions)
+
+    let children = JsonArray()
+    for (child in node.children) {
+        children.add(treeToJson(child))
+    }
+    obj.put("children", children)
+
+    obj
+}
+
+func typeToStr(t: ComponentType): String {
+    match (t) {
+        case Div => "div"; case Span => "span"; case Button => "button"
+        case Input => "input"; case Form => "form"; case Table => "table"
+        case Text => "text"; case Image => "image"; case H1 => "h1"
+        case H2 => "h2"; case H3 => "h3"; case P => "p"
+        case Select => "select"; case Textarea => "textarea"; case A => "a"
+        case Ul => "ul"; case Li => "li"
+    }
 }

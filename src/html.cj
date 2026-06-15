@@ -17,7 +17,13 @@ class CangjieUI {
         const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
         this.ws = new WebSocket(proto + '//' + location.host + '/ws');
         this.ws.onopen = () => this.send({ type: 'connect', sessionId: this.sessionId });
-        this.ws.onmessage = (e) => this.handleMsg(JSON.parse(e.data));
+        this.ws.onmessage = (e) => {
+            try {
+                this.handleMsg(JSON.parse(e.data));
+            } catch(err) {
+                console.error('cjxt WS error:', err.message, 'data:', e.data.substring(0,200));
+            }
+        };
         this.ws.onclose = () => setTimeout(() => this.connectWS(), 3000);
     }
     handleMsg(msg) {
@@ -95,18 +101,15 @@ public func generateHtmlShell(sessionId: String): String {
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-        .counter { text-align: center; margin-top: 40px; }
-        .counter button { font-size: 24px; width: 48px; height: 48px; margin: 0 12px; cursor: pointer; }
-        .counter span { font-size: 32px; min-width: 48px; display: inline-block; }
     </style>
 </head>
 <body>
     <div id="app"></div>
     <script>
-        var ui = new CangjieUI(document.getElementById('app'), "${sessionId}", null);
+${FRONTEND_JS}
     </script>
     <script>
-${FRONTEND_JS}
+        var ui = new CangjieUI(document.getElementById('app'), "${sessionId}", null);
     </script>
 </body>
 </html>
