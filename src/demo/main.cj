@@ -2,6 +2,15 @@ package cjxt.demo
 
 import cjxt.*
 import cjxt.macros.*
+import std.collection.HashMap
+import std.convert.*
+
+func needCount10(ctx: HashMap<String, String>): Bool {
+    match (ctx.get("count")) {
+        case Some(v) => (Int64.tryParse(v) ?? 0) >= 10
+        case None => false
+    }
+}
 
 @Page["/", "cjxt Counter"]
 class HomePage <: Component {
@@ -13,10 +22,25 @@ class HomePage <: Component {
             p(text("count: ${count}")),
             button(text("+")).onClick({ ctx =>
                 this.count = this.count + 1
+                ctx.context["count"] = "${this.count}"
                 PatchResult.ReRender
             }),
-            button(text("关于")).onClick({ ctx =>
-                ctx.router.push("/about")
+            button(text("秘密页面")).onClick({ ctx =>
+                ctx.router.push("/secret")
+                PatchResult.ReRender
+            })
+        )
+    }
+}
+
+@Page["/secret", "秘密页面", needCount10]
+class SecretPage <: Component {
+    public func render(): ComponentNode {
+        div(
+            h1(text("🔒 机密信息")),
+            p(text("只有点够 10 次的人才能看到这里。")),
+            button(text("返回")).onClick({ ctx =>
+                ctx.router.push("/")
                 PatchResult.ReRender
             })
         )

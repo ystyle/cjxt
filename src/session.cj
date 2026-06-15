@@ -11,6 +11,7 @@ public class Session {
     let id: String
     var page: Component
     var tree: ComponentNode
+    var path: String
     var wsState: WsState
     var createdAt: Int64
     var lastActiveAt: Int64
@@ -20,6 +21,7 @@ public class Session {
         this.id = id
         this.page = page
         this.tree = tree
+        this.path = "/"
         this.wsState = WsState.Connecting
         this.createdAt = nowMillis()
         this.lastActiveAt = nowMillis()

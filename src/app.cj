@@ -80,6 +80,8 @@ public class App {
         let state = SessionState(session.page)
         state.refresh(session.tree)
         wsSendJson(ws, ConnectedMsg())
+        wsSendJson(ws, PatchMsg([PatchEntryMsg("replace", "", session.tree)]))
+        sendTitle(ws, session.path)
         this.listenLoop(ws, state, session)
     }
 
@@ -95,6 +97,7 @@ public class App {
         let tree = page.render()
         state.refresh(tree)
         let session = sessions.save(sid, page, tree)
+        session.path = "/"
         wsSendJson(ws, ConnectedMsg())
         wsSendJson(ws, PatchMsg([PatchEntryMsg("replace", "", tree)]))
         sendTitle(ws, "/")
@@ -143,7 +146,7 @@ public class App {
     private func runAction(ws: WebSocket, state: SessionState, session: Session, name: String, fn: ActionHandler): Unit {
         let flag = NavFlag()
         let router = Router("", { path => this.execNavAction(ws, state, session, flag, path) })
-        let ctx = ActionContext("", HashMap<String, String>(), router, pushFn: { patches =>
+        let ctx = ActionContext("", session.context, HashMap<String, String>(), router, pushFn: { patches =>
             wsSendJson(ws, PushMsg(patches))
         })
         try {
@@ -179,6 +182,7 @@ public class App {
         let tree = newPage.render()
         state.refresh(tree)
         session.updatePage(newPage, tree)
+        session.path = path
         wsSendJson(ws, FullTreeMsg(tree))
         sendTitle(ws, path)
     }

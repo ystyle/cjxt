@@ -24,12 +24,14 @@ public struct PatchEntry {
 
 public struct ActionContext {
     let sessionId: String
+    let context: HashMap<String, String>
     let params: HashMap<String, String>
     let router: Router
     let pushFn: (Array<PatchEntryMsg>) -> Unit
 
-    public init(sessionId: String, params: HashMap<String, String>, router: Router, pushFn!: (Array<PatchEntryMsg>) -> Unit = { _ => () }) {
+    public init(sessionId: String, context: HashMap<String, String>, params: HashMap<String, String>, router: Router, pushFn!: (Array<PatchEntryMsg>) -> Unit = { _ => () }) {
         this.sessionId = sessionId
+        this.context = context
         this.params = params
         this.router = router
         this.pushFn = pushFn
