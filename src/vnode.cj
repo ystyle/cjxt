@@ -1,43 +1,44 @@
 package cjxt
 
-import std.collection.*
-import std.io.ByteBuffer
+import std.collection.HashMap
 import stdx.encoding.json.stream.{JsonWriter, JsonSerializable}
 
-public enum ComponentType {
+public enum ComponentType <: ToString & Equatable<ComponentType> {
     | Div | Span | Button | Input | Form
     | Table | Text | Image | H1 | H2 | H3
     | P | Select | Textarea | A | Ul | Li
+
+    public func toString(): String {
+        match (this) {
+            case Div => "div"
+            case Span => "span"
+            case Button => "button"
+            case Input => "input"
+            case Form => "form"
+            case Table => "table"
+            case Text => "text"
+            case Image => "image"
+            case H1 => "h1"
+            case H2 => "h2"
+            case H3 => "h3"
+            case P => "p"
+            case Select => "select"
+            case Textarea => "textarea"
+            case A => "a"
+            case Ul => "ul"
+            case Li => "li"
+        }
+    }
+
+    public operator func ==(other: ComponentType): Bool {
+        this.toString() == other.toString()
+    }
 }
 
 public type Attributes = HashMap<String, String>
 public type ActionMap = HashMap<String, String>
 
-extend ComponentType <: Equatable<ComponentType> {
-    public operator func ==(other: ComponentType): Bool {
-        match (this) {
-            case Div => match (other) { case Div => true; case _ => false }
-            case Span => match (other) { case Span => true; case _ => false }
-            case Button => match (other) { case Button => true; case _ => false }
-            case Input => match (other) { case Input => true; case _ => false }
-            case Form => match (other) { case Form => true; case _ => false }
-            case Table => match (other) { case Table => true; case _ => false }
-            case Text => match (other) { case Text => true; case _ => false }
-            case Image => match (other) { case Image => true; case _ => false }
-            case H1 => match (other) { case H1 => true; case _ => false }
-            case H2 => match (other) { case H2 => true; case _ => false }
-            case H3 => match (other) { case H3 => true; case _ => false }
-            case P => match (other) { case P => true; case _ => false }
-            case Select => match (other) { case Select => true; case _ => false }
-            case Textarea => match (other) { case Textarea => true; case _ => false }
-            case A => match (other) { case A => true; case _ => false }
-            case Ul => match (other) { case Ul => true; case _ => false }
-            case Li => match (other) { case Li => true; case _ => false }
-        }
-    }
-}
-
-public struct ComponentNode {
+public struct ComponentNode <: JsonSerializable {
     let typ: ComponentType
     let attrs: Option<Attributes>
     let children: Array<ComponentNode>
@@ -54,45 +55,13 @@ public struct ComponentNode {
 
     public func toJson(w: JsonWriter): Unit {
         w.startObject()
-        w.writeName("type").writeValue(typeToStr(this.typ))
-
-        w.writeName("attrs")
-        w.startObject()
-        match (this.attrs) {
-            case Some(m) => eachMap(w, m)
-            case None => ()
-        }
-        w.endObject()
-
-        w.writeName("actions")
-        w.startObject()
-        match (this.actions) {
-            case Some(m) => eachMap(w, m)
-            case None => ()
-        }
-        w.endObject()
-
-        w.writeName("children")
-        w.startArray()
-        for (c in this.children) { c.toJson(w) }
-        w.endArray()
-
+        w.writeName("type").writeValue(this.typ.toString())
+        w.writeName("attrs").writeValue(this.attrs)
+        w.writeName("actions").writeValue(this.actions)
+        w.writeName("children").writeValue(this.children)
         w.endObject()
     }
-
-    public func toJsonString(): String {
-        let buf = ByteBuffer()
-        let w = JsonWriter(buf)
-        this.toJson(w)
-        String.fromUtf8(buf.bytes())
-    }
 }
-
-func eachMap(w: JsonWriter, m: HashMap<String, String>): Unit {
-    for ((k, v) in m) { w.writeName(k).writeValue(v) }
-}
-
-extend ComponentNode <: JsonSerializable {}
 
 public func div(children: Array<ComponentNode>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): ComponentNode {
     ComponentNode(ComponentType.Div, children, attrs: attrs, key: key, actions: actions)
@@ -146,24 +115,4 @@ public func ul(children: Array<ComponentNode>, attrs!: Option<Attributes> = None
 
 public func li(children: Array<ComponentNode>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): ComponentNode {
     ComponentNode(ComponentType.Li, children, attrs: attrs, key: key, actions: actions)
-}
-
-// ---- JSON 序列化辅助 ----
-
-func typeToStr(t: ComponentType): String {
-    match (t) {
-        case Div => "div"; case Span => "span"; case Button => "button"
-        case Input => "input"; case Form => "form"; case Table => "table"
-        case Text => "text"; case Image => "image"; case H1 => "h1"
-        case H2 => "h2"; case H3 => "h3"; case P => "p"
-        case Select => "select"; case Textarea => "textarea"; case A => "a"
-        case Ul => "ul"; case Li => "li"
-    }
-}
-
-public func toJsonString(node: ComponentNode): String {
-    let buf = ByteBuffer()
-    let w = JsonWriter(buf)
-    node.toJson(w)
-    String.fromUtf8(buf.bytes())
 }

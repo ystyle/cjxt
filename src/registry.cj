@@ -1,6 +1,6 @@
 package cjxt
 
-import std.collection.*
+import std.collection.{HashMap, ArrayList}
 
 // ---- 路由条目 ----
 

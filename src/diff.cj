@@ -1,30 +1,6 @@
 package cjxt
 
-import std.collection.*
-
-// ---- type comparison ----
-
-private func eqType(a: ComponentType, b: ComponentType): Bool {
-    match (a) {
-        case Div => match (b) { case Div => true; case _ => false }
-        case Span => match (b) { case Span => true; case _ => false }
-        case Button => match (b) { case Button => true; case _ => false }
-        case Input => match (b) { case Input => true; case _ => false }
-        case Form => match (b) { case Form => true; case _ => false }
-        case Table => match (b) { case Table => true; case _ => false }
-        case Text => match (b) { case Text => true; case _ => false }
-        case Image => match (b) { case Image => true; case _ => false }
-        case H1 => match (b) { case H1 => true; case _ => false }
-        case H2 => match (b) { case H2 => true; case _ => false }
-        case H3 => match (b) { case H3 => true; case _ => false }
-        case P => match (b) { case P => true; case _ => false }
-        case Select => match (b) { case Select => true; case _ => false }
-        case Textarea => match (b) { case Textarea => true; case _ => false }
-        case A => match (b) { case A => true; case _ => false }
-        case Ul => match (b) { case Ul => true; case _ => false }
-        case Li => match (b) { case Li => true; case _ => false }
-    }
-}
+import std.collection.{HashMap, ArrayList}
 
 private func eqOpt(a: Option<String>, b: Option<String>): Bool {
     match (a) {
@@ -95,7 +71,7 @@ private func mergeKeys(a: ArrayList<String>, b: ArrayList<String>): ArrayList<St
 public func diffTree(old: ComponentNode, newTree: ComponentNode, basePath: String): ArrayList<PatchEntry> {
     let patches = ArrayList<PatchEntry>()
 
-    if (!eqType(old.typ, newTree.typ) || !eqOpt(old.key, newTree.key)) {
+    if (old.typ != newTree.typ || !eqOpt(old.key, newTree.key)) {
         patches.add(PatchEntry("replace", basePath, Some(""), None))
         return patches
     }

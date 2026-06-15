@@ -27,7 +27,7 @@ class CangjieUI {
         this.ws.onclose = () => setTimeout(() => this.connectWS(), 3000);
     }
     handleMsg(msg) {
-        switch (msg.type) {
+        switch (msg.kind) {
             case 'connected':
                 this.send({ type: 'ack', event: 'mount', sessionId: this.sessionId });
                 break;

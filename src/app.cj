@@ -1,6 +1,6 @@
 package cjxt
 
-import std.collection.*
+import std.collection.HashMap
 import stdx.net.http.{WebSocket, WebSocketFrameType}
 import tang.{Tang, TangHttpContext}
 
@@ -13,106 +13,80 @@ public class App {
         this.tangApp = Tang()
         this.bindHost = "0.0.0.0"
         this.bindPort = 8080
-        this.tangApp.get("/", { ctx => renderHTTP(ctx) })
-        this.tangApp.get("/ws", { ctx => upgradeWS(ctx) })
     }
 
-    public func host(h: String): App {
-        this.bindHost = h
-        this
-    }
-
-    public func port(p: UInt16): App {
-        this.bindPort = p
-        this
-    }
+    public func host(h: String): App { this.bindHost = h; this }
+    public func port(p: UInt16): App { this.bindPort = p; this }
 
     public func serve(): Unit {
-        tangApp.setHost(bindHost).setPort(bindPort).listen()
+        this.tangApp.get("/", { ctx => this.renderHTTP(ctx) })
+        this.tangApp.get("/ws", { ctx => this.upgradeWS(ctx) })
+        this.tangApp.setHost(this.bindHost).setPort(this.bindPort).listen()
     }
-}
 
-func renderHTTP(ctx: TangHttpContext): Unit {
-    ctx.contentType("text/html; charset=utf-8").writeString(generateHtmlShell("app"))
-}
-
-func upgradeWS(ctx: TangHttpContext): Unit {
-    let ws = ctx.upgrade()
-    let pageOpt = RouteRegistry.global().create("/")
-    match (pageOpt) {
-        case Some(page) => sessionLoop(ws, page)
-        case None => ws.closeConn()
+    private func renderHTTP(ctx: TangHttpContext): Unit {
+        ctx.contentType("text/html; charset=utf-8").writeString(generateHtmlShell("app"))
     }
-}
 
-func sessionLoop(ws: WebSocket, page: Component): Unit {
-    wsSend(ws, "{\"type\":\"connected\"}")
-    wsSend(ws, "{\"type\":\"patch\",\"patches\":[{\"op\":\"replace\",\"path\":\"\",\"value\":${page.render().toJsonString()}}]}")
-
-    let actions = page.getActions()
-    readLoop(ws, page, actions)
-}
-
-func readLoop(ws: WebSocket, page: Component, actions: HashMap<String, ActionHandler>): Unit {
-    while (true) {
-        let frame = ws.read()
-        if (frame.frameType == WebSocketFrameType.TextWebFrame) {
-            let raw = String.fromUtf8(frame.payload)
-            let name = parseAction(raw)
-            if (name != "") {
-                runAction(ws, page, actions, name)
-            }
-        } else if (frame.frameType == WebSocketFrameType.CloseWebFrame) {
-            ws.writeCloseFrame()
-            break
+    private func upgradeWS(ctx: TangHttpContext): Unit {
+        let ws = ctx.upgrade()
+        match (RouteRegistry.global().create("/")) {
+            case Some(page) => this.sessionLoop(ws, page)
+            case None => ws.closeConn()
         }
     }
-}
 
-func runAction(ws: WebSocket, page: Component, actions: HashMap<String, ActionHandler>, name: String): Unit {
-    let handlerOpt = actions.get(name)
-    match (handlerOpt) {
-        case Some(fn) => runHandler(ws, page, fn)
-        case None => ()
+    private func sessionLoop(ws: WebSocket, page: Component): Unit {
+        wsSendJson(ws, ConnectedMsg())
+        wsSendJson(ws, PatchMsg([PatchEntryMsg("replace", "", page.render())]))
+        this.readLoop(ws, page, page.getActions())
+    }
+
+    private func readLoop(ws: WebSocket, page: Component, actions: HashMap<String, ActionHandler>): Unit {
+        while (true) {
+            let frame = ws.read()
+            if (frame.frameType == WebSocketFrameType.TextWebFrame) {
+                let raw = String.fromUtf8(frame.payload)
+                let name = parseName(raw)
+                if (name != "") { this.doAction(ws, page, actions, name) }
+            } else if (frame.frameType == WebSocketFrameType.CloseWebFrame) {
+                ws.writeCloseFrame()
+                break
+            }
+        }
+    }
+
+    private func doAction(ws: WebSocket, page: Component, actions: HashMap<String, ActionHandler>, name: String): Unit {
+        match (actions.get(name)) {
+            case Some(fn) => this.runAction(ws, page, fn)
+            case None => ()
+        }
+    }
+
+    private func runAction(ws: WebSocket, page: Component, fn: ActionHandler): Unit {
+        let ctx = ActionContext("", HashMap<String, String>(), Router("", { p => () }))
+        match (fn(ctx)) {
+            case PatchResult.ReRender => this.sendPatch(ws, page)
+            case _ => ()
+        }
+    }
+
+    private func sendPatch(ws: WebSocket, page: Component): Unit {
+        wsSendJson(ws, PatchMsg([PatchEntryMsg("replace", "", page.render())]))
     }
 }
 
-func runHandler(ws: WebSocket, page: Component, fn: ActionHandler): Unit {
-    let router = Router("", { p => () })
-    let ctx = ActionContext("", HashMap<String, String>(), router)
-    let result = fn(ctx)
-    applyResult(ws, page, result)
-}
-
-func applyResult(ws: WebSocket, page: Component, result: PatchResult): Unit {
-    match (result) {
-        case PatchResult.ReRender => sendPatch(ws, page)
-        case _ => ()
-    }
-}
-
-func sendPatch(ws: WebSocket, page: Component): Unit {
-    let json = page.render().toJsonString()
-    wsSend(ws, "{\"type\":\"patch\",\"patches\":[{\"op\":\"replace\",\"path\":\"\",\"value\":${json}}]}")
-}
-
-func parseAction(msg: String): String {
+private func parseName(raw: String): String {
     let mark = "\"name\":\""
-    let start = msg.indexOf(mark)
-    match (start) {
-        case Some(idx) => readQuoted(msg, idx + mark.size)
+    match (raw.indexOf(mark)) {
+        case Some(idx) => readStr(raw, idx + mark.size)
         case None => ""
     }
 }
 
-func readQuoted(msg: String, from: Int64): String {
-    let end = msg.indexOf("\"", from)
-    match (end) {
-        case Some(e) => msg[from..e]
+private func readStr(s: String, from: Int64): String {
+    match (s.indexOf("\"", from)) {
+        case Some(e) => s[from..e]
         case None => ""
     }
-}
-
-func wsSend(ws: WebSocket, s: String): Unit {
-    ws.write(WebSocketFrameType.TextWebFrame, s.toArray())
 }

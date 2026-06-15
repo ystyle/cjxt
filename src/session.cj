@@ -1,6 +1,7 @@
 package cjxt
 
-import std.collection.*
+import std.collection.HashMap
+import std.time.{DateTime, TimeZone}
 
 public enum WsState {
     | Connecting | Connected | Disconnected
@@ -75,5 +76,5 @@ public class SessionManager {
 }
 
 func nowMillis(): Int64 {
-    0
+    DateTime.nowUTC().toUnixTimeStamp().toMilliseconds()
 }

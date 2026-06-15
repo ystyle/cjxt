@@ -1,6 +1,6 @@
 package cjxt
 
-import std.collection.*
+import std.collection.HashMap
 
 public type ActionHandler = (ActionContext) -> PatchResult
 
@@ -11,10 +11,10 @@ public interface Component {
         HashMap<String, ActionHandler>()
     }
 
-    func onMount(ctx: LifecycleContext): Unit {}
-    func onUpdate(ctx: LifecycleContext): Unit {}
-    func onUnmount(ctx: LifecycleContext): Unit {}
-    func onError(ctx: ErrorContext): Unit {}
+    func onMount(_: LifecycleContext): Unit {}
+    func onUpdate(_: LifecycleContext): Unit {}
+    func onUnmount(_: LifecycleContext): Unit {}
+    func onError(_: ErrorContext): Unit {}
 }
 
 public struct LifecycleContext {
