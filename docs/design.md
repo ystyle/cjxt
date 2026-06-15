@@ -211,9 +211,12 @@ session.context["role"] = "admin"
 
 框架不绑定业务字段，由项目自行管理 key-value。
 
-### 3.5 后端 Diff 与 Patch
+### 3.5 后端 Diff 与 Patch（将废弃）
 
-每次 action 处理后，服务端 render 新树，与旧树进行 key + type 比较，输出 `PatchEntry` 数组。
+**注意**：当前 diff 引擎是临时方案。Phase 5 实现 `Signal<T>` 后，响应式系统将直接
+定位脏节点并生成精准 patch，无需对比新旧两棵树。届时 `diff.cj` 将被移除。
+
+当前 diff 算法：先比较 type 和 key，不同则整节点替换；再逐属性比较 attr 变更；最后按位置比较 children（递归）。
 
 ```cangjie
 public enum PatchResult { ReRender, Patch(Array<PatchEntry>) }
@@ -364,7 +367,7 @@ div([], attrs: Some(HashMap([("class", css.get("btn"))])))
 ### Phase 2: Action 与 Patch ✅
 - [x] 实现 WebSocket 全链路（升级/消息/派发）。
 - [x] 实现 Server Actions（getActions + ActionHandler）。
-- [x] 实现后端 diff 算法（key + type）。
+- [x] 实现后端 diff 算法（key + type）。（注：Phase 5 被 Signal 替代后废弃）
 - [x] 实现 JSON Patch 生成与前端应用。
 - [x] 实现会话基础管理。
 
@@ -384,9 +387,14 @@ div([], attrs: Some(HashMap([("class", css.get("btn"))])))
 - [ ] 开发模式热重载（延迟到后期）。
 
 ### Phase 5: 优化与生态
+- [ ] `Signal<T>` + `Store<S>` — 响应式状态管理，**替代 diff 引擎**。
+  - Signal 粒度追踪脏节点，精准 patch，零对比开销。
+  - diff.cj 在 Signal 实现后移除。
+  - `ReRender` 保留为语义糖（全量重建的极端 fallback）。
+- [ ] LRU 会话淘汰与内存监控。
 - [ ] 组件库抽象（Button、Form、Table、Modal 等）。
-- [ ] `Signal<T>` 响应式。
-- [ ] `Store<S>` 全局状态管理。
+- [ ] 性能优化（缓存策略）。
+- [ ] 文档与示例应用。
 - [ ] diff 算法优化、缓存策略。
 - [ ] LRU 会话淘汰与内存监控。
 - [ ] 文档与示例应用。
