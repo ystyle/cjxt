@@ -9,10 +9,12 @@ class HomePage <: Component {
     var count: Int64 = 0
 
     public func render(): ComponentNode {
+        let acts = HashMap<String, String>()
+        acts["click"] = "increment"
         div([
             h1([text("cjxt Counter")]),
             p([text("count: ${count}")]),
-            button([text("+")])
+            button([text("+")], actions: Some(acts))
         ])
     }
 

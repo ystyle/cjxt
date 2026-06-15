@@ -4,6 +4,16 @@ import std.collection.HashMap
 import stdx.net.http.{WebSocket, WebSocketFrameType}
 import tang.{Tang, TangHttpContext}
 
+class SessionState {
+    var page: Component
+    var actions: HashMap<String, ActionHandler>
+
+    public init(page: Component) {
+        this.page = page
+        this.actions = page.getActions()
+    }
+}
+
 public class App {
     let tangApp: Tang
     var bindHost: String
@@ -37,13 +47,14 @@ public class App {
     }
 
     private func sessionLoop(ws: WebSocket, page: Component): Unit {
+        let state = SessionState(page)
         wsSendJson(ws, ConnectedMsg())
         wsSendJson(ws, PatchMsg([PatchEntryMsg("replace", "", page.render())]))
-        this.readLoop(ws, page, page.getActions())
-        page.onUnmount(LifecycleContext("", HashMap<String, String>(), None, None))
+        this.readLoop(ws, state)
+        state.page.onUnmount(LifecycleContext("", HashMap<String, String>(), None, None))
     }
 
-    private func readLoop(ws: WebSocket, page: Component, actions: HashMap<String, ActionHandler>): Unit {
+    private func readLoop(ws: WebSocket, state: SessionState): Unit {
         while (true) {
             let frame = ws.read()
             if (frame.frameType == WebSocketFrameType.TextWebFrame) {
@@ -52,13 +63,16 @@ public class App {
                 if (t == "ack") {
                     let ev = readField(raw, "event")
                     if (ev == "mount") {
-                        page.onMount(LifecycleContext("", HashMap<String, String>(), None, None))
+                        state.page.onMount(LifecycleContext("", HashMap<String, String>(), None, None))
                     } else if (ev == "update") {
-                        page.onUpdate(LifecycleContext("", HashMap<String, String>(), None, None))
+                        state.page.onUpdate(LifecycleContext("", HashMap<String, String>(), None, None))
                     }
                 } else if (t == "action") {
                     let name = readField(raw, "name")
-                    if (name != "") { this.dispatchAction(ws, page, actions, name) }
+                    if (name != "") { this.dispatchAction(ws, state, name) }
+                } else if (t == "navigate") {
+                    let path = readField(raw, "path")
+                    if (path != "") { this.handleNavigate(ws, state, path) }
                 }
             } else if (frame.frameType == WebSocketFrameType.CloseWebFrame) {
                 ws.writeCloseFrame()
@@ -67,28 +81,54 @@ public class App {
         }
     }
 
-    private func dispatchAction(ws: WebSocket, page: Component, actions: HashMap<String, ActionHandler>, name: String): Unit {
-        match (actions.get(name)) {
-            case Some(fn) => this.runAction(ws, page, name, fn)
+    private func dispatchAction(ws: WebSocket, state: SessionState, name: String): Unit {
+        match (state.actions.get(name)) {
+            case Some(fn) => this.runAction(ws, state, name, fn)
             case None => ()
         }
     }
 
-    private func runAction(ws: WebSocket, page: Component, name: String, fn: ActionHandler): Unit {
-        let ctx = ActionContext("", HashMap<String, String>(), Router("", { p => () }))
+    private func runAction(ws: WebSocket, state: SessionState, name: String, fn: ActionHandler): Unit {
+        let flag = NavFlag()
+        let router = Router("", { path => this.execNavAction(ws, state, flag, path) })
+        let ctx = ActionContext("", HashMap<String, String>(), router)
         try {
             match (fn(ctx)) {
-                case PatchResult.ReRender => this.sendPatch(ws, page)
+                case PatchResult.ReRender => if (!flag.done) { this.sendPatch(ws, state.page) }
                 case _ => ()
             }
         } catch (e: Error) {
-            page.onError(ErrorContext("", name, e))
+            state.page.onError(ErrorContext("", name, e))
         }
+    }
+
+    private func execNavAction(ws: WebSocket, state: SessionState, flag: NavFlag, path: String): Unit {
+        this.handleNavigate(ws, state, path)
+        flag.done = true
+    }
+
+    private func handleNavigate(ws: WebSocket, state: SessionState, path: String): Unit {
+        state.page.onUnmount(LifecycleContext("", HashMap<String, String>(), None, None))
+        match (RouteRegistry.global().create(path)) {
+            case Some(newPage) => applyNav(ws, state, newPage)
+            case None => ()
+        }
+    }
+
+    private func applyNav(ws: WebSocket, state: SessionState, newPage: Component): Unit {
+        state.page = newPage
+        state.actions = newPage.getActions()
+        wsSendJson(ws, FullTreeMsg(newPage.render()))
     }
 
     private func sendPatch(ws: WebSocket, page: Component): Unit {
         wsSendJson(ws, PatchMsg([PatchEntryMsg("replace", "", page.render())]))
     }
+}
+
+class NavFlag {
+    var done: Bool
+    public init() { this.done = false }
 }
 
 private func readField(raw: String, field: String): String {
