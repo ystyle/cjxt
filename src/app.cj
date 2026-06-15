@@ -40,6 +40,7 @@ public class App {
         wsSendJson(ws, ConnectedMsg())
         wsSendJson(ws, PatchMsg([PatchEntryMsg("replace", "", page.render())]))
         this.readLoop(ws, page, page.getActions())
+        page.onUnmount(LifecycleContext("", HashMap<String, String>(), None, None))
     }
 
     private func readLoop(ws: WebSocket, page: Component, actions: HashMap<String, ActionHandler>): Unit {
@@ -47,8 +48,18 @@ public class App {
             let frame = ws.read()
             if (frame.frameType == WebSocketFrameType.TextWebFrame) {
                 let raw = String.fromUtf8(frame.payload)
-                let name = parseName(raw)
-                if (name != "") { this.doAction(ws, page, actions, name) }
+                let t = readField(raw, "type")
+                if (t == "ack") {
+                    let ev = readField(raw, "event")
+                    if (ev == "mount") {
+                        page.onMount(LifecycleContext("", HashMap<String, String>(), None, None))
+                    } else if (ev == "update") {
+                        page.onUpdate(LifecycleContext("", HashMap<String, String>(), None, None))
+                    }
+                } else if (t == "action") {
+                    let name = readField(raw, "name")
+                    if (name != "") { this.dispatchAction(ws, page, actions, name) }
+                }
             } else if (frame.frameType == WebSocketFrameType.CloseWebFrame) {
                 ws.writeCloseFrame()
                 break
@@ -56,18 +67,22 @@ public class App {
         }
     }
 
-    private func doAction(ws: WebSocket, page: Component, actions: HashMap<String, ActionHandler>, name: String): Unit {
+    private func dispatchAction(ws: WebSocket, page: Component, actions: HashMap<String, ActionHandler>, name: String): Unit {
         match (actions.get(name)) {
-            case Some(fn) => this.runAction(ws, page, fn)
+            case Some(fn) => this.runAction(ws, page, name, fn)
             case None => ()
         }
     }
 
-    private func runAction(ws: WebSocket, page: Component, fn: ActionHandler): Unit {
+    private func runAction(ws: WebSocket, page: Component, name: String, fn: ActionHandler): Unit {
         let ctx = ActionContext("", HashMap<String, String>(), Router("", { p => () }))
-        match (fn(ctx)) {
-            case PatchResult.ReRender => this.sendPatch(ws, page)
-            case _ => ()
+        try {
+            match (fn(ctx)) {
+                case PatchResult.ReRender => this.sendPatch(ws, page)
+                case _ => ()
+            }
+        } catch (e: Error) {
+            page.onError(ErrorContext("", name, e))
         }
     }
 
@@ -76,15 +91,15 @@ public class App {
     }
 }
 
-private func parseName(raw: String): String {
-    let mark = "\"name\":\""
+private func readField(raw: String, field: String): String {
+    let mark = "\"${field}\":\""
     match (raw.indexOf(mark)) {
-        case Some(idx) => readStr(raw, idx + mark.size)
+        case Some(idx) => doReadStr(raw, idx + mark.size)
         case None => ""
     }
 }
 
-private func readStr(s: String, from: Int64): String {
+private func doReadStr(s: String, from: Int64): String {
     match (s.indexOf("\"", from)) {
         case Some(e) => s[from..e]
         case None => ""
