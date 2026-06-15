@@ -14,6 +14,7 @@ public class Session {
     var wsState: WsState
     var createdAt: Int64
     var lastActiveAt: Int64
+    let context: HashMap<String, String>
 
     public init(id: String, page: Component, tree: ComponentNode) {
         this.id = id
@@ -22,6 +23,7 @@ public class Session {
         this.wsState = WsState.Connecting
         this.createdAt = nowMillis()
         this.lastActiveAt = nowMillis()
+        this.context = HashMap<String, String>()
     }
 
     public func touch(): Unit {

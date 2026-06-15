@@ -43,6 +43,9 @@ class CangjieUI {
             case 'title':
                 document.title = msg.title;
                 break;
+            case 'deny':
+                console.warn('Navigation denied:', msg.reason);
+                break;
             case 'fullTree':
                 this.loadNewPage(msg);
                 break;

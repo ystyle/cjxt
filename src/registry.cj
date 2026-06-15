@@ -48,6 +48,7 @@ public type RouteFactory = () -> Component
 public class RouteRegistry {
     let entries = HashMap<String, RouteFactory>()
     let titles = HashMap<String, String>()
+    let guards = HashMap<String, (HashMap<String, String>) -> Bool>()
 
     private static var inst: Option<RouteRegistry> = None
 
@@ -73,6 +74,12 @@ public class RouteRegistry {
         titles.add(path, title)
     }
 
+    public func register(path: String, factory: RouteFactory, title: String, guard: (HashMap<String, String>) -> Bool): Unit {
+        entries.add(path, factory)
+        titles.add(path, title)
+        guards.add(path, guard)
+    }
+
     public func create(path: String): Option<Component> {
         match (entries.get(path)) {
             case Some(f) => Some(f())
@@ -82,5 +89,12 @@ public class RouteRegistry {
 
     public func getTitle(path: String): Option<String> {
         titles.get(path)
+    }
+
+    public func checkGuard(path: String, ctx: HashMap<String, String>): Bool {
+        match (guards.get(path)) {
+            case Some(fn) => fn(ctx)
+            case None => true
+        }
     }
 }

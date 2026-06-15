@@ -162,6 +162,10 @@ public class App {
     }
 
     private func handleNavigate(ws: WebSocket, state: SessionState, session: Session, path: String): Unit {
+        if (!RouteRegistry.global().checkGuard(path, session.context)) {
+            wsSendJson(ws, DenyMsg("无权限访问"))
+            return
+        }
         state.page.onUnmount(LifecycleContext("", HashMap<String, String>(), None, None))
         match (RouteRegistry.global().create(path)) {
             case Some(newPage) => applyNav(ws, state, session, newPage, path)

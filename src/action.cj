@@ -146,3 +146,18 @@ public struct TitleMsg <: JsonSerializable {
         w.endObject()
     }
 }
+
+public struct DenyMsg <: JsonSerializable {
+    let reason: String
+
+    public init(reason: String) {
+        this.reason = reason
+    }
+
+    public func toJson(w: JsonWriter): Unit {
+        w.startObject()
+        w.writeName("kind").writeValue("deny")
+        w.writeName("reason").writeValue(this.reason)
+        w.endObject()
+    }
+}
