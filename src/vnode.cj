@@ -40,12 +40,12 @@ public type ActionMap = HashMap<String, String>
 
 public struct ComponentNode <: JsonSerializable {
     let typ: ComponentType
-    let attrs: Option<Attributes>
+    let attrs: Attributes
     let children: Array<ComponentNode>
     let key: Option<String>
-    let actions: Option<ActionMap>
+    let actions: ActionMap
 
-    public init(typ: ComponentType, children: Array<ComponentNode>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None) {
+    public init(typ: ComponentType, children: Array<ComponentNode>, attrs!: Attributes = HashMap<String, String>(), key!: Option<String> = None, actions!: ActionMap = HashMap<String, String>()) {
         this.typ = typ
         this.attrs = attrs
         this.children = children
@@ -63,56 +63,56 @@ public struct ComponentNode <: JsonSerializable {
     }
 }
 
-public func div(children: Array<ComponentNode>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): ComponentNode {
+public func div(children: Array<ComponentNode>, attrs!: Attributes = HashMap<String, String>(), key!: Option<String> = None, actions!: ActionMap = HashMap<String, String>()): ComponentNode {
     ComponentNode(ComponentType.Div, children, attrs: attrs, key: key, actions: actions)
 }
 
-public func span(children: Array<ComponentNode>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): ComponentNode {
+public func span(children: Array<ComponentNode>, attrs!: Attributes = HashMap<String, String>(), key!: Option<String> = None, actions!: ActionMap = HashMap<String, String>()): ComponentNode {
     ComponentNode(ComponentType.Span, children, attrs: attrs, key: key, actions: actions)
 }
 
-public func button(children: Array<ComponentNode>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): ComponentNode {
+public func button(children: Array<ComponentNode>, attrs!: Attributes = HashMap<String, String>(), key!: Option<String> = None, actions!: ActionMap = HashMap<String, String>()): ComponentNode {
     ComponentNode(ComponentType.Button, children, attrs: attrs, key: key, actions: actions)
 }
 
 public func text(content: String): ComponentNode {
     let a = HashMap<String, String>()
     a["text"] = content
-    ComponentNode(ComponentType.Text, [], attrs: Some(a))
+    ComponentNode(ComponentType.Text, [], attrs: a)
 }
 
-public func h1(children: Array<ComponentNode>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): ComponentNode {
+public func h1(children: Array<ComponentNode>, attrs!: Attributes = HashMap<String, String>(), key!: Option<String> = None, actions!: ActionMap = HashMap<String, String>()): ComponentNode {
     ComponentNode(ComponentType.H1, children, attrs: attrs, key: key, actions: actions)
 }
 
-public func h2(children: Array<ComponentNode>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): ComponentNode {
+public func h2(children: Array<ComponentNode>, attrs!: Attributes = HashMap<String, String>(), key!: Option<String> = None, actions!: ActionMap = HashMap<String, String>()): ComponentNode {
     ComponentNode(ComponentType.H2, children, attrs: attrs, key: key, actions: actions)
 }
 
-public func p(children: Array<ComponentNode>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): ComponentNode {
+public func p(children: Array<ComponentNode>, attrs!: Attributes = HashMap<String, String>(), key!: Option<String> = None, actions!: ActionMap = HashMap<String, String>()): ComponentNode {
     ComponentNode(ComponentType.P, children, attrs: attrs, key: key, actions: actions)
 }
 
-public func input(attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): ComponentNode {
+public func input(attrs!: Attributes = HashMap<String, String>(), key!: Option<String> = None, actions!: ActionMap = HashMap<String, String>()): ComponentNode {
     ComponentNode(ComponentType.Input, [], attrs: attrs, key: key, actions: actions)
 }
 
-public func form(children: Array<ComponentNode>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): ComponentNode {
+public func form(children: Array<ComponentNode>, attrs!: Attributes = HashMap<String, String>(), key!: Option<String> = None, actions!: ActionMap = HashMap<String, String>()): ComponentNode {
     ComponentNode(ComponentType.Form, children, attrs: attrs, key: key, actions: actions)
 }
 
-public func image(attrs!: Option<Attributes> = None, key!: Option<String> = None): ComponentNode {
+public func image(attrs!: Attributes = HashMap<String, String>(), key!: Option<String> = None): ComponentNode {
     ComponentNode(ComponentType.Image, [], attrs: attrs, key: key)
 }
 
-public func a(children: Array<ComponentNode>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): ComponentNode {
+public func a(children: Array<ComponentNode>, attrs!: Attributes = HashMap<String, String>(), key!: Option<String> = None, actions!: ActionMap = HashMap<String, String>()): ComponentNode {
     ComponentNode(ComponentType.A, children, attrs: attrs, key: key, actions: actions)
 }
 
-public func ul(children: Array<ComponentNode>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): ComponentNode {
+public func ul(children: Array<ComponentNode>, attrs!: Attributes = HashMap<String, String>(), key!: Option<String> = None, actions!: ActionMap = HashMap<String, String>()): ComponentNode {
     ComponentNode(ComponentType.Ul, children, attrs: attrs, key: key, actions: actions)
 }
 
-public func li(children: Array<ComponentNode>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): ComponentNode {
+public func li(children: Array<ComponentNode>, attrs!: Attributes = HashMap<String, String>(), key!: Option<String> = None, actions!: ActionMap = HashMap<String, String>()): ComponentNode {
     ComponentNode(ComponentType.Li, children, attrs: attrs, key: key, actions: actions)
 }

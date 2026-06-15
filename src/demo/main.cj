@@ -14,7 +14,7 @@ class HomePage <: Component {
         div([
             h1([text("cjxt Counter")]),
             p([text("count: ${count}")]),
-            button([text("+")], actions: Some(acts))
+            button([text("+")], actions: acts)
         ])
     }
 

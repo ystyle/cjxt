@@ -15,46 +15,10 @@ private func eqOpt(a: Option<String>, b: Option<String>): Bool {
     }
 }
 
-// ---- Option HashMap helpers ----
-
-private func hmapKeys(m: Option<Attributes>): ArrayList<String> {
-    match (m) {
-        case Some(h) => doKeys(h)
-        case None => ArrayList<String>()
-    }
-}
-
-private func hmapKeysA(m: Option<ActionMap>): ArrayList<String> {
-    match (m) {
-        case Some(h) => doKeysA(h)
-        case None => ArrayList<String>()
-    }
-}
-
-private func doKeys(h: Attributes): ArrayList<String> {
+private func collectKeys(m: HashMap<String, String>): ArrayList<String> {
     let ks = ArrayList<String>()
-    for (k in h.keys()) { ks.add(k) }
+    for (k in m.keys()) { ks.add(k) }
     ks
-}
-
-private func doKeysA(h: ActionMap): ArrayList<String> {
-    let ks = ArrayList<String>()
-    for (k in h.keys()) { ks.add(k) }
-    ks
-}
-
-private func hmapGet(m: Option<Attributes>, k: String): Option<String> {
-    match (m) {
-        case Some(h) => h.get(k)
-        case None => None
-    }
-}
-
-private func hmapGetA(m: Option<ActionMap>, k: String): Option<String> {
-    match (m) {
-        case Some(h) => h.get(k)
-        case None => None
-    }
 }
 
 private func mergeKeys(a: ArrayList<String>, b: ArrayList<String>): ArrayList<String> {
@@ -77,37 +41,29 @@ public func diffTree(old: ComponentNode, newTree: ComponentNode, basePath: Strin
     }
 
     // attrs
-    let attrKeys = mergeKeys(hmapKeys(old.attrs), hmapKeys(newTree.attrs))
+    let attrKeys = mergeKeys(collectKeys(old.attrs), collectKeys(newTree.attrs))
     for (key in attrKeys) {
-        let oldV = hmapGet(old.attrs, key)
-        let newV = hmapGet(newTree.attrs, key)
+        let oldV = old.attrs.get(key)
+        let newV = newTree.attrs.get(key)
         if (oldV != newV) {
             let ap = if (basePath == "") { "/attrs/${key}" } else { "${basePath}/attrs/${key}" }
-            if (newV == None) {
-                patches.add(PatchEntry("remove", ap, None, None))
-            } else {
-                match (newV) {
-                    case Some(v) => patches.add(PatchEntry("replace", ap, Some(v), None))
-                    case None => ()
-                }
+            match (newV) {
+                case Some(v) => patches.add(PatchEntry("replace", ap, Some(v), None))
+                case None => patches.add(PatchEntry("remove", ap, None, None))
             }
         }
     }
 
     // actions
-    let actKeys = mergeKeys(hmapKeysA(old.actions), hmapKeysA(newTree.actions))
+    let actKeys = mergeKeys(collectKeys(old.actions), collectKeys(newTree.actions))
     for (key in actKeys) {
-        let oldA = hmapGetA(old.actions, key)
-        let newA = hmapGetA(newTree.actions, key)
+        let oldA = old.actions.get(key)
+        let newA = newTree.actions.get(key)
         if (oldA != newA) {
             let ap = if (basePath == "") { "/actions/${key}" } else { "${basePath}/actions/${key}" }
-            if (newA == None) {
-                patches.add(PatchEntry("remove", ap, None, None))
-            } else {
-                match (newA) {
-                    case Some(v) => patches.add(PatchEntry("replace", ap, Some(v), None))
-                    case None => ()
-                }
+            match (newA) {
+                case Some(v) => patches.add(PatchEntry("replace", ap, Some(v), None))
+                case None => patches.add(PatchEntry("remove", ap, None, None))
             }
         }
     }

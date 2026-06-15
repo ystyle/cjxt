@@ -4,10 +4,10 @@ import std.collection.*
 import std.unittest.*
 import std.unittest.testmacro.*
 
-func attrsOf(cls: String): Option<Attributes> {
+func attrsOf(cls: String): Attributes {
     let a = HashMap<String, String>()
     a["class"] = cls
-    Some(a)
+    a
 }
 
 @Test
