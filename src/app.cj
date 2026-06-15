@@ -24,17 +24,20 @@ class SessionState {
 public class App {
     let tangApp: Tang
     let sessions = SessionManager(300000)
+    var config: AppConfig
     var bindHost: String
     var bindPort: UInt16
 
     public init() {
         this.tangApp = Tang()
+        this.config = AppConfig()
         this.bindHost = "0.0.0.0"
         this.bindPort = 8080
     }
 
     public func host(h: String): App { this.bindHost = h; this }
     public func port(p: UInt16): App { this.bindPort = p; this }
+    public func configure(c: AppConfig): App { this.config = c; this }
 
     public func serve(): Unit {
         this.tangApp.get("/", { ctx => this.renderHTTP(ctx) })
