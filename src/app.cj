@@ -103,7 +103,9 @@ public class App {
     private func runAction(ws: WebSocket, state: SessionState, name: String, fn: ActionHandler): Unit {
         let flag = NavFlag()
         let router = Router("", { path => this.execNavAction(ws, state, flag, path) })
-        let ctx = ActionContext("", HashMap<String, String>(), router)
+        let ctx = ActionContext("", HashMap<String, String>(), router, pushFn: { patches =>
+            wsSendJson(ws, PushMsg(patches))
+        })
         try {
             match (fn(ctx)) {
                 case PatchResult.ReRender => if (!flag.done) { this.sendPatch(ws, state) }

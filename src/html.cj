@@ -35,6 +35,9 @@ class CangjieUI {
                 this.applyPatches(msg.patches);
                 this.send({ type: 'ack', event: 'update', sessionId: this.sessionId });
                 break;
+            case 'push':
+                this.applyPatches(msg.patches);
+                break;
             case 'fullTree':
                 this.loadNewPage(msg);
                 break;

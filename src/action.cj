@@ -26,11 +26,17 @@ public struct ActionContext {
     let sessionId: String
     let params: HashMap<String, String>
     let router: Router
+    let pushFn: (Array<PatchEntryMsg>) -> Unit
 
-    public init(sessionId: String, params: HashMap<String, String>, router: Router) {
+    public init(sessionId: String, params: HashMap<String, String>, router: Router, pushFn!: (Array<PatchEntryMsg>) -> Unit = { _ => () }) {
         this.sessionId = sessionId
         this.params = params
         this.router = router
+        this.pushFn = pushFn
+    }
+
+    public func push(patches: Array<PatchEntryMsg>): Unit {
+        (this.pushFn)(patches)
     }
 }
 
@@ -107,6 +113,21 @@ public struct FullTreeMsg <: JsonSerializable {
         w.writeName("kind").writeValue("fullTree")
         w.writeName("tree")
         this.tree.toJson(w)
+        w.endObject()
+    }
+}
+
+public struct PushMsg <: JsonSerializable {
+    let patches: Array<PatchEntryMsg>
+
+    public init(patches: Array<PatchEntryMsg>) {
+        this.patches = patches
+    }
+
+    public func toJson(w: JsonWriter): Unit {
+        w.startObject()
+        w.writeName("kind").writeValue("push")
+        w.writeName("patches").writeValue(this.patches)
         w.endObject()
     }
 }
