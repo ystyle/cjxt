@@ -134,27 +134,51 @@ public interface Component {
 组件树的可序列化表示，是前后端通信的桥梁。`Component.render()` 产出此结构。
 
 ```cangjie
-enum ComponentType {
-    Div, Span, Button, Input, Form, Table, Text, Image, ...
+public enum ComponentType <: ToString & Equatable<ComponentType> {
+    | Div | Span | Button | Input | Form
+    | Table | Text | Image | H1 | H2 | H3
+    | P | Select | Textarea | A | Ul | Li
+
+    public func toString(): String {
+        match (this) {
+            case Div => "div"
+            // ...
+        }
+    }
 }
 
-type Attributes = Dictionary<String, String>
-type ActionMap = Dictionary<String, String>
+public type Attributes = HashMap<String, String>
+public type ActionMap = HashMap<String, String>
 
-// 组件节点（纯数据，不包含行为）
-public struct ComponentNode {
-    let type: ComponentType
-    let attrs: Attributes
+public struct ComponentNode <: JsonSerializable {
+    let typ: ComponentType
+    let attrs: Option<Attributes>
     let children: Array<ComponentNode>
-    let key: String?
-    let actions: ActionMap
+    let key: Option<String>
+    let actions: Option<ActionMap>
+
+    public init(typ: ComponentType, children: Array<ComponentNode>,
+                attrs!: Option<Attributes> = None, key!: Option<String> = None,
+                actions!: Option<ActionMap> = None) { ... }
+
+    public func toJson(w: JsonWriter): Unit {
+        w.startObject()
+        w.writeName("type").writeValue(this.typ.toString())
+        w.writeName("attrs").writeValue(this.attrs)
+        w.writeName("actions").writeValue(this.actions)
+        w.writeName("children").writeValue(this.children)
+        w.endObject()
+    }
 }
 
-// 辅助构造器（简化开发）
-func div(children: Array<ComponentNode> = [], attrs: Attributes = [:], actions: ActionMap = [:], key: String? = None): ComponentNode {
-    ComponentNode(type: Div, attrs: attrs, children: children, actions: actions, key: key)
+// 标签辅助函数（命名参数默认值 DSL）
+public func div(children: Array<ComponentNode>,
+                attrs!: Option<Attributes> = None,
+                key!: Option<String> = None,
+                actions!: Option<ActionMap> = None): ComponentNode {
+    ComponentNode(ComponentType.Div, children, attrs: attrs, key: key, actions: actions)
 }
-// ... 其他标签同理
+// ... span, button, text, h1, h2, p, input, form, image, a, ul, li 同理
 ```
 
 ### 3.3 页面与组件定义规范
@@ -186,14 +210,13 @@ public struct Card implements Component {
 适合业务页面，使用 `var` 维护可变状态，状态变更后触发重渲染。
 
 ```cangjie
-@Page("/order/detail")
-public class OrderPage implements Component {
+@Page["/order/detail"]
+public class OrderPage <: Component {
     let orderId: String
-    let order: OrderData
+    var order: OrderData
     var loading: Bool = true
 
-    // 构造函数接收数据（框架在路由匹配后自动调用）
-    public func new(orderId: String) {
+    public init(orderId: String) {
         this.orderId = orderId
         this.order = db.fetchOrder(orderId)
         this.loading = false
@@ -201,28 +224,23 @@ public class OrderPage implements Component {
 
     public func render(): ComponentNode {
         if (loading) {
-            return div(children: [text("加载中...")])
+            return div([text("加载中...")])
         }
-        return div(attrs: ["class": "order-detail"],
-            children: [
-                h1(children: [text("订单 ${order.orderId}")]),
-                text("状态: ${order.status}"),
-                button(
-                    label: "审批",
-                    attrs: ["data-order-id": orderId],
-                    actions: ["click": "approve"]
-                )
-            ])
+        return div([h1([text("订单 ${order.orderId}")]), text("状态: ${order.status}")],
+                   attrs: Some(["class": "order-detail"]))
     }
 
-    // public 方法自动暴露为 Server Action
-    public func approve(ctx: ActionContext): PatchResult {
-        db.updateOrderStatus(orderId, "approved")
-        this.order.status = "approved"
-        return ReRender   // 触发重新 render + diff
+    public func getActions(): HashMap<String, ActionHandler> {
+        HashMap<String, ActionHandler>([
+            ("approve", { ctx =>
+                db.updateOrderStatus(orderId, "approved")
+                this.order.status = "approved"
+                PatchResult.ReRender
+            })
+        ])
     }
 
-    public func onMount(ctx: LifecycleContext): Unit {
+    public func onMount(_: LifecycleContext): Unit {
         Logger.info("OrderPage 已挂载，orderId=${orderId}")
     }
 }
@@ -248,25 +266,21 @@ public class OrderPage implements Component {
 在页面类上使用 `@Page` 宏声明路由路径：
 
 ```cangjie
-@Page("/order/list")
-public struct OrderListPage implements Component { ... }
+@Page["/order/list"]
+public struct OrderListPage <: Component { ... }
 
-@Page("/order/[id]")         // 动态参数
-public class OrderDetailPage implements Component { ... }
+@Page["/order/[id]"]         // 动态参数
+public class OrderDetailPage <: Component { ... }
 
-@Page("/user/profile")
-public struct UserProfilePage implements Component { ... }
+@Page["/user/profile"]
+public struct UserProfilePage <: Component { ... }
 ```
 
-**宏展开产物**：编译时 `@Page` 宏收集所有路径-类型映射，生成一个全局路由注册表，大致等价于：
+**宏展开产物**：编译时 `@Page` 宏收集所有路径-类型映射，在 class 定义后追加 Token 序列，生成路由注册语句：
 
 ```cangjie
 // 由 @Page 宏自动生成（开发者无需手写）
-public let __route_registry__ = [
-    RouteEntry{ path: "/order/list", pageType: OrderListPage },
-    RouteEntry{ path: "/order/[id]", pageType: OrderDetailPage },
-    RouteEntry{ path: "/user/profile", pageType: UserProfilePage },
-]
+let __reg_OrderListPage__ = RouteRegistry.global().register("/order/list", { => OrderListPage() })
 ```
 
 #### 3.4.2 首屏加载流程
@@ -349,18 +363,41 @@ func handleNavigate(session: Session, targetPath: String) {
 }
 ```
 
-#### 3.4.4 交互通道（WebSocket）
+#### 3.7.2 交互通道（WebSocket）
 
 页面加载后，前端 JS 主动发起 WS 连接：
 
 ```text
 客户端 → 服务端: { type: "connect", sessionId: "..." }
-服务端 → 客户端: { type: "connected", sessionId: "..." }
-                  // 此时框架调用 page.onMount()
-后续心跳:         { type: "ping" } / { type: "pong" }
+服务端 → 客户端: {"kind":"connected"}
+服务端 → 客户端: {"kind":"patch","patches":[{"op":"replace","path":"","value":<tree>}]}
+客户端 → 服务端: {"type":"action","name":"click","params":{}}
+服务端 → 客户端: {"kind":"patch","patches":[...]}
 ```
 
-WS 连接建立后，该会话的所有 action、patch、navigate 均通过 WS 传输，不再使用 HTTP。
+WS 连接建立后，该会话的所有 action、patch 均通过 WS 传输，不再使用 HTTP。
+
+协议消息使用标准 `JsonSerializable` struct 定义：
+
+```cangjie
+public struct ConnectedMsg <: JsonSerializable {
+    public func toJson(w: JsonWriter): Unit {
+        w.startObject()
+        w.writeName("kind").writeValue("connected")
+        w.endObject()
+    }
+}
+
+public struct PatchMsg <: JsonSerializable {
+    let patches: Array<PatchEntryMsg>
+    public func toJson(w: JsonWriter): Unit {
+        w.startObject()
+        w.writeName("kind").writeValue("patch")
+        w.writeName("patches").writeValue(this.patches)
+        w.endObject()
+    }
+}
+```
 
 ### 3.5 后端 Diff 与 Patch
 
@@ -411,11 +448,11 @@ Action 通过 WS 消息传输，不再使用 HTTP POST。
 #### 核心类型定义
 
 ```cangjie
-// Action 执行上下文，注入到每个 action method 的第一个参数
+// Action 执行上下文，注入到每个 action handler 的第一个参数
 public struct ActionContext {
-    let session: Session
-    let params: Dictionary<String, Json>
-    let router: Router              // 用于导航：ctx.router.push("/path")
+    let sessionId: String
+    let params: HashMap<String, String>
+    let router: Router
 }
 
 // Action 返回类型
@@ -426,11 +463,14 @@ public enum PatchResult {
 
 // 路由操作对象，由框架注入
 public struct Router {
-    let session: Session
+    let sessionId: String
+    let navigateFn: (String) -> Unit
 
-    // 导航到新页面，触发 onUnmount → 构造新页面 → 推送 fullTree
     public func push(path: String): Unit
 }
+
+// Action handler 类型
+public type ActionHandler = (ActionContext) -> PatchResult
 ```
 
 #### WS 消息格式
@@ -757,38 +797,36 @@ public struct ErrorContext {
 
 | 模块 | 技术方案 | 理由 |
 |------|----------|------|
-| HTTP 服务 | `fountain` 框架或标准库 `net.http` | 成熟稳定，性能足够 |
-| WebSocket | 自研 WS 管理器 | 轻量，无外部依赖；支持心跳/重连 |
+| HTTP 服务 | `tang` 框架 | 成熟稳定，性能足够，内置 WS 支持 |
+| WebSocket | tang `ctx.upgrade()` + 自研 WS 循环 | 轻量，无外部依赖 |
 | 路由 | `@Page` 宏 + 编译时注册 | 强类型、编译时校验、重构安全 |
-| JSON 序列化 | 仓颉标准库 `encoding.json` | 原生支持 |
-| 组件树 Diff | 自研 | 针对组件树优化 |
-| 样式预处理 | `dart-sass` 二进制 + 仓颉宏 | 稳定、功能强大、纯编译时 |
-| 前端渲染器 | 原生 JS (~3KB) | 无框架依赖，体积小 |
-| 会话存储 | 内存 `ConcurrentHashMap` + LRU 淘汰 | 管理端并发不高，简单可靠 |
+| JSON 序列化 | `stdx.encoding.json.stream` (JsonWriter + JsonSerializable) | 原生支持 HashMap/Array/Option |
+| 组件树 Diff | 自研按 key + type 比较 | 针对组件树优化 |
+| 样式预处理 | `dart-sass` 二进制 + 仓颉宏 (Phase 4) | 稳定、功能强大、纯编译时 |
+| 前端渲染器 | 原生 JS (~2KB) | 无框架依赖，体积小 |
+| 会话存储 | 内存 `HashMap` + TTL 淘汰 | 管理端并发不高，简单可靠 |
 
 ## 5. 实施路线图
 
-### Phase 1: 最小可行产品（MVP）
-- [ ] 定义 `Component` 接口及生命周期方法。
-- [ ] 实现 `ComponentNode` 定义及序列化。
-- [ ] 实现 `@Page` 宏（基本路径匹配，无动态参数）。
-- [ ] 实现基础 HTTP 服务器，支持单页面渲染（整体替换）。
-- [ ] 实现前端渲染器（首屏整体渲染）。
-- [ ] 验证"服务端渲染组件树"完整流程。
+### Phase 1: 最小可行产品（MVP）✅
+- [x] 定义 `Component` 接口及生命周期方法。
+- [x] 实现 `ComponentNode` 定义及序列化（JsonSerializable）。
+- [x] 实现 `@Page` 宏（基本路径匹配 + 动态参数 `[id]`）。
+- [x] 实现基础 HTTP + WebSocket 服务（tang 框架）。
+- [x] 实现前端渲染器（首屏整体渲染 + WS patch 应用）。
+- [x] 验证"服务端渲染组件树"完整流程。
 
-### Phase 2: Action 与 Patch
-- [ ] 实现 WebSocket 管理器（连接/心跳/消息路由）。
-- [ ] 实现 Server Actions 框架（反射调用 public method）。
-- [ ] 实现后端 diff 算法（基于 key）。
-- [ ] 实现 JSON Patch 生成与前端应用（WS 传输）。
-- [ ] 实现会话状态缓存（内存 + LRU）。
+### Phase 2: Action 与 Patch ✅
+- [x] 实现 WebSocket 全链路（升级/消息读写/action 派发）。
+- [x] 实现 Server Actions 框架（getActions + ActionHandler 回调）。
+- [x] 实现后端 diff 算法（基于 key + type）。
+- [x] 实现 JSON Patch 生成与前端应用（WS 传输）。
+- [x] 实现会话基础管理（创建/获取/清理）。
 
-### Phase 3: 生命周期与导航
-- [ ] 实现 `onMount`/`onUpdate`/`onUnmount` 生命周期触发。
+### Phase 3: 生命周期与导航（进行中）
+- [ ] 实现 `onMount`/`onUpdate`/`onUnmount` 生命周期事件触发。
 - [ ] 实现 `onError` 错误边界。
 - [ ] 实现导航机制（WS navigate / ctx.router.push）。
-- [ ] 实现 `@Page` 宏的动态参数支持（`[id]`）。
-- [ ] 实现 `getServerSideProps` 数据预取。
 - [ ] 实现 `defineCSS` 宏（纯 CSS）。
 - [ ] 集成 `dart-sass` 二进制，完善构建脚本。
 - [ ] 支持 `kind: "sass"`。
@@ -799,6 +837,7 @@ public struct ErrorContext {
 - [ ] 开发模式热重载。
 - [ ] WS 断线重连与 session 恢复。
 - [ ] 前端 navigate 客户端路由过渡动画。
+- [ ] 应用配置（theme、layout 等）。
 
 ### Phase 5: 优化与生态
 - [ ] 组件库抽象（Button、Form、Table、Modal 等）。
