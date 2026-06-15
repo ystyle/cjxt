@@ -2,29 +2,31 @@ package cjxt
 
 import std.collection.*
 
-private func typesEqual(a: ComponentType, b: ComponentType): Bool {
+// ---- type comparison ----
+
+private func eqType(a: ComponentType, b: ComponentType): Bool {
     match (a) {
-        case ComponentType.Div => match (b) { case ComponentType.Div => true; case _ => false }
-        case ComponentType.Span => match (b) { case ComponentType.Span => true; case _ => false }
-        case ComponentType.Button => match (b) { case ComponentType.Button => true; case _ => false }
-        case ComponentType.Input => match (b) { case ComponentType.Input => true; case _ => false }
-        case ComponentType.Form => match (b) { case ComponentType.Form => true; case _ => false }
-        case ComponentType.Table => match (b) { case ComponentType.Table => true; case _ => false }
-        case ComponentType.Text => match (b) { case ComponentType.Text => true; case _ => false }
-        case ComponentType.Image => match (b) { case ComponentType.Image => true; case _ => false }
-        case ComponentType.H1 => match (b) { case ComponentType.H1 => true; case _ => false }
-        case ComponentType.H2 => match (b) { case ComponentType.H2 => true; case _ => false }
-        case ComponentType.H3 => match (b) { case ComponentType.H3 => true; case _ => false }
-        case ComponentType.P => match (b) { case ComponentType.P => true; case _ => false }
-        case ComponentType.Select => match (b) { case ComponentType.Select => true; case _ => false }
-        case ComponentType.Textarea => match (b) { case ComponentType.Textarea => true; case _ => false }
-        case ComponentType.A => match (b) { case ComponentType.A => true; case _ => false }
-        case ComponentType.Ul => match (b) { case ComponentType.Ul => true; case _ => false }
-        case ComponentType.Li => match (b) { case ComponentType.Li => true; case _ => false }
+        case Div => match (b) { case Div => true; case _ => false }
+        case Span => match (b) { case Span => true; case _ => false }
+        case Button => match (b) { case Button => true; case _ => false }
+        case Input => match (b) { case Input => true; case _ => false }
+        case Form => match (b) { case Form => true; case _ => false }
+        case Table => match (b) { case Table => true; case _ => false }
+        case Text => match (b) { case Text => true; case _ => false }
+        case Image => match (b) { case Image => true; case _ => false }
+        case H1 => match (b) { case H1 => true; case _ => false }
+        case H2 => match (b) { case H2 => true; case _ => false }
+        case H3 => match (b) { case H3 => true; case _ => false }
+        case P => match (b) { case P => true; case _ => false }
+        case Select => match (b) { case Select => true; case _ => false }
+        case Textarea => match (b) { case Textarea => true; case _ => false }
+        case A => match (b) { case A => true; case _ => false }
+        case Ul => match (b) { case Ul => true; case _ => false }
+        case Li => match (b) { case Li => true; case _ => false }
     }
 }
 
-private func optionsEqual(a: Option<String>, b: Option<String>): Bool {
+private func eqOpt(a: Option<String>, b: Option<String>): Bool {
     match (a) {
         case Some(va) => match (b) {
             case Some(vb) => va == vb
@@ -37,76 +39,116 @@ private func optionsEqual(a: Option<String>, b: Option<String>): Bool {
     }
 }
 
-private func optionGetOr(o: Option<String>, defaultVal: String): String {
-    match (o) {
-        case Some(v) => v
-        case None => defaultVal
+// ---- Option HashMap helpers ----
+
+private func hmapKeys(m: Option<Attributes>): ArrayList<String> {
+    match (m) {
+        case Some(h) => doKeys(h)
+        case None => ArrayList<String>()
     }
 }
+
+private func hmapKeysA(m: Option<ActionMap>): ArrayList<String> {
+    match (m) {
+        case Some(h) => doKeysA(h)
+        case None => ArrayList<String>()
+    }
+}
+
+private func doKeys(h: Attributes): ArrayList<String> {
+    let ks = ArrayList<String>()
+    for (k in h.keys()) { ks.add(k) }
+    ks
+}
+
+private func doKeysA(h: ActionMap): ArrayList<String> {
+    let ks = ArrayList<String>()
+    for (k in h.keys()) { ks.add(k) }
+    ks
+}
+
+private func hmapGet(m: Option<Attributes>, k: String): Option<String> {
+    match (m) {
+        case Some(h) => h.get(k)
+        case None => None
+    }
+}
+
+private func hmapGetA(m: Option<ActionMap>, k: String): Option<String> {
+    match (m) {
+        case Some(h) => h.get(k)
+        case None => None
+    }
+}
+
+private func mergeKeys(a: ArrayList<String>, b: ArrayList<String>): ArrayList<String> {
+    let ks = ArrayList<String>()
+    for (k in a) { ks.add(k) }
+    for (k in b) {
+        if (!ks.contains(k)) { ks.add(k) }
+    }
+    ks
+}
+
+// ---- diff engine ----
 
 public func diffTree(old: ComponentNode, newTree: ComponentNode, basePath: String): ArrayList<PatchEntry> {
     let patches = ArrayList<PatchEntry>()
 
-    if (!typesEqual(old.typ, newTree.typ) || !optionsEqual(old.key, newTree.key)) {
+    if (!eqType(old.typ, newTree.typ) || !eqOpt(old.key, newTree.key)) {
         patches.add(PatchEntry("replace", basePath, Some(""), None))
         return patches
     }
 
-    let allAttrKeys = mergeKeys(old.attrs, newTree.attrs)
-    for (key in allAttrKeys) {
-        let oldVal = old.attrs.get(key)
-        let newVal = newTree.attrs.get(key)
-        if (oldVal != newVal) {
-            let attrPath = if (basePath == "") { "/attrs/${key}" } else { "${basePath}/attrs/${key}" }
-            if (newVal == None) {
-                patches.add(PatchEntry("remove", attrPath, None, None))
+    // attrs
+    let attrKeys = mergeKeys(hmapKeys(old.attrs), hmapKeys(newTree.attrs))
+    for (key in attrKeys) {
+        let oldV = hmapGet(old.attrs, key)
+        let newV = hmapGet(newTree.attrs, key)
+        if (oldV != newV) {
+            let ap = if (basePath == "") { "/attrs/${key}" } else { "${basePath}/attrs/${key}" }
+            if (newV == None) {
+                patches.add(PatchEntry("remove", ap, None, None))
             } else {
-                patches.add(PatchEntry("replace", attrPath, Some(optionGetOr(newVal, "")), None))
+                match (newV) {
+                    case Some(v) => patches.add(PatchEntry("replace", ap, Some(v), None))
+                    case None => ()
+                }
             }
         }
     }
 
-    let allActionKeys = mergeKeys(old.actions, newTree.actions)
-    for (key in allActionKeys) {
-        let oldAct = old.actions.get(key)
-        let newAct = newTree.actions.get(key)
-        if (oldAct != newAct) {
-            let actPath = if (basePath == "") { "/actions/${key}" } else { "${basePath}/actions/${key}" }
-            if (newAct == None) {
-                patches.add(PatchEntry("remove", actPath, None, None))
+    // actions
+    let actKeys = mergeKeys(hmapKeysA(old.actions), hmapKeysA(newTree.actions))
+    for (key in actKeys) {
+        let oldA = hmapGetA(old.actions, key)
+        let newA = hmapGetA(newTree.actions, key)
+        if (oldA != newA) {
+            let ap = if (basePath == "") { "/actions/${key}" } else { "${basePath}/actions/${key}" }
+            if (newA == None) {
+                patches.add(PatchEntry("remove", ap, None, None))
             } else {
-                patches.add(PatchEntry("replace", actPath, Some(optionGetOr(newAct, "")), None))
+                match (newA) {
+                    case Some(v) => patches.add(PatchEntry("replace", ap, Some(v), None))
+                    case None => ()
+                }
             }
         }
     }
 
+    // children
     let maxLen = if (old.children.size > newTree.children.size) { old.children.size } else { newTree.children.size }
     for (i in 0..maxLen) {
-        let childPath = if (basePath == "") { "/children/${i}" } else { "${basePath}/children/${i}" }
+        let cp = if (basePath == "") { "/children/${i}" } else { "${basePath}/children/${i}" }
         if (i >= old.children.size) {
-            patches.add(PatchEntry("add", childPath, Some(""), None))
+            patches.add(PatchEntry("add", cp, Some(""), None))
         } else if (i >= newTree.children.size) {
-            patches.add(PatchEntry("remove", childPath, None, None))
+            patches.add(PatchEntry("remove", cp, None, None))
         } else {
-            let sub = diffTree(old.children[i], newTree.children[i], childPath)
-            for (p in sub) {
-                patches.add(p)
-            }
+            let sub = diffTree(old.children[i], newTree.children[i], cp)
+            for (p in sub) { patches.add(p) }
         }
     }
 
     patches
-}
-
-private func mergeKeys(a: HashMap<String, String>, b: HashMap<String, String>): ArrayList<String> {
-    let keys = ArrayList<String>()
-    for (k in a.keys()) {
-        keys.add(k)
-    }
-    for (k in b.keys()) {
-        if (!keys.contains(k)) {
-            keys.add(k)
-        }
-    }
-    keys
 }

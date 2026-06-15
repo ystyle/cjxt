@@ -1,7 +1,8 @@
 package cjxt
 
 import std.collection.*
-import stdx.encoding.json.{JsonObject, JsonArray, JsonString, JsonValue}
+import std.io.ByteBuffer
+import stdx.encoding.json.stream.{JsonWriter, JsonSerializable}
 
 public enum ComponentType {
     | Div | Span | Button | Input | Form
@@ -38,100 +39,116 @@ extend ComponentType <: Equatable<ComponentType> {
 
 public struct ComponentNode {
     let typ: ComponentType
-    let attrs: Attributes
+    let attrs: Option<Attributes>
     let children: Array<ComponentNode>
     let key: Option<String>
-    let actions: ActionMap
+    let actions: Option<ActionMap>
 
-    public init(typ: ComponentType, attrs: Attributes, children: Array<ComponentNode>, key: Option<String>, actions: ActionMap) {
+    public init(typ: ComponentType, children: Array<ComponentNode>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None) {
         this.typ = typ
         this.attrs = attrs
         this.children = children
         this.key = key
         this.actions = actions
     }
+
+    public func toJson(w: JsonWriter): Unit {
+        w.startObject()
+        w.writeName("type").writeValue(typeToStr(this.typ))
+
+        w.writeName("attrs")
+        w.startObject()
+        match (this.attrs) {
+            case Some(m) => eachMap(w, m)
+            case None => ()
+        }
+        w.endObject()
+
+        w.writeName("actions")
+        w.startObject()
+        match (this.actions) {
+            case Some(m) => eachMap(w, m)
+            case None => ()
+        }
+        w.endObject()
+
+        w.writeName("children")
+        w.startArray()
+        for (c in this.children) { c.toJson(w) }
+        w.endArray()
+
+        w.endObject()
+    }
+
+    public func toJsonString(): String {
+        let buf = ByteBuffer()
+        let w = JsonWriter(buf)
+        this.toJson(w)
+        String.fromUtf8(buf.bytes())
+    }
 }
 
-public func div(children: Array<ComponentNode>, attrs: Attributes, key: Option<String>, actions: ActionMap): ComponentNode {
-    ComponentNode(ComponentType.Div, attrs, children, key, actions)
+func eachMap(w: JsonWriter, m: HashMap<String, String>): Unit {
+    for ((k, v) in m) { w.writeName(k).writeValue(v) }
 }
 
-public func span(children: Array<ComponentNode>, attrs: Attributes, key: Option<String>, actions: ActionMap): ComponentNode {
-    ComponentNode(ComponentType.Span, attrs, children, key, actions)
+extend ComponentNode <: JsonSerializable {}
+
+public func div(children: Array<ComponentNode>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): ComponentNode {
+    ComponentNode(ComponentType.Div, children, attrs: attrs, key: key, actions: actions)
 }
 
-public func button(children: Array<ComponentNode>, attrs: Attributes, key: Option<String>, actions: ActionMap): ComponentNode {
-    ComponentNode(ComponentType.Button, attrs, children, key, actions)
+public func span(children: Array<ComponentNode>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): ComponentNode {
+    ComponentNode(ComponentType.Span, children, attrs: attrs, key: key, actions: actions)
+}
+
+public func button(children: Array<ComponentNode>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): ComponentNode {
+    ComponentNode(ComponentType.Button, children, attrs: attrs, key: key, actions: actions)
 }
 
 public func text(content: String): ComponentNode {
-    let attrs = HashMap<String, String>()
-    attrs["text"] = content
-    ComponentNode(ComponentType.Text, attrs, [], None, HashMap<String, String>())
+    let a = HashMap<String, String>()
+    a["text"] = content
+    ComponentNode(ComponentType.Text, [], attrs: Some(a))
 }
 
-public func h1(children: Array<ComponentNode>, attrs: Attributes, key: Option<String>, actions: ActionMap): ComponentNode {
-    ComponentNode(ComponentType.H1, attrs, children, key, actions)
+public func h1(children: Array<ComponentNode>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): ComponentNode {
+    ComponentNode(ComponentType.H1, children, attrs: attrs, key: key, actions: actions)
 }
 
-public func h2(children: Array<ComponentNode>, attrs: Attributes, key: Option<String>, actions: ActionMap): ComponentNode {
-    ComponentNode(ComponentType.H2, attrs, children, key, actions)
+public func h2(children: Array<ComponentNode>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): ComponentNode {
+    ComponentNode(ComponentType.H2, children, attrs: attrs, key: key, actions: actions)
 }
 
-public func p(children: Array<ComponentNode>, attrs: Attributes, key: Option<String>, actions: ActionMap): ComponentNode {
-    ComponentNode(ComponentType.P, attrs, children, key, actions)
+public func p(children: Array<ComponentNode>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): ComponentNode {
+    ComponentNode(ComponentType.P, children, attrs: attrs, key: key, actions: actions)
 }
 
-public func input(attrs: Attributes, key: Option<String>, actions: ActionMap): ComponentNode {
-    ComponentNode(ComponentType.Input, attrs, [], key, actions)
+public func input(attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): ComponentNode {
+    ComponentNode(ComponentType.Input, [], attrs: attrs, key: key, actions: actions)
 }
 
-public func form(children: Array<ComponentNode>, attrs: Attributes, key: Option<String>, actions: ActionMap): ComponentNode {
-    ComponentNode(ComponentType.Form, attrs, children, key, actions)
+public func form(children: Array<ComponentNode>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): ComponentNode {
+    ComponentNode(ComponentType.Form, children, attrs: attrs, key: key, actions: actions)
 }
 
-public func image(attrs: Attributes, key: Option<String>): ComponentNode {
-    ComponentNode(ComponentType.Image, attrs, [], key, HashMap<String, String>())
+public func image(attrs!: Option<Attributes> = None, key!: Option<String> = None): ComponentNode {
+    ComponentNode(ComponentType.Image, [], attrs: attrs, key: key)
 }
 
-public func a(children: Array<ComponentNode>, attrs: Attributes, key: Option<String>, actions: ActionMap): ComponentNode {
-    ComponentNode(ComponentType.A, attrs, children, key, actions)
+public func a(children: Array<ComponentNode>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): ComponentNode {
+    ComponentNode(ComponentType.A, children, attrs: attrs, key: key, actions: actions)
 }
 
-public func ul(children: Array<ComponentNode>, attrs: Attributes, key: Option<String>, actions: ActionMap): ComponentNode {
-    ComponentNode(ComponentType.Ul, attrs, children, key, actions)
+public func ul(children: Array<ComponentNode>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): ComponentNode {
+    ComponentNode(ComponentType.Ul, children, attrs: attrs, key: key, actions: actions)
 }
 
-public func li(children: Array<ComponentNode>, attrs: Attributes, key: Option<String>, actions: ActionMap): ComponentNode {
-    ComponentNode(ComponentType.Li, attrs, children, key, actions)
+public func li(children: Array<ComponentNode>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): ComponentNode {
+    ComponentNode(ComponentType.Li, children, attrs: attrs, key: key, actions: actions)
 }
 
-// ---- JSON 序列化 ----
-
-public func treeToJson(node: ComponentNode): JsonObject {
-    let obj = JsonObject()
-    obj.put("type", JsonString(typeToStr(node.typ)))
-
-    let attrs = JsonObject()
-    for ((k, v) in node.attrs) {
-        attrs.put(k, JsonString(v))
-    }
-    obj.put("attrs", attrs)
-
-    let actions = JsonObject()
-    for ((k, v) in node.actions) {
-        actions.put(k, JsonString(v))
-    }
-    obj.put("actions", actions)
-
-    let children = JsonArray()
-    for (child in node.children) {
-        children.add(treeToJson(child))
-    }
-    obj.put("children", children)
-
-    obj
-}
+// ---- JSON 序列化辅助 ----
 
 func typeToStr(t: ComponentType): String {
     match (t) {
@@ -142,4 +159,11 @@ func typeToStr(t: ComponentType): String {
         case Select => "select"; case Textarea => "textarea"; case A => "a"
         case Ul => "ul"; case Li => "li"
     }
+}
+
+public func toJsonString(node: ComponentNode): String {
+    let buf = ByteBuffer()
+    let w = JsonWriter(buf)
+    node.toJson(w)
+    String.fromUtf8(buf.bytes())
 }

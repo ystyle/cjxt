@@ -10,10 +10,10 @@ class HomePage <: Component {
 
     public func render(): ComponentNode {
         div([
-            h1([text("cjxt Counter")], HashMap<String, String>(), None, HashMap<String, String>()),
-            p([text("count: ${count}")], HashMap<String, String>(), None, HashMap<String, String>()),
-            button([text("+")], HashMap<String, String>(), None, HashMap<String, String>())
-        ], HashMap<String, String>(), None, HashMap<String, String>())
+            h1([text("cjxt Counter")]),
+            p([text("count: ${count}")]),
+            button([text("+")])
+        ])
     }
 
     public func getActions(): HashMap<String, ActionHandler> {

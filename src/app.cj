@@ -47,7 +47,7 @@ func upgradeWS(ctx: TangHttpContext): Unit {
 
 func sessionLoop(ws: WebSocket, page: Component): Unit {
     wsSend(ws, "{\"type\":\"connected\"}")
-    wsSend(ws, "{\"type\":\"patch\",\"patches\":[{\"op\":\"replace\",\"path\":\"\",\"value\":${treeToJson(page.render()).toJsonString()}}]}")
+    wsSend(ws, "{\"type\":\"patch\",\"patches\":[{\"op\":\"replace\",\"path\":\"\",\"value\":${page.render().toJsonString()}}]}")
 
     let actions = page.getActions()
     readLoop(ws, page, actions)
@@ -92,7 +92,7 @@ func applyResult(ws: WebSocket, page: Component, result: PatchResult): Unit {
 }
 
 func sendPatch(ws: WebSocket, page: Component): Unit {
-    let json = treeToJson(page.render()).toJsonString()
+    let json = page.render().toJsonString()
     wsSend(ws, "{\"type\":\"patch\",\"patches\":[{\"op\":\"replace\",\"path\":\"\",\"value\":${json}}]}")
 }
 

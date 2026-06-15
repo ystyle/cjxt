@@ -4,11 +4,18 @@ import std.collection.*
 import std.unittest.*
 import std.unittest.testmacro.*
 
+func getAttr(node: ComponentNode, key: String): Option<String> {
+    match (node.attrs) {
+        case Some(m) => m.get(key)
+        case None => None
+    }
+}
+
 @Test
 public class VnodeTest {
     @TestCase
     public func testCreateDiv(): Unit {
-        let node = div([], HashMap<String, String>(), None, HashMap<String, String>())
+        let node = div()
         @Expect(node.typ, ComponentType.Div)
     }
 
@@ -16,15 +23,15 @@ public class VnodeTest {
     public func testCreateText(): Unit {
         let node = text("hello")
         @Expect(node.typ, ComponentType.Text)
-        @Expect(node.attrs.get("text"), Some("hello"))
+        @Expect(getAttr(node, "text"), Some("hello"))
     }
 
     @TestCase
     public func testDivWithChildren(): Unit {
         let node = div([
-            h1([text("title")], HashMap<String, String>(), None, HashMap<String, String>()),
-            p([text("content")], HashMap<String, String>(), None, HashMap<String, String>())
-        ], HashMap<String, String>(), None, HashMap<String, String>())
+            h1([text("title")]),
+            p([text("content")])
+        ])
         @Expect(node.children.size, 2)
         @Expect(node.children[0].typ, ComponentType.H1)
         @Expect(node.children[1].typ, ComponentType.P)
@@ -32,32 +39,34 @@ public class VnodeTest {
 
     @TestCase
     public func testButtonWithAction(): Unit {
-        let actions = HashMap<String, String>()
-        actions["click"] = "submit"
-        let node = button([], HashMap<String, String>(), None, actions)
-        @Expect(node.actions.get("click"), Some("submit"))
+        let acts = HashMap<String, String>([("click", "submit")])
+        let node = button(actions: Some(acts))
+        match (node.actions) {
+            case Some(m) => @Expect(m.get("click"), Some("submit"))
+            case None => @Fail("no actions")
+        }
     }
 
     @TestCase
     public func testNestedStructure(): Unit {
         let node = div([
             ul([
-                li([text("item1")], HashMap<String, String>(), None, HashMap<String, String>()),
-                li([text("item2")], HashMap<String, String>(), None, HashMap<String, String>())
-            ], HashMap<String, String>(), None, HashMap<String, String>())
-        ], HashMap<String, String>(), None, HashMap<String, String>())
+                li([text("item1")]),
+                li([text("item2")])
+            ])
+        ])
         @Expect(node.children[0].typ, ComponentType.Ul)
         @Expect(node.children[0].children.size, 2)
     }
 
     @TestCase
     public func testKeyAndAttrs(): Unit {
-        let attrs = HashMap<String, String>()
-        attrs["class"] = "container"
-        attrs["id"] = "main"
-        let node = div([], attrs, Some("root"), HashMap<String, String>())
+        let attrs = HashMap<String, String>([("class", "container"), ("id", "main")])
+        let node = div([], attrs: Some(attrs), key: Some("root"))
         @Expect(node.key, Some("root"))
-        @Expect(node.attrs.get("class"), Some("container"))
-        @Expect(node.attrs.get("id"), Some("main"))
+        let a = getAttr(node, "class")
+        let b = getAttr(node, "id")
+        @Expect(a, Some("container"))
+        @Expect(b, Some("main"))
     }
 }
