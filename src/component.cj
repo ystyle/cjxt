@@ -11,6 +11,8 @@ public interface Component {
         HashMap<String, ActionHandler>()
     }
 
+    func getTitle(): Option<String> { None }
+
     func onMount(ctx: LifecycleContext): Unit {}
     func onUpdate(ctx: LifecycleContext): Unit {}
     func onUnmount(ctx: LifecycleContext): Unit {}

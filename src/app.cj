@@ -97,6 +97,7 @@ public class App {
         let session = sessions.save(sid, page, tree)
         wsSendJson(ws, ConnectedMsg())
         wsSendJson(ws, PatchMsg([PatchEntryMsg("replace", "", tree)]))
+        sendTitle(ws, page)
         this.listenLoop(ws, state, session)
     }
 
@@ -175,6 +176,14 @@ public class App {
         state.refresh(tree)
         session.updatePage(newPage, tree)
         wsSendJson(ws, FullTreeMsg(tree))
+        sendTitle(ws, newPage)
+    }
+
+    private func sendTitle(ws: WebSocket, page: Component): Unit {
+        match (page.getTitle()) {
+            case Some(t) => wsSendJson(ws, TitleMsg(t))
+            case None => ()
+        }
     }
 
     private func sendPatch(ws: WebSocket, state: SessionState, session: Session): Unit {

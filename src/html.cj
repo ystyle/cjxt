@@ -40,6 +40,9 @@ class CangjieUI {
             case 'push':
                 this.applyPatches(msg.patches);
                 break;
+            case 'title':
+                document.title = msg.title;
+                break;
             case 'fullTree':
                 this.loadNewPage(msg);
                 break;
@@ -101,6 +104,24 @@ class CangjieUI {
 }
 """
 
+func headTags(config: AppConfig): String {
+    var html = ""
+    html = "${html}    <title>${config.title}</title>\n"
+    html = "${html}    <link rel=\"icon\" href=\"${config.favicon}\">\n"
+    for ((rel, href) in config.links) {
+        html = "${html}    <link rel=\"${rel}\" href=\"${href}\">\n"
+    }
+    html
+}
+
+func scriptTags(config: AppConfig): String {
+    var html = ""
+    for (src in config.scripts) {
+        html = "${html}    <script src=\"${src}\"></script>\n"
+    }
+    html
+}
+
 public func generateHtmlShell(sessionId: String, config!: AppConfig = AppConfig()): String {
     """
 <!DOCTYPE html>
@@ -108,9 +129,7 @@ public func generateHtmlShell(sessionId: String, config!: AppConfig = AppConfig(
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${config.title}</title>
-    <link rel="icon" href="${config.favicon}">
-    <style>
+${headTags(config)}    <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: ${config.fontFamily}; }
     </style>
@@ -120,7 +139,7 @@ public func generateHtmlShell(sessionId: String, config!: AppConfig = AppConfig(
     <script>
 ${FRONTEND_JS}
     </script>
-    <script>
+${scriptTags(config)}    <script>
         var ui = new CangjieUI(document.getElementById('app'), "${sessionId}", null);
     </script>
 </body>
