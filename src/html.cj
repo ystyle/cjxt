@@ -1,5 +1,7 @@
 package cjxt
 
+import std.collection.HashMap
+
 let FRONTEND_JS = """
 class CangjieUI {
     constructor(container, sessionId, initialTree) {
@@ -99,17 +101,18 @@ class CangjieUI {
 }
 """
 
-public func generateHtmlShell(sessionId: String): String {
+public func generateHtmlShell(sessionId: String, config!: AppConfig = AppConfig()): String {
     """
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>cjxt</title>
+    <title>${config.title}</title>
+    <link rel="icon" href="${config.favicon}">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { font-family: ${config.fontFamily}; }
     </style>
 </head>
 <body>

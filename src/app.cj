@@ -55,7 +55,7 @@ public class App {
     private func servePage(ctx: TangHttpContext, p: Component): Unit {
         let tree = p.render()
         let session = sessions.create(p, tree)
-        ctx.contentType("text/html; charset=utf-8").writeString(generateHtmlShell(session.id))
+        ctx.contentType("text/html; charset=utf-8").writeString(generateHtmlShell(session.id, config: this.config))
     }
 
     private func upgradeWS(ctx: TangHttpContext): Unit {
