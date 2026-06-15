@@ -20,7 +20,10 @@ src/
 ├── session.cj              会话管理 / TTL
 ├── registry.cj             路由匹配（@Page 宏运行时支持）
 ├── html.cj                 HTML 壳生成 + 内联前端 JS
+├── app.cj                  App 类（host/port/serve + WS 会话循环）
+├── ws.cj                   wsSendJson / wsSendText / wsClose
 ├── macros/                 宏定义目录（macro package）
+├── demo/                   演示应用（demo 子包）
 └── xxx_test.cj             测试文件（与源码同包）
 ```
 
@@ -47,6 +50,24 @@ cjpm clean
 - 日常开发只需 `cjpm build` 和 `cjpm test`
 - 单独跑某个测试: `cjpm test --filter 'TestName.testMethod'`
 
+## 浏览器测试
+
+使用 `agent-browser` 进行端到端测试。前置：构建后启动演示服务。
+
+```shell
+# 用 pty_spawn 启动演示服务（需 cjvs 环境）
+pty_spawn:
+  title: "Demo Server"
+  command: zsh -c 'eval "$(cjvs env zsh 2>/dev/null)" && eval "$(cjvs stdx env zsh 2>/dev/null)" && exec ./target/release/bin/main'
+  workdir: /home/ystyle/Projects/Cangjie/cjxt
+
+# 浏览器交互
+agent-browser open http://localhost:8080
+agent-browser snapshot -i -c     # 查看交互元素
+agent-browser click @e2          # 点击某个 ref
+agent-browser eval "document.querySelector('p').textContent"  # 读取更新后的 DOM
+```
+
 ## 已知仓颉约束
 
 - 枚举变体名不能与类型名相同
@@ -54,11 +75,10 @@ cjpm clean
 - `struct` `class` 使用 `init` 关键字定义构造函数（不是 `func new`）
 - `where`、`match`、`quote` 是仓颉关键字，方法名需要用反引号或用 `doMatch` 等变体
 - 枚举不支持 `==`/`!=` 比较运算符，需使用 `match` 手动实现比较
-- `HashMap<K, V>` 使用 `add(key, val)` 添加、`get(key)` 读取（返回 `Option<V>`）、`remove(key)` 删除
-- 不支持函数/构造器参数默认值
-- 不支持命名参数调用（位置参数只能按顺序传递）
-- 泛型不变性：需要显式统一类型
-- `String.join(Array<String>, delimiter:)` 用于拼接字符串数组
-- `Bool` 是关键字，枚举变体需用转义
-- `String` 切片使用 `str[start..end]` 语法，无 `substring()` 方法
-- 需要并发安全时使用 `HashMap`（无内置 `ConcurrentHashMap`）配合同步机制
+- `T!` 是命名参数默认值语法：`func div(children: Array<ComponentNode>, attrs!: Option<Attributes> = None)`
+- match arm 的 `=>` 块内不能写 `let` 或 `for` — 提取为独立函数
+- `type` 和 `match` 是关键字，参数/变量名用 `typ`、`doMatch` 等变体
+- `HashMap<K, V>` 使用 `add(key, val)` 添加、`get(key)` 返回 `Option<V>`、`remove(key)` 删除
+- 不支持命名参数调用（仅支持带 `!` 的命名参数默认值，调用时按位置传参）
+- `String` 拼接用字符串模板 `"${a}${b}"`；切片用 `str[start..end]`，无 `substring()`
+- 枚举不支持 `==`/`!=`，需手动实现 `operator ==`
