@@ -347,7 +347,7 @@ div([], attrs: Some(HashMap([("class", css.get("btn"))])))
 - [x] `defineCSS` / `@sass` 宏 + CssModule + `build.cj` 编译集成。
 - [x] WS 主动推送（`ctx.push`）。
 - [ ] 开发模式热重载（延迟到后期）。
-- [ ] WS 断线重连与 session 恢复。
+- [x] WS 断线重连与 session 恢复。
 - [ ] 应用配置（theme、layout）。
 
 ### Phase 5: 优化与生态
