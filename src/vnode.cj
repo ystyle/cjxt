@@ -112,9 +112,10 @@ public struct ComponentNode <: JsonSerializable {
         ComponentNode(this._typ, this._children, attrs: this._attrs, key: this._key, actions: Some(acts), handlers: Some(hmap))
     }
 
-    public func bind<T>(signal: Signal<T>): ComponentNode where T <: JsonDeserializable<T> {
+    public func bind<T>(signal: Signal<T>): ComponentNode where T <: ToString & JsonDeserializable<T> {
         let id = nextBid()
         let attrs = addAttrItem(this._attrs, "data-bind-id", id)
+        attrs["value"] = signal.get().toString()
         let handler: ActionHandler = { ctx =>
             let raw = match (ctx.params.get("value")) { case Some(v) => v case None => "" }
             let buf = ByteBuffer()

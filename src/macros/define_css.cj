@@ -91,5 +91,10 @@ func compile(content: String): String {
 }
 
 public macro defineCSS(input: Tokens): Tokens {
-    processCSS(compile(input[0].value))
+    var parts = ArrayList<String>()
+    for (tok in input) {
+        if (tok.kind == STRING_LITERAL && tok.value != "") { parts.add(tok.value) }
+    }
+    let content = String.join(parts.toArray(), delimiter: "")
+    processCSS(compile(content))
 }
