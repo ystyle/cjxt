@@ -2,7 +2,6 @@ package cjxt
 
 import std.collection.{ArrayList, HashMap}
 import std.reflect.*
-import std.fs.File
 import std.sync.Mutex
 import stdx.net.http.{WebSocket, WebSocketFrameType}
 import tang.{Tang, TangHttpContext}
@@ -22,7 +21,6 @@ class SessionState {
     }
 
     public func refresh(tree: ComponentNode): Unit {
-        this.handlers = HashMap<String, ActionHandler>()
         collectHandlers(tree, this.handlers)
     }
 }
@@ -77,9 +75,11 @@ public class App {
     }
 
     private func servePage(ctx: TangHttpContext, p: Component): Unit {
-        let tree = p.render()
-        let session = sessions.create(p, tree)
+        let session = sessions.create(p, text(""))
         this.initStates(session)
+        p.onMount(LifecycleContext(session.id, HashMap<String, String>(), None, None, states: session.states))
+        let tree = p.renderWithScope()
+        session.tree = tree
         ctx.contentType("text/html; charset=utf-8").writeString(generateHtmlShell(session.id, config: this.config))
     }
 
@@ -106,7 +106,7 @@ public class App {
         let tree = applyLayout(session.path, session.tree)
         state.refresh(tree)
         wsSendJson(ws, ConnectedMsg())
-        wsSendJson(ws, PatchMsg([PatchEntryMsg("replace", "", tree)]))
+        wsSendJson(ws, CombinedPatchMsg([], [TreePatchEntry("replace", "", Some(tree))]))
         sendTitle(ws, session.path)
         this.listenLoop(ws, state, session)
     }
@@ -134,7 +134,7 @@ public class App {
         session.path = "/"
         this.initSignals(ws, state, session)
         wsSendJson(ws, ConnectedMsg())
-        wsSendJson(ws, PatchMsg([PatchEntryMsg("replace", "", session.tree)]))
+        wsSendJson(ws, CombinedPatchMsg([], [TreePatchEntry("replace", "", Some(session.tree))]))
         sendTitle(ws, "/")
         this.listenLoop(ws, state, session)
     }
@@ -255,7 +255,9 @@ public class App {
         state.page = newPage
         state.path = path
         state.actions = newPage.getActions()
-        let raw = newPage.render()
+        let mountCtx = LifecycleContext(session.id, HashMap<String, String>(), None, None, states: session.states)
+        newPage.onMount(mountCtx)
+        let raw = newPage.renderWithScope()
         let tree = applyLayout(path, raw)
         state.refresh(tree)
         session.updatePage(newPage, raw)
@@ -273,10 +275,12 @@ public class App {
 
     private func sendPatch(ws: WebSocket, state: SessionState, session: Session): Unit {
         SignalTracker.pendingRender = false
+        let oldTree = session.tree
         let newTree = state.page.render()
+        let patches = diffTree(oldTree, newTree, "")
         state.refresh(newTree)
         session.tree = newTree
-        wsSendJson(ws, PatchMsg([PatchEntryMsg("replace", "", newTree)]))
+        sendGranularPatch(ws, patches)
     }
 }
 

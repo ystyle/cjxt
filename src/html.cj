@@ -34,11 +34,13 @@ class CangjieUI {
                 this.send({ type: 'ack', event: 'mount', sessionId: this.sessionId });
                 break;
             case 'patch':
-                this.applyPatches(msg.patches);
+                if (msg.attrs && msg.attrs.length) this.applyStrPatches(msg.attrs);
+                if (msg.trees && msg.trees.length) this.applyTreePatches(msg.trees);
                 this.send({ type: 'ack', event: 'update', sessionId: this.sessionId });
                 break;
             case 'push':
-                this.applyPatches(msg.patches);
+                if (msg.attrs && msg.attrs.length) this.applyStrPatches(msg.attrs);
+                if (msg.trees && msg.trees.length) this.applyTreePatches(msg.trees);
                 break;
             case 'title':
                 document.title = msg.title;
@@ -76,6 +78,7 @@ class CangjieUI {
         const el = document.createElement(type);
         for (const k in node.attrs || {}) {
             if (k === 'text') continue;
+            if (k === 'value') { el.value = node.attrs[k]; continue; }
             el.setAttribute(k, node.attrs[k]);
         }
         for (const ev in node.actions || {}) {
@@ -112,8 +115,7 @@ class CangjieUI {
             if (e.key === 'Enter') { clearTimeout(timer); send(); }
         });
     }
-    applyPatches(patches) {
-        // 保存焦点状态
+    applyStrPatches(patches) {
         const activeEl = document.activeElement;
         const allInputs = Array.from(document.querySelectorAll('input,textarea'));
         const focusIdx = activeEl ? allInputs.indexOf(activeEl) : -1;
@@ -123,17 +125,10 @@ class CangjieUI {
 
         for (const p of patches) {
             const parts = (p.path || '').split('/').filter(Boolean);
-            if (parts.length === 0 && p.op === 'replace') {
-                this.tree = p.value;
-                this.container.innerHTML = '';
-                this.renderTree(this.tree, this.container);
-            } else {
-                this.applyPatchToTree(this.tree, p.op, parts, p.value);
-                this.applyPatchToDOM(this.container, p.op, parts, p.value);
-            }
+            this.applyPatchToTree(this.tree, p.op, parts, p.value);
+            this.applyPatchToDOM(this.container, p.op, parts, p.value);
         }
 
-        // 恢复焦点
         if (focusIdx >= 0) {
             const newInputs = document.querySelectorAll('input,textarea');
             if (focusIdx < newInputs.length) {
@@ -145,6 +140,85 @@ class CangjieUI {
                 }
             }
         }
+    }
+    applyTreePatches(trees) {
+        for (const p of trees) {
+            const parts = (p.path || '').split('/').filter(Boolean);
+            if (parts.length === 0) {
+                if (p.op === 'replace' && p.tree) {
+                    this.tree = p.tree;
+                    this.container.innerHTML = '';
+                    this.renderTree(this.tree, this.container);
+                }
+                continue;
+            }
+            this.applyPatchToTree(this.tree, p.op, parts, p.tree);
+            const parentParts = parts.slice(0, -2);
+            const parentEl = parentParts.length ? this.navigateTo(parentParts, this.container) : this.container;
+            if (!parentEl) continue;
+            const idx = parseInt(parts[parts.length - 1]);
+            if (p.op === 'replace' && p.tree) {
+                const old = parentEl.childNodes[idx];
+                if (old) {
+                    const newEl = this.renderSubtree(p.tree);
+                    parentEl.replaceChild(newEl, old);
+                }
+            } else if (p.op === 'add' && p.tree) {
+                const newEl = this.renderSubtree(p.tree);
+                if (idx < parentEl.childNodes.length) {
+                    parentEl.insertBefore(newEl, parentEl.childNodes[idx]);
+                } else {
+                    parentEl.appendChild(newEl);
+                }
+            } else if (p.op === 'remove') {
+                const old = parentEl.childNodes[idx];
+                if (old) old.parentNode.removeChild(old);
+            }
+        }
+    }
+    navigateTo(parts, parent) {
+        let el = parent.firstElementChild;
+        if (!el) return null;
+        let i = 0;
+        while (i < parts.length && parts[i] === 'children' && i + 1 < parts.length) {
+            const idx = parseInt(parts[i + 1]);
+            const children = el.childNodes;
+            if (children && idx < children.length) {
+                el = children[idx];
+            } else { return null; }
+            i += 2;
+        }
+        return (i >= parts.length) ? el : null;
+    }
+    renderSubtree(node) {
+        const type = (node.type || '').toLowerCase();
+        if (type === 'text') {
+            return document.createTextNode(node.attrs ? (node.attrs.text || '') : '');
+        }
+        if (type === 'style') {
+            const el = document.createElement('style');
+            el.textContent = node.attrs ? (node.attrs.text || '') : '';
+            return el;
+        }
+        const el = document.createElement(type);
+        for (const k in node.attrs || {}) {
+            if (k === 'text') continue;
+            if (k === 'value') { el.value = node.attrs[k]; continue; }
+            el.setAttribute(k, node.attrs[k]);
+        }
+        for (const ev in node.actions || {}) {
+            const action = node.actions[ev];
+            el.addEventListener(ev, (e) => {
+                const params = {};
+                for (const a of el.attributes) {
+                    if (a.name.startsWith('data-')) params[a.name.slice(5)] = a.value;
+                }
+                this.send({ type: 'action', name: action, params, sessionId: this.sessionId });
+            });
+        }
+        for (const child of node.children || []) el.appendChild(this.renderSubtree(child));
+        if (el.hasAttribute('data-bind-id')) this.attachBind(el);
+        return el;
     }
     applyPatchToTree(node, op, parts, value) {
         if (!node || parts.length === 0) return;
@@ -165,7 +239,9 @@ class CangjieUI {
         } else if (parts[0] === 'children' && parts.length >= 2) {
             const idx = parseInt(parts[1]);
             if (op === 'add' && node.children) {
-                node.children.splice(idx, 0, { type: 'div', attrs: {}, actions: null, children: [] });
+                node.children.splice(idx, 0, value || { type: 'div', attrs: {}, actions: null, children: [] });
+            } else if (op === 'replace' && node.children && node.children[idx] && parts.length == 2) {
+                node.children[idx] = value;
             } else if (op === 'remove' && node.children) {
                 node.children.splice(idx, 1);
             } else if (node.children && node.children[idx]) {
@@ -177,25 +253,37 @@ class CangjieUI {
         }
     }
     applyPatchToDOM(parent, op, parts, value) {
-        // parent = #app, start from its first child (container div)
         let el = parent.firstElementChild;
         if (!el) return;
         let i = 0;
         while (i < parts.length && parts[i] === 'children' && i + 1 < parts.length) {
             const idx = parseInt(parts[i + 1]);
-            if (el.childNodes && idx < el.childNodes.length) {
-                el = el.childNodes[idx];
+            const children = el.childNodes;
+            if (children && idx < children.length) {
+                el = children[idx];
             } else { return; }
             i += 2;
         }
-        if (i >= parts.length) return;
+        if (i >= parts.length) {
+            if (op === 'remove' && el.parentNode) {
+                el.parentNode.removeChild(el);
+            }
+            return;
+        }
         if (el.nodeType === 3) {
-            // text node — update textContent
             if (op === 'replace') el.textContent = value;
         } else if (parts[i] === 'attrs' && i + 1 < parts.length) {
             const attr = parts[i + 1];
-            if (op === 'replace') el.setAttribute(attr, value);
-            else if (op === 'remove') el.removeAttribute(attr);
+            if (attr === 'value') {
+                if (op === 'replace') el.value = value;
+                else if (op === 'remove') el.value = '';
+            } else if (op === 'replace') {
+                el.setAttribute(attr, value);
+            } else if (op === 'remove') {
+                el.removeAttribute(attr);
+            }
+        } else if (parts[i] === 'actions' && i + 1 < parts.length) {
+            // actions only matter in virtual tree, DOM events already attached
         } else if (parts[i] === 'text' && op === 'replace') {
             el.textContent = value;
         }

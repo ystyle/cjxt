@@ -34,7 +34,55 @@ public struct PatchEntry {
 }
 
 // 颗粒 patch（用于 diffTree，value 为字符串）
-public struct PatchEntryStr <: JsonSerializable {
+public struct TreePatchEntry <: JsonSerializable {
+    let op: String
+    let path: String
+    let tree: Option<ComponentNode>
+
+    public init(op: String, path: String, tree: Option<ComponentNode>) {
+        this.op = op
+        this.path = path
+        this.tree = tree
+    }
+
+    public func toJson(w: JsonWriter): Unit {
+        w.startObject()
+        w.writeName("op").writeValue(this.op)
+        w.writeName("path").writeValue(this.path)
+        match (this.tree) {
+            case Some(t) => w.writeName("tree"); t.toJson(w)
+            case None => ()
+        }
+        w.endObject()
+    }
+}
+
+public enum GranularPatch {
+    | AttrPatch(AttrPatchEntry)
+    | SubtreePatch(TreePatchEntry)
+
+    public func op(): String {
+        match (this) {
+            case GranularPatch.AttrPatch(a) => a.op
+            case GranularPatch.SubtreePatch(t) => t.op
+        }
+    }
+}
+
+public func sendGranularPatch(ws: WebSocket, patches: ArrayList<GranularPatch>): Unit {
+    if (patches.size == 0) { return }
+    let attrs = ArrayList<AttrPatchEntry>()
+    let trees = ArrayList<TreePatchEntry>()
+    for (p in patches) {
+        match (p) {
+            case GranularPatch.AttrPatch(a) => attrs.add(a)
+            case GranularPatch.SubtreePatch(t) => trees.add(t)
+        }
+    }
+    wsSendJson(ws, CombinedPatchMsg(attrs.toArray(), trees.toArray()))
+}
+
+public struct AttrPatchEntry <: JsonSerializable {
     let op: String
     let path: String
     let value: Option<String>
@@ -57,22 +105,20 @@ public struct PatchEntryStr <: JsonSerializable {
     }
 }
 
-public func sendGranularPatch(ws: WebSocket, patches: ArrayList<PatchEntryStr>): Unit {
-    if (patches.size == 0) { return }
-    wsSendJson(ws, StrPatchMsg(patches.toArray()))
-}
+public struct CombinedPatchMsg <: JsonSerializable {
+    let attrs: Array<AttrPatchEntry>
+    let trees: Array<TreePatchEntry>
 
-public struct StrPatchMsg <: JsonSerializable {
-    let patches: Array<PatchEntryStr>
-
-    public init(patches: Array<PatchEntryStr>) {
-        this.patches = patches
+    public init(attrs: Array<AttrPatchEntry>, trees: Array<TreePatchEntry>) {
+        this.attrs = attrs
+        this.trees = trees
     }
 
     public func toJson(w: JsonWriter): Unit {
         w.startObject()
         w.writeName("kind").writeValue("patch")
-        w.writeName("patches").writeValue(this.patches)
+        w.writeName("attrs").writeValue(this.attrs)
+        w.writeName("trees").writeValue(this.trees)
         w.endObject()
     }
 }
