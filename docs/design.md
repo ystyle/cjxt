@@ -662,7 +662,7 @@ WS bind message
   - 编译时类型安全注册，`onMount` 注入组件字段。
   - `LifecycleContext` 与 `ActionContext` 均可访问。
   - 跨导航持久，新 Component 实例通过 onMount 获取。
-- [ ] **数据绑定** — `bind<T>()` 表单双向数据流。
+- [x] **数据绑定** — `bind<T>()` 表单双向数据流。
   - 复用 `JsonDeserializable<T>`，`where T <: JsonDeserializable<T>` 约束。
   - `ComponentNode._bids` 字段 + WS `bind` 消息。
   - 前端 debounce/blur/enter 触发 + patch 跳过编辑中 input。
