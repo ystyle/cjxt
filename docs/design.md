@@ -55,9 +55,10 @@
 │                              │                                │
 │                              ▼                                │
 │  ┌─────────────────────────────────────────────────────────┐ │
-│  │  Diff & Patch 引擎                                       │ │
-│  │  - 维护会话当前组件树                                     │ │
-│  │  - action 处理后 render 新树，diff 产出 PatchEntry       │ │
+│  │  Signal 响应式状态 + Diff & Patch 引擎                   │ │
+│  │  - Signal 自动追踪依赖，变更时精准 patch                  │ │
+│  │  - diff.cj 过渡方案（被 Signal 替代，待移除）             │ │
+│  │  - AppState 跨组件/跨页面 session 级状态                  │ │
 │  │  - patch 通过 WS 推送到前端                               │ │
 │  └─────────────────────────────────────────────────────────┘ │
 └──────────────────────────────────────────────────────────────┘
@@ -82,8 +83,9 @@
 | React Component | `Component` 接口 | 生命周期服务端可控，前后端时序一致 |
 | API Route / Handler | `getActions()` + lambda | 无需反射，显式注册，编译安全 |
 
-> **未来优化**：`var + ReRender` 是全树重渲染后再 diff，对于高频更新的局部组件可引入 `Signal<T>` 实现细粒度响应式。
-> `Store<S>` 用于跨组件/跨页面的全局状态。二者配合可覆盖从局部到全局的所有状态管理需求。
+> **响应式增强**：`var + ReRender` 是全树重渲染后再 diff，适用于低频交互。对于高频更新的局部组件可使用 `Signal<T>` 实现细粒度响应式——Signal 变更时仅触发自身订阅的 re-render，零对比开销。
+> `Store<S>` 提供函数式更新（`store.set(fn)`），配合 `SignalTracker` 实现自动依赖追踪：`initSignals` 在首次 render 时发现 Signal 依赖，自动订阅 reRender 回调。
+> `AppState` 接口 + `ctx.getState<T>()` 实现跨页面/跨组件的 session 级状态共享，三者配合可覆盖从局部到全局的所有状态管理需求。
 
 ### 3.1 组件契约 —— `Component` 接口
 
@@ -213,10 +215,9 @@ session.context["role"] = "admin"
 
 ### 3.5 后端 Diff 与 Patch（将废弃）
 
-**注意**：当前 diff 引擎是临时方案。Phase 5 实现 `Signal<T>` 后，响应式系统将直接
-定位脏节点并生成精准 patch，无需对比新旧两棵树。届时 `diff.cj` 将被移除。
+**注意**：当前 diff 引擎已由 Phase 5 的 `Signal<T>` 响应式系统替代。Signal 粒度追踪脏节点并直接生成 patch，无需对比新旧两棵树。`diff.cj` 将在 Signal 全量覆盖后移除。
 
-当前 diff 算法：先比较 type 和 key，不同则整节点替换；再逐属性比较 attr 变更；最后按位置比较 children（递归）。
+当前（过渡期）diff 算法：先比较 type 和 key，不同则整节点替换；再逐属性比较 attr 变更；最后按位置比较 children（递归）。
 
 ```cangjie
 public enum PatchResult { ReRender, Patch(Array<PatchEntry>) }
@@ -336,10 +337,151 @@ div([], attrs: Some(HashMap([("class", css.get("btn"))])))
 | 方法 | 触发条件 |
 |------|---------|
 | `render()` | 首次加载 / action 返回 `ReRender` |
-| `onMount` | 服务端收到前端 ack:mount |
+| `onMount` | 服务端收到前端 ack:mount；同时 `startSession` 时在 `initSignals` 前调用 |
 | `onUpdate` | patch 推送到前端后 |
 | `onUnmount` | 会话超时 / 页面跳转 / WS 断开 |
 | `onError` | action 方法抛出异常 |
+
+### 3.11 响应式状态管理（Signal / Store / AppState）
+
+框架提供三层状态管理，覆盖从局部到 session 级的不同作用域：
+
+| 层级 | 类型 | 作用域 | 适合场景 |
+|------|------|--------|----------|
+| 局部状态 | `var` 字段 | Component 实例（per-session） | 表单输入、临时变量 |
+| 响应式状态 | `Signal<T>` / `Store<S>` | Component 字段或模块级 | 需要自动追踪变更的状态 |
+| Session 级状态 | `AppState` 接口 | Session 级别，跨导航持久 | 用户信息、全局配置、跨组件数据 |
+
+#### 3.11.1 Signal\<T\>
+
+`Signal<T>` 是响应式系统的核心单元，提供单值容器 + 订阅通知能力。
+
+```cangjie
+public class Signal<T> {
+    func get(): T       // 读取 + 自动追踪（render 中调用时发现依赖）
+    func set(v: T)      // 写入 + 触发所有订阅者
+    func update(fn: (T) -> T)  // 函数式更新
+    func subscribe(fn: () -> Unit)
+}
+```
+
+**自动依赖追踪**：`SignalTracker.pendingSub` 是静态字段，`initSignals` 在首次 render 前将其设置为 reRender lambda。render 过程中任何 `Signal.get()` 调用都将该 reRender 添加到对应 Signal 的订阅列表。后续该 Signal 变更时自动触发 reRender。
+
+```cangjie
+// initSignals 核心流程
+SignalTracker.pendingSub = Some(reRender)
+let raw = state.page.render()        // Signal.get() 触发 → subs.add(reRender)
+SignalTracker.pendingSub = None
+```
+
+**双触发保护**：`SignalTracker.rendered` 标志防止 Signal subscriber 和 `ReRender` 返回值导致的重复 patch。subscriber 执行时将 `rendered = true`，`runAction` 检查到后跳过 `sendPatch`。
+
+#### 3.11.2 Store\<S\>
+
+`Store<S>` 基于 `Signal<T>` 的函数式状态容器，提供 `set(updater)` 替代直接赋值。
+
+```cangjie
+public class Store<S> {
+    func get(): S
+    func set(updater: (S) -> S)   // 例如: store.set({ v => v + 1 })
+    func subscribe(fn: () -> Unit)
+}
+```
+
+`Store` 只是一个薄封装，所有能力来自内部的 `Signal<S>`。`store.set(fn)` 等价于 `signal.update(fn)`。
+
+**使用方式**：
+
+```cangjie
+// 模块级 Store（全局 singleton，所有 session 共享）
+let globalCount = Store<Int64>(0)
+
+// Component 字段 Store（per-session，导航重建实例后重置）
+class HomePage <: Component {
+    var localStore = Store<String>("")
+}
+```
+
+#### 3.11.3 AppState 接口
+
+`AppState` 是空标记接口，用于将 session 级状态的类型注册到框架。
+
+```cangjie
+public interface AppState {}    // 空接口，仅做边界标记
+```
+
+**定义**：用户实现接口，内部使用 `Store<T>` 定义持久字段。
+
+```cangjie
+class AppData <: AppState {
+    var counter = Store<Int64>(0)
+    var user = Store<Option<User>>(None)
+}
+```
+
+**注册**：通过 `App.state<T>()` 编译时注册工厂，每个 session 独立实例。
+
+```cangjie
+App()
+    .state<AppData>({ => AppData() })
+    .state<CartState>({ => CartState() })
+    .host("0.0.0.0").port(8080).serve()
+```
+
+**访问**：两种方式。
+
+方式一 — Action handler 中通过 `ctx.getState<T>()`：
+
+```cangjie
+func onClick({ ctx =>
+    let d = ctx.getState<AppData>()
+    d.counter.set({ v => v + 1 })
+    PatchResult.ReRender
+})
+```
+
+方式二 — `onMount` 生命周期中保存到字段，`render()` 直接访问：
+
+```cangjie
+class HomePage <: Component {
+    var data: Option<AppData> = None
+
+    func onMount(ctx: LifecycleContext): Unit {
+        this.data = Some(ctx.getState<AppData>())
+    }
+
+    func render(): ComponentNode {
+        let d = this.getAppData()
+        p(text("counter: ${d.counter.get()}"))
+    }
+}
+```
+
+**实现原理**：
+
+```text
+App.state<AppData>(factory)
+  → App.stateRegs 存入 (typeName, factory)
+  → startSession → initStates(session)
+    → session.states[TypeInfo.of<T>().qualifiedName] = factory()
+  → onMount / runAction
+    → ctx.getState<T>()
+      → TypeInfo.of<T>().qualifiedName 反射取类名
+      → session.states[key] match 转型到 T
+```
+
+`LifecycleContext` 和 `ActionContext` 都持有 `session.states` 引用，均提供 `getState<T>()` 方法。转型使用仓颉 `match(s) { case t: T => t }` 模式匹配实现类型安全的向下转型。
+
+#### 3.11.4 三层次状态使用指南
+
+| 场景 | 推荐方式 | 理由 |
+|------|---------|------|
+| 页面内临时状态 | Component `var` 字段 | 无需 Signal 追踪，最轻量 |
+| 高频更新（定时器、动画） | `Signal<T>` 或 `Store<T>` | 自动追踪，精准 patch |
+| 跨页面共享 | `AppState` 接口 | session 级持久，`onMount` 注入 |
+| 全局共享（所有 session） | 模块级 `let store = Store<T>` | 单例，适合在线人数等 |
+| 导航不保留 | Component `var` 字段 | 新建实例自动重置 |
+| 导航需保留 | `AppState` 字段 | session 级生命周期 |
 
 ## 4. 技术选型
 
@@ -349,7 +491,9 @@ div([], attrs: Some(HashMap([("class", css.get("btn"))])))
 | WebSocket | tang `ctx.upgrade()` + 自研 WS 循环 |
 | 路由 | `@Page` 宏 + 编译时 `RouteRegistry` 注册 |
 | JSON 序列化 | `stdx.encoding.json.stream`（原生支持 HashMap/Array/Option） |
-| 组件树 Diff | 自研按 key + type 比较 |
+| 响应式系统 | `Signal<T>` 自动追踪 + `Store<S>` 函数式更新 |
+| Session 级状态 | `AppState` 接口 + `TypeInfo.of<T>()` 反射注册 |
+| 组件树 Diff | `Signal` 精准 patch（`diff.cj` 过渡期保留） |
 | 样式预处理 | `dart-sass` 二进制 + 宏（Phase 4） |
 | 前端渲染器 | 原生 JS (~2KB) |
 | 会话存储 | 内存 `HashMap` + TTL 淘汰 |
@@ -387,10 +531,15 @@ div([], attrs: Some(HashMap([("class", css.get("btn"))])))
 - [ ] 开发模式热重载（延迟到后期）。
 
 ### Phase 5: 优化与生态
-- [ ] `Signal<T>` + `Store<S>` — 响应式状态管理，**替代 diff 引擎**。
+- [x] `Signal<T>` + `Store<S>` — 响应式状态管理，**替代 diff 引擎**。
   - Signal 粒度追踪脏节点，精准 patch，零对比开销。
-  - diff.cj 在 Signal 实现后移除。
-  - `ReRender` 保留为语义糖（全量重建的极端 fallback）。
+  - `SignalTracker` 自动依赖追踪，`rendered` 标志防双触发。
+  - Component 与模块级 Store 均支持自动订阅。
+- [x] `AppState` 接口 — session 级状态注册表 `ctx.getState<T>()`。
+  - 编译时类型安全注册，`onMount` 注入组件字段。
+  - `LifecycleContext` 与 `ActionContext` 均可访问。
+  - 跨导航持久，新 Component 实例通过 onMount 获取。
+- [ ] diff.cj 在 Signal 全量覆盖后移除。
 - [ ] LRU 会话淘汰与内存监控。
 - [ ] 组件库抽象（Button、Form、Table、Modal 等）。
 - [ ] 性能优化（缓存策略）。
