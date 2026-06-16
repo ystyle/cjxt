@@ -6,13 +6,11 @@ import std.collection.HashMap
 import std.convert.*
 
 // ===== 全局 Store（模块级） =====
-// 所有 session 共享同一个值。适用于：在线用户数、全局配置等。
+// 所有 session 共享同一个值。
 let globalCount = Store<Int64>(0)
 
 // ===== AppState =====
-// 实现 AppState 空接口。框架按类型名自动注册每个 session 一个实例。
-// 跨页面/跨组件共享，但只能通过 ctx.getState<T>() 在 action handler 中访问。
-// render 阶段需要同步值的话，组件用 var 字段暂存，action 中同步。
+// onMount 时框架注入 AppState 引用，组件保存到字段，render 可直接访问。
 class AppData <: AppState {
     var counter = Store<Int64>(0)
 }
@@ -33,14 +31,19 @@ func cardLayout(page: ComponentNode): ComponentNode {
 @Page["/", "cjxt Counter"]
 class HomePage <: Component {
     var count: Int64 = 0
-    var sessionCount: Int64 = 0
+    var data: Option<AppData> = None
+
+    public func onMount(ctx: LifecycleContext): Unit {
+        this.data = Some(ctx.getState<AppData>())
+    }
 
     public func render(): ComponentNode {
+        let d = this.getAppData()
         div(
             h1(text("cjxt Counter")),
             p(text("count: ${this.count}")),
             p(text("global: ${globalCount.get()}")),
-            p(text("session: ${this.sessionCount}")),
+            p(text("session: ${d.counter.get()}")),
             button(text("+")).onClick({ ctx =>
                 this.count = this.count + 1
                 ctx.context["count"] = "${this.count}"
@@ -51,9 +54,7 @@ class HomePage <: Component {
                 PatchResult.ReRender
             }),
             button(text("session+")).onClick({ ctx =>
-                let d = ctx.getState<AppData>()
                 d.counter.set({ v => v + 1 })
-                this.sessionCount = d.counter.get()
                 PatchResult.ReRender
             }),
             button(text("关于")).onClick({ ctx =>
@@ -66,20 +67,42 @@ class HomePage <: Component {
             })
         )
     }
+
+    func getAppData(): AppData {
+        match (this.data) {
+            case Some(d) => d
+            case None => throw Exception("onMount not called")
+        }
+    }
 }
 
 @Page["/secret", "秘密页面", needCount10, cardLayout]
 class SecretPage <: Component {
+    var data: Option<AppData> = None
+
+    public func onMount(ctx: LifecycleContext): Unit {
+        this.data = Some(ctx.getState<AppData>())
+    }
+
     public func render(): ComponentNode {
+        let d = this.getAppData()
         div(
             h1(text("🔒 机密信息")),
             p(text("只有点够 10 次的人才能看到这里。")),
             p(text("global: ${globalCount.get()}")),
+            p(text("session: ${d.counter.get()}")),
             button(text("返回")).onClick({ ctx =>
                 ctx.router.push("/")
                 PatchResult.ReRender
             })
         )
+    }
+
+    func getAppData(): AppData {
+        match (this.data) {
+            case Some(d) => d
+            case None => throw Exception("onMount not called")
+        }
     }
 }
 

@@ -1,6 +1,7 @@
 package cjxt
 
 import std.collection.HashMap
+import std.reflect.*
 
 public type ActionHandler = (ActionContext) -> PatchResult
 
@@ -22,12 +23,22 @@ public struct LifecycleContext {
     let routeParams: HashMap<String, String>
     let componentKey: Option<String>
     let triggerAction: Option<String>
+    let states: HashMap<String, AppState>
 
-    public init(sessionId: String, routeParams: HashMap<String, String>, componentKey: Option<String>, triggerAction: Option<String>) {
+    public init(sessionId: String, routeParams: HashMap<String, String>, componentKey: Option<String>, triggerAction: Option<String>, states!: HashMap<String, AppState> = HashMap<String, AppState>()) {
         this.sessionId = sessionId
         this.routeParams = routeParams
         this.componentKey = componentKey
         this.triggerAction = triggerAction
+        this.states = states
+    }
+
+    public func getState<T>(): T where T <: AppState {
+        let key = TypeInfo.of<T>().qualifiedName
+        match (this.states.get(key)) {
+            case Some(s) => doGetState<T>(s)
+            case None => throw Exception("AppState not registered: ${key}")
+        }
     }
 }
 

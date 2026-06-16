@@ -120,6 +120,8 @@ public class App {
     private func startSession(ws: WebSocket, sid: String, page: Component): Unit {
         let session = sessions.save(sid, page, div([text("")]))
         this.initStates(session)
+        let mountCtx = LifecycleContext(sid, HashMap<String, String>(), None, None, states: session.states)
+        page.onMount(mountCtx)
         let state = SessionState(page, "/")
         session.path = "/"
         this.initSignals(ws, state, session)
@@ -154,7 +156,7 @@ public class App {
                 if (t == "ack") {
                     let ev = readField(raw, "event")
                     if (ev == "mount") {
-                        state.page.onMount(LifecycleContext("", HashMap<String, String>(), None, None))
+                        state.page.onMount(LifecycleContext(session.id, HashMap<String, String>(), None, None, states: session.states))
                     } else if (ev == "update") {
                         state.page.onUpdate(LifecycleContext("", HashMap<String, String>(), None, None))
                     }
