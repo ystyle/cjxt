@@ -4,10 +4,21 @@ import std.collection.ArrayList
 import std.sync.Mutex
 
 public class SignalTracker {
-    public static var pendingSub: Option<() -> Unit> = None
-    public static var rendered: Bool = false
+    static var scopeStack = ArrayList<() -> Unit>()
     public static var pendingRender: Bool = false
     public static var execMutex = Mutex()
+
+    public static func enterScope(cb: () -> Unit): Unit {
+        scopeStack.add(cb)
+    }
+
+    public static func exitScope(): Unit {
+        scopeStack.remove(scopeStack.size - 1..scopeStack.size)
+    }
+
+    public static func currentSub(): Option<() -> Unit> {
+        if (scopeStack.size > 0) { Some(scopeStack[scopeStack.size - 1]) } else { None }
+    }
 }
 
 public class Signal<T> {
@@ -19,7 +30,7 @@ public class Signal<T> {
     }
 
     public func get(): T {
-        match (SignalTracker.pendingSub) {
+        match (SignalTracker.currentSub()) {
             case Some(cb) => subs.add(cb)
             case None => ()
         }

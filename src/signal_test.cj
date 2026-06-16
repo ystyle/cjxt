@@ -72,13 +72,10 @@ class SignalTest {
     public func testSignalAutoSubscribe() {
         let s = Signal<Int64>(0)
         let captured = Box<Int64>(-1)
-        // 模拟 initSignals 中的 auto-subscribe 流程
-        SignalTracker.pendingSub = Some({ => captured.value = 99 })
+        SignalTracker.enterScope({ => captured.value = 99 })
         let v = s.get()
-        SignalTracker.pendingSub = None
+        SignalTracker.exitScope()
         @Expect(v, 0)
-        // 此时 s 的 subs 应该有刚才添加的 callback
-        // 再手动触发 set 来验证 subscriber 是否被调用
         s.set(42)
         @Expect(captured.value, 99)
     }
@@ -87,9 +84,9 @@ class SignalTest {
     public func testStoreAutoSubscribe() {
         let st = Store<Int64>(0)
         let captured = Box<Int64>(-1)
-        SignalTracker.pendingSub = Some({ => captured.value = 77 })
+        SignalTracker.enterScope({ => captured.value = 77 })
         let v = st.get()
-        SignalTracker.pendingSub = None
+        SignalTracker.exitScope()
         @Expect(v, 0)
         st.set({ v => v + 1 })
         @Expect(st.get(), 1)

@@ -143,9 +143,9 @@ public class App {
         let reRender = { =>
             SignalTracker.pendingRender = true
         }
-        SignalTracker.pendingSub = Some(reRender)
+        SignalTracker.enterScope(reRender)
         let raw = state.page.render()
-        SignalTracker.pendingSub = None
+        SignalTracker.exitScope()
         let tree = applyLayout(state.path, raw)
         state.refresh(tree)
         session.tree = raw
@@ -233,10 +233,9 @@ public class App {
         let ctx = ActionContext("", session.context, params, router, pushFn: { patches =>
             wsSendJson(ws, PushMsg(patches))
         }, sessionStates: session.states)
-        SignalTracker.rendered = false
         try {
             match (fn(ctx)) {
-                case PatchResult.ReRender => if (!flag.done && !SignalTracker.rendered) { this.sendPatch(ws, state, session) }
+                case PatchResult.ReRender => if (!flag.done) { this.sendPatch(ws, state, session) }
                 case _ => ()
             }
         } catch (e: Error) {
