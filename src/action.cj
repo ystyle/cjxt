@@ -98,6 +98,10 @@ public struct ActionContext {
         (this.pushFn)(patches)
     }
 
+    public func navigate(path: String): Unit {
+        this.router.push(path)
+    }
+
     public func getState<T>(): T where T <: AppState {
         let key = TypeInfo.of<T>().qualifiedName
         let raw = this.sessionStates.get(key)

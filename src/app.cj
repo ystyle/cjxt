@@ -148,9 +148,6 @@ public class App {
 
     private func listenLoop(ws: WebSocket, state: SessionState, session: Session): Unit {
         while (true) {
-            if (SignalTracker.pendingRender) {
-                this.sendPatch(ws, state, session)
-            }
             let frame = ws.read()
             if (frame.frameType == WebSocketFrameType.TextWebFrame) {
                 let raw = String.fromUtf8(frame.payload)
