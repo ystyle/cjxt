@@ -58,7 +58,8 @@ func renderTab(key: String, title: String, isActive: Bool, d: TabState): Compone
         [text(title)],
         attrs: Some(HashMap<String, String>([("class", clsName)]))
     ).onClick({ ctx =>
-        d.active.set(key)
+        let st = ctx.getState<TabState>()
+        st.active.set(key)
         PatchResult.ReRender
     })
 }
@@ -130,10 +131,11 @@ func renderTodo(d: TabState): ComponentNode {
             div([
                 todoInput(d.todoInput),
                 button([text("添加")]).className(cls("btn") + " " + cls("btn-primary")).onClick({ ctx =>
-                    let text = d.todoInput.get()
+                    let st = ctx.getState<TabState>()
+                    let text = st.todoInput.get()
                     if (text != "") {
-                        d.todoItems.update({ list => list.add(text); list })
-                        d.todoInput.set("")
+                        st.todoItems.update({ list => list.add(text); list })
+                        st.todoInput.set("")
                     }
                     PatchResult.ReRender
                 }),
@@ -165,7 +167,8 @@ func renderTodoList(items: ArrayList<String>, d: TabState, attrCard: HashMap<Str
             div([
                 span([text(item)]).className(cls("todo-text")),
                 button([text("删除")]).className(cls("btn") + " " + cls("btn-sm") + " " + cls("btn-danger")).onClick({ ctx =>
-                    d.todoItems.update({ list => list.remove(idx..idx + 1); list })
+                    let st = ctx.getState<TabState>()
+                    st.todoItems.update({ list => list.remove(idx..idx + 1); list })
                     PatchResult.ReRender
                 }),
             ]).className(cls("todo-item"))
