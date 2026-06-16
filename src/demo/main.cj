@@ -18,6 +18,8 @@ func cardLayout(page: ComponentNode): ComponentNode {
     ).style("background: #f5f5f5; min-height: 100vh")
 }
 
+let store = Store<Int64>(0)
+
 @Page["/", "cjxt Counter"]
 class HomePage <: Component {
     var count: Int64 = 0
@@ -26,9 +28,14 @@ class HomePage <: Component {
         div(
             h1(text("cjxt Counter")),
             p(text("count: ${this.count}")),
+            p(text("global: ${store.get()}")),
             button(text("+")).onClick({ ctx =>
                 this.count = this.count + 1
                 ctx.context["count"] = "${this.count}"
+                PatchResult.ReRender
+            }),
+            button(text("global+")).onClick({ ctx =>
+                store.set({ v => v + 1 })
                 PatchResult.ReRender
             }),
             button(text("关于")).onClick({ ctx =>
