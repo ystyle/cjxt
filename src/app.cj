@@ -140,12 +140,7 @@ public class App {
     }
 
     private func initSignals(ws: WebSocket, state: SessionState, session: Session): Unit {
-        let reRender = { =>
-            SignalTracker.pendingRender = true
-        }
-        SignalTracker.enterScope(reRender)
-        let raw = state.page.render()
-        SignalTracker.exitScope()
+        let raw = state.page.renderWithScope()
         let tree = applyLayout(state.path, raw)
         state.refresh(tree)
         session.tree = raw

@@ -7,6 +7,18 @@ public type ActionHandler = (ActionContext) -> PatchResult
 
 public interface Component {
     func render(): ComponentNode
+    func getComponentKey(): String { "" }
+
+    func reRender(): Unit {
+        SignalTracker.pendingRender = true
+    }
+
+    func renderWithScope(): ComponentNode {
+        SignalTracker.enterScope({ => this.reRender() })
+        let tree = this.render()
+        SignalTracker.exitScope()
+        tree
+    }
 
     func getActions(): HashMap<String, ActionHandler> {
         HashMap<String, ActionHandler>()
