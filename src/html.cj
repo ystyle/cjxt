@@ -132,6 +132,9 @@ func headTags(config: AppConfig): String {
     var html = ""
     html = "${html}    <title>${config.title}</title>\n"
     html = "${html}    <link rel=\"icon\" href=\"${config.favicon}\">\n"
+    if (config.cssBundle != "") {
+        html = "${html}    <link rel=\"stylesheet\" href=\"${config.cssBundle}\">\n"
+    }
     for ((rel, href) in config.links) {
         html = "${html}    <link rel=\"${rel}\" href=\"${href}\">\n"
     }

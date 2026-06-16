@@ -2,15 +2,20 @@ macro package cjxt.macros
 
 import std.ast.*
 import std.collection.{HashMap, ArrayList}
-import std.fs.{File, Directory, exists, removeIfExists}
+import std.fs.{File, Directory, OpenMode, exists, removeIfExists}
 import std.process.executeWithOutput
 
 let CACHE = "target/.css-cache"
+let _bundleInited = [false]
 
 func ensureCache(): Unit {
     if (!exists(CACHE)) {
         Directory.create(CACHE, recursive: true)
     }
+}
+
+func ensureDir(path: String): Unit {
+    if (!exists(path)) { Directory.create(path, recursive: true) }
 }
 
 func contentHash(s: String): String {
@@ -39,7 +44,7 @@ func cssModuleTokens(entries: Array<(String, String)>): Tokens {
     t
 }
 
-func processCSS(raw: String): Tokens {
+func processCSSGet(raw: String): (String, Array<(String, String)>) {
     let hash = contentHash(raw)
     let map = HashMap<String, String>()
     let parts = ArrayList<String>()
@@ -62,11 +67,21 @@ func processCSS(raw: String): Tokens {
     }
 
     let css = String.join(parts.toArray(), delimiter: "")
-    map.add("_css", css)
-
     let entries = ArrayList<(String, String)>()
     for ((k, v) in map) { entries.add((k, v)) }
-    cssModuleTokens(entries.toArray())
+    (css, entries.toArray())
+}
+
+func processCSS(raw: String): Tokens {
+    let (css, entries) = processCSSGet(raw)
+    cssModuleTokens(addCssEntry(entries, css))
+}
+
+func addCssEntry(entries: Array<(String, String)>, css: String): Array<(String, String)> {
+    let list = ArrayList<(String, String)>()
+    for (e in entries) { list.add(e) }
+    list.add(("_css", css))
+    list.toArray()
 }
 
 func compile(content: String): String {
@@ -90,11 +105,73 @@ func compile(content: String): String {
     }
 }
 
-public macro defineCSS(input: Tokens): Tokens {
-    var parts = ArrayList<String>()
-    for (tok in input) {
-        if (tok.kind == STRING_LITERAL && tok.value != "") { parts.add(tok.value) }
+func resolveCSSPath(path: String): String {
+    let candidates = ArrayList<String>()
+    candidates.add(path)
+    candidates.add("src/${path}")
+    candidates.add("public/css/${path}")
+    candidates.add("public/sass/${path}")
+    for (c in candidates) {
+        if (exists(c)) { return c }
     }
-    let content = String.join(parts.toArray(), delimiter: "")
-    processCSS(compile(content))
+    diagReport(DiagReportLevel.ERROR, Tokens(), "CSS file not found: ${path}",
+        "Searched: ${String.join(candidates.toArray(), delimiter: ", ")}")
+    ""
+}
+
+func writeCSSBundle(content: String): Unit {
+    let dir = "public/css"
+    let bundle = "${dir}/bundle.css"
+    if (!_bundleInited[0]) {
+        ensureDir(dir)
+        File.writeTo(bundle, "".toArray())
+        _bundleInited[0] = true
+    }
+    let file = File(bundle, OpenMode.Append)
+    file.write(content.toArray())
+}
+
+func mappingToArray(map: HashMap<String, String>): Array<(String, String)> {
+    let entries = ArrayList<(String, String)>()
+    for ((k, v) in map) { entries.add((k, v)) }
+    entries.toArray()
+}
+
+// ---- Macros ----
+
+// @defineCSS( .card { color: red; } ) — inline pure CSS
+// Note: CSS syntax is NOT valid Cangjie token sequences.
+// Only extremely simple CSS (no rgba, no #hex, no vendor prefixes) may work.
+// For real CSS, use @importCSS("file.css") instead.
+public macro defineCSS(input: Tokens): Tokens {
+    let raw = input.toString()
+    if (raw == "") { return Tokens() }
+    let (css, entries) = processCSSGet(raw)
+    writeCSSBundle(css)
+    cssModuleTokens(entries)
+}
+
+// @defineCSS[sass]( .card { $c: red; color: $c; } ) — inline Sass (same limitation)
+public macro defineCSS(attr: Tokens, input: Tokens): Tokens {
+    let raw = input.toString()
+    if (raw == "") { return Tokens() }
+    let compiled = compile(raw)
+    let (css, entries) = processCSSGet(compiled)
+    writeCSSBundle(css)
+    cssModuleTokens(entries)
+}
+
+// @importCSS("style.css") or @importCSS("style.scss") — file-based
+public macro importCSS(input: Tokens): Tokens {
+    if (input.size < 1) {
+        diagReport(DiagReportLevel.ERROR, input, "@importCSS requires a file path", "")
+        return Tokens()
+    }
+    let path = resolveCSSPath(input[0].value)
+    let raw = String.fromUtf8(File.readFrom(path))
+    let isSass = path.endsWith(".scss") || path.endsWith(".sass")
+    let content = if (isSass) { compile(raw) } else { raw }
+    let (css, entries) = processCSSGet(content)
+    writeCSSBundle(css)
+    cssModuleTokens(entries)
 }

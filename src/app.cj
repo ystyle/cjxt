@@ -2,8 +2,10 @@ package cjxt
 
 import std.collection.{ArrayList, HashMap}
 import std.reflect.*
+import std.fs.File
 import stdx.net.http.{WebSocket, WebSocketFrameType}
 import tang.{Tang, TangHttpContext}
+import tang.middleware.staticfile.{staticFiles, withPrefix, staticMiddleware}
 
 class SessionState {
     var page: Component
@@ -46,6 +48,11 @@ public class App {
     public func state<T>(factory: () -> T): App where T <: AppState {
         let name = TypeInfo.of<T>().qualifiedName
         this.stateRegs.add(StateReg(factory, name))
+        this
+    }
+
+    public func serveStatic(prefix: String, dir: String): App {
+        this.tangApp.get("${prefix}/*", staticFiles(dir, [withPrefix(prefix)]))
         this
     }
 
