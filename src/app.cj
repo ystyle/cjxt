@@ -141,12 +141,7 @@ public class App {
 
     private func initSignals(ws: WebSocket, state: SessionState, session: Session): Unit {
         let reRender = { =>
-            let raw = state.page.render()
-            let tree = applyLayout(state.path, raw)
-            state.refresh(tree)
-            session.tree = raw
-            wsSendJson(ws, PatchMsg([PatchEntryMsg("replace", "", tree)]))
-            SignalTracker.rendered = true
+            SignalTracker.pendingRender = true
         }
         SignalTracker.pendingSub = Some(reRender)
         let raw = state.page.render()
@@ -158,6 +153,10 @@ public class App {
 
     private func listenLoop(ws: WebSocket, state: SessionState, session: Session): Unit {
         while (true) {
+            if (SignalTracker.pendingRender) {
+                SignalTracker.pendingRender = false
+                this.sendPatch(ws, state, session)
+            }
             let frame = ws.read()
             if (frame.frameType == WebSocketFrameType.TextWebFrame) {
                 let raw = String.fromUtf8(frame.payload)
@@ -206,10 +205,9 @@ public class App {
         let ctx = ActionContext("", session.context, HashMap<String, String>(), router, pushFn: { patches =>
             wsSendJson(ws, PushMsg(patches))
         }, sessionStates: session.states)
-        SignalTracker.rendered = false
         try {
             match (fn(ctx)) {
-                case PatchResult.ReRender => if (!flag.done && !SignalTracker.rendered) { this.sendPatch(ws, state, session) }
+                case PatchResult.ReRender => if (!flag.done) { this.sendPatch(ws, state, session) }
                 case _ => ()
             }
         } catch (e: Error) {

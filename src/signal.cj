@@ -6,6 +6,7 @@ import std.sync.Mutex
 public class SignalTracker {
     public static var pendingSub: Option<() -> Unit> = None
     public static var rendered: Bool = false
+    public static var pendingRender: Bool = false
     public static var execMutex = Mutex()
 }
 
