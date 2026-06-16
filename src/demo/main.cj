@@ -5,6 +5,10 @@ import cjxt.macros.*
 import std.collection.HashMap
 import std.convert.*
 
+// ===== 全局 Store（模块级） =====
+// 所有 session 共享同一个值。适合：在线用户数、全局公告等。
+let globalCount = Store<Int64>(0)
+
 func needCount10(ctx: HashMap<String, String>): Bool {
     match (ctx.get("count")) {
         case Some(v) => (Int64.tryParse(v) ?? 0) >= 10
@@ -18,24 +22,30 @@ func cardLayout(page: ComponentNode): ComponentNode {
     ).style("background: #f5f5f5; min-height: 100vh")
 }
 
-let store = Store<Int64>(0)
-
 @Page["/", "cjxt Counter"]
 class HomePage <: Component {
+    // ===== 局部 Store（Component 字段） =====
+    // 每个 WS session 创建独立 HomePage 实例，所以是 per-session 的。
+    var localStore = Store<String>("")
     var count: Int64 = 0
 
     public func render(): ComponentNode {
         div(
             h1(text("cjxt Counter")),
             p(text("count: ${this.count}")),
-            p(text("global: ${store.get()}")),
+            p(text("global: ${globalCount.get()}")),
+            p(text("local: '${this.localStore.get()}'")),
             button(text("+")).onClick({ ctx =>
                 this.count = this.count + 1
                 ctx.context["count"] = "${this.count}"
                 PatchResult.ReRender
             }),
             button(text("global+")).onClick({ ctx =>
-                store.set({ v => v + 1 })
+                globalCount.set({ v => v + 1 })
+                PatchResult.ReRender
+            }),
+            button(text("local+")).onClick({ ctx =>
+                this.localStore.set({ v => "${v}+" })
                 PatchResult.ReRender
             }),
             button(text("关于")).onClick({ ctx =>
@@ -56,6 +66,7 @@ class SecretPage <: Component {
         div(
             h1(text("🔒 机密信息")),
             p(text("只有点够 10 次的人才能看到这里。")),
+            p(text("global: ${globalCount.get()}")),
             button(text("返回")).onClick({ ctx =>
                 ctx.router.push("/")
                 PatchResult.ReRender
