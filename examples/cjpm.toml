@@ -1,0 +1,21 @@
+[package]
+cjc-version = "1.1.0"
+name = "examples"
+version = "0.1.0"
+output-type = "executable"
+compile-option = "-Woff unused"
+link-option = "-L${CANGJIE_STDX_PATH} -lcangjie-dynamicLoader-opensslFFI"
+
+[target.x86_64-unknown-linux-gnu.bin-dependencies]
+path-option = ["${CANGJIE_STDX_PATH}"]
+[target.x86_64-apple-darwin.bin-dependencies]
+path-option = ["${CANGJIE_STDX_PATH}"]
+[target.x86_64-w64-mingw32.bin-dependencies]
+path-option = ["${CANGJIE_STDX_PATH}"]
+[target.aarch64-linux-ohos.bin-dependencies]
+path-option = ["${CANGJIE_STDX_PATH}"]
+[target.x86_64-linux-ohos.bin-dependencies]
+path-option = ["${CANGJIE_STDX_PATH}"]
+
+[dependencies]
+cjxt = { path = ".." }
