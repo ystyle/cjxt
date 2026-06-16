@@ -113,7 +113,7 @@ class CangjieUI {
         });
     }
     applyPatches(patches) {
-        // 保存焦点状态（按输入框索引，data-bind-id 每次渲染会变）
+        // 保存焦点状态
         const activeEl = document.activeElement;
         const allInputs = Array.from(document.querySelectorAll('input,textarea'));
         const focusIdx = activeEl ? allInputs.indexOf(activeEl) : -1;
@@ -122,18 +122,18 @@ class CangjieUI {
         if (activeEl) { delete activeEl.dataset.bindDirty; }
 
         for (const p of patches) {
-            if (p.op === 'replace') {
-                const path = p.path || '';
-                const parts = path.split('/').filter(Boolean);
-                if (parts.length === 0) {
-                    this.tree = p.value;
-                    this.container.innerHTML = '';
-                    this.renderTree(this.tree, this.container);
-                }
+            const parts = (p.path || '').split('/').filter(Boolean);
+            if (parts.length === 0 && p.op === 'replace') {
+                this.tree = p.value;
+                this.container.innerHTML = '';
+                this.renderTree(this.tree, this.container);
+            } else {
+                this.applyPatchToTree(this.tree, p.op, parts, p.value);
+                this.applyPatchToDOM(this.container, p.op, parts, p.value);
             }
         }
 
-        // 恢复焦点（按索引位置）
+        // 恢复焦点
         if (focusIdx >= 0) {
             const newInputs = document.querySelectorAll('input,textarea');
             if (focusIdx < newInputs.length) {
@@ -144,6 +144,58 @@ class CangjieUI {
                     el.selectionEnd = focusSelEnd ?? focusSelStart;
                 }
             }
+        }
+    }
+    applyPatchToTree(node, op, parts, value) {
+        if (!node || parts.length === 0) return;
+        if (parts[0] === 'attrs' && parts.length >= 2) {
+            if (op === 'replace') {
+                if (!node.attrs) node.attrs = {};
+                node.attrs[parts[1]] = value;
+            } else if (op === 'remove' && node.attrs) {
+                delete node.attrs[parts[1]];
+            }
+        } else if (parts[0] === 'actions' && parts.length >= 2) {
+            if (op === 'replace') {
+                if (!node.actions) node.actions = {};
+                node.actions[parts[1]] = value;
+            } else if (op === 'remove' && node.actions) {
+                delete node.actions[parts[1]];
+            }
+        } else if (parts[0] === 'children' && parts.length >= 2) {
+            const idx = parseInt(parts[1]);
+            if (op === 'add' && node.children) {
+                node.children.splice(idx, 0, { type: 'div', attrs: {}, actions: null, children: [] });
+            } else if (op === 'remove' && node.children) {
+                node.children.splice(idx, 1);
+            } else if (node.children && node.children[idx]) {
+                this.applyPatchToTree(node.children[idx], op, parts.slice(2), value);
+            }
+        } else if (parts[0] === 'text' && op === 'replace') {
+            if (!node.attrs) node.attrs = {};
+            node.attrs.text = value;
+        }
+    }
+    applyPatchToDOM(parent, op, parts, value) {
+        let el = parent;
+        let i = 0;
+        while (i < parts.length && parts[i] === 'children' && i + 1 < parts.length) {
+            const idx = parseInt(parts[i + 1]);
+            if (el.childNodes && idx < el.childNodes.length) {
+                el = el.childNodes[idx];
+            } else { return; }
+            i += 2;
+        }
+        if (i >= parts.length) return;
+        if (el.nodeType === 3) {
+            // text node — update textContent
+            if (op === 'replace') el.textContent = value;
+        } else if (parts[i] === 'attrs' && i + 1 < parts.length) {
+            const attr = parts[i + 1];
+            if (op === 'replace') el.setAttribute(attr, value);
+            else if (op === 'remove') el.removeAttribute(attr);
+        } else if (parts[i] === 'text' && op === 'replace') {
+            el.textContent = value;
         }
     }
 }

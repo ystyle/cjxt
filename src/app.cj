@@ -281,11 +281,11 @@ public class App {
     }
 
     private func sendPatch(ws: WebSocket, state: SessionState, session: Session): Unit {
-        let raw = state.page.render()
-        let tree = applyLayout(state.path, raw)
-        state.refresh(tree)
-        session.tree = raw
-        wsSendJson(ws, PatchMsg([PatchEntryMsg("replace", "", tree)]))
+        let newTree = state.page.render()
+        let patches = diffTree(session.tree, newTree, "")
+        state.refresh(newTree)
+        session.tree = newTree
+        sendGranularPatch(ws, patches)
     }
 }
 

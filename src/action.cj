@@ -1,8 +1,9 @@
 package cjxt
 
-import std.collection.HashMap
+import std.collection.{HashMap, ArrayList}
 import std.reflect.*
 import stdx.encoding.json.stream.{JsonWriter, JsonSerializable}
+import stdx.net.http.WebSocket
 
 public interface AppState {}
 
@@ -29,6 +30,50 @@ public struct PatchEntry {
         this.path = path
         this.value = value
         this.from = from
+    }
+}
+
+// 颗粒 patch（用于 diffTree，value 为字符串）
+public struct PatchEntryStr <: JsonSerializable {
+    let op: String
+    let path: String
+    let value: Option<String>
+
+    public init(op: String, path: String, value: Option<String>) {
+        this.op = op
+        this.path = path
+        this.value = value
+    }
+
+    public func toJson(w: JsonWriter): Unit {
+        w.startObject()
+        w.writeName("op").writeValue(this.op)
+        w.writeName("path").writeValue(this.path)
+        match (this.value) {
+            case Some(v) => w.writeName("value").writeValue(v)
+            case None => ()
+        }
+        w.endObject()
+    }
+}
+
+public func sendGranularPatch(ws: WebSocket, patches: ArrayList<PatchEntryStr>): Unit {
+    if (patches.size == 0) { return }
+    wsSendJson(ws, StrPatchMsg(patches.toArray()))
+}
+
+public struct StrPatchMsg <: JsonSerializable {
+    let patches: Array<PatchEntryStr>
+
+    public init(patches: Array<PatchEntryStr>) {
+        this.patches = patches
+    }
+
+    public func toJson(w: JsonWriter): Unit {
+        w.startObject()
+        w.writeName("kind").writeValue("patch")
+        w.writeName("patches").writeValue(this.patches)
+        w.endObject()
     }
 }
 

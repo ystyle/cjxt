@@ -46,11 +46,11 @@ private func mergeKeys(a: ArrayList<String>, b: ArrayList<String>): ArrayList<St
 
 // ---- diff engine ----
 
-public func diffTree(old: ComponentNode, newTree: ComponentNode, basePath: String): ArrayList<PatchEntry> {
-    let patches = ArrayList<PatchEntry>()
+public func diffTree(old: ComponentNode, newTree: ComponentNode, basePath: String): ArrayList<PatchEntryStr> {
+    let patches = ArrayList<PatchEntryStr>()
 
     if (old._typ != newTree._typ || !eqOpt(old._key, newTree._key)) {
-        patches.add(PatchEntry("replace", basePath, Some(""), None))
+        patches.add(PatchEntryStr("replace", basePath, Some("")))
         return patches
     }
 
@@ -62,8 +62,8 @@ public func diffTree(old: ComponentNode, newTree: ComponentNode, basePath: Strin
         if (oldV != newV) {
             let ap = if (basePath == "") { "/attrs/${key}" } else { "${basePath}/attrs/${key}" }
             match (newV) {
-                case Some(v) => patches.add(PatchEntry("replace", ap, Some(v), None))
-                case None => patches.add(PatchEntry("remove", ap, None, None))
+                case Some(v) => patches.add(PatchEntryStr("replace", ap, Some(v)))
+                case None => patches.add(PatchEntryStr("remove", ap, None))
             }
         }
     }
@@ -76,8 +76,8 @@ public func diffTree(old: ComponentNode, newTree: ComponentNode, basePath: Strin
         if (oldA != newA) {
             let ap = if (basePath == "") { "/actions/${key}" } else { "${basePath}/actions/${key}" }
             match (newA) {
-                case Some(v) => patches.add(PatchEntry("replace", ap, Some(v), None))
-                case None => patches.add(PatchEntry("remove", ap, None, None))
+                case Some(v) => patches.add(PatchEntryStr("replace", ap, Some(v)))
+                case None => patches.add(PatchEntryStr("remove", ap, None))
             }
         }
     }
@@ -87,9 +87,9 @@ public func diffTree(old: ComponentNode, newTree: ComponentNode, basePath: Strin
     for (i in 0..maxLen) {
         let cp = if (basePath == "") { "/children/${i}" } else { "${basePath}/children/${i}" }
         if (i >= old._children.size) {
-            patches.add(PatchEntry("add", cp, Some(""), None))
+            patches.add(PatchEntryStr("add", cp, None))
         } else if (i >= newTree._children.size) {
-            patches.add(PatchEntry("remove", cp, None, None))
+            patches.add(PatchEntryStr("remove", cp, None))
         } else {
             let sub = diffTree(old._children[i], newTree._children[i], cp)
             for (p in sub) { patches.add(p) }
