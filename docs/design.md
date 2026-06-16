@@ -483,6 +483,129 @@ App.state<AppData>(factory)
 | 导航不保留 | Component `var` 字段 | 新建实例自动重置 |
 | 导航需保留 | `AppState` 字段 | session 级生命周期 |
 
+### 3.12 数据绑定（表单双向数据流）
+
+#### 3.12.1 设计目标
+
+表单是服务端驱动 UI 的典型痛点——用户的输入只存在于浏览器 DOM 中，服务端需要实时感知输入以执行校验、联动计算和提交。本框架的数据绑定设计遵循**单向数据流**原则：
+
+```text
+Keypress → DOM input.value 更新（本地，即时）
+    ↓ (可配触发时机：debounce / blur / enter)
+WS bind 消息 → server Signal.set() → reRender → patch
+    ↓
+patch 更新计算字段（校验结果、联动下拉、总价等）不覆盖用户正在编辑的 input
+```
+
+前端维护 input 自身的局部状态（用户敲入的字符），服务端只负责计算和联动，双方各司其职。
+
+#### 3.12.2 核心 API
+
+复用 `stdx.encoding.json.stream` 已有的 `JsonDeserializable<T>` 接口，不引入新类型。
+
+```cangjie
+import stdx.encoding.json.stream.{JsonWriter, JsonSerializable, JsonReader, JsonDeserializable}
+
+// P0 — 简单绑定（String 和 Int64 等内置类型已实现 JsonDeserializable）
+input(placeholder: "Email").bind(this.email)
+input(type: "number").bind(this.age)
+
+// P1 — 复杂类型（Array、自定义对象）
+// 自定义类型实现 JsonDeserializable 即可
+extend TagList <: JsonDeserializable<TagList> {
+    static func fromJson(r: JsonReader): TagList { ... }
+}
+tagWidget().bind(this.tags)   // T = TagList, 自动反序列化
+```
+
+`bind()` 方法签名：
+
+```cangjie
+public func bind<T>(signal: Signal<T>): ComponentNode where T <: JsonDeserializable<T>
+```
+
+#### 3.12.3 ComponentNode 扩展
+
+新增 `_bids` 字段，结构与 `_actions` 类似，但不作为 HTML 属性渲染，仅服务端用于路由 bind 事件。
+
+```cangjie
+public struct ComponentNode <: JsonSerializable {
+    let _bids: Option<HashMap<String, String>>   // bind-id → handler-name
+    // _handlers 中存放对应的 ActionHandler
+}
+```
+
+`bind()` 链式方法：
+1. 生成 bind ID（如 `_b_1`）
+2. 在 `_bids` 中记录 ID → ID 映射
+3. 在 `_handlers` 中注册 ActionHandler：
+   - 从 `ctx.params["value"]` 取 JSON 字符串
+   - 转为 `ByteBuffer` → 创建 `JsonReader`
+   - 调用 `T.fromJson(reader)` 反序列化
+   - `signal.set(parsed)` 更新响应式状态
+   - 返回 `PatchResult.ReRender`
+
+#### 3.12.4 WS 协议
+
+```json
+// 浏览器 → 服务端
+{"type":"bind","name":"_b_1","value":"\"hello\""}
+{"type":"bind","name":"_b_2","value":"42"}
+{"type":"bind","name":"_b_3","value":"[\"a\",\"b\"]"}
+
+// 服务端 → 浏览器（同普通 action 的 patch）
+{"kind":"patch","patches":[{"op":"replace","path":"","value":<tree>}]}
+```
+
+`"value"` 字段始终是 JSON 文本，`JsonReader` 天然兼容。
+
+#### 3.12.5 前端行为
+
+**渲染阶段**：
+- `input`/`select`/`textarea` 渲染时设 `value="${signal.get()}"` + `data-bind-id`
+- `value` 来自服务端 `Signal.get()` 的 JSON 序列化
+
+**事件阶段**：
+- 监听 `input`（文本类）/ `change`（选择类/复选框）
+- debounce 300ms 后发送 `bind` 消息
+- onBlur 立即发送（取消 debounce）
+- onEnter（`input[type=text]`）立即发送
+- 在发送前标记 `data-bind-dirty`，patch 时不覆盖该 input 的 value
+
+**patch 阶段**：
+- 检查目标元素是否有 `data-bind-id` + `data-bind-dirty`
+- 有 → 跳过 `value` 属性更新，继续更新其他属性（`disabled`、`class`、`placeholder`）
+- 无 → 正常更新全部属性
+- 非 `data-bind-id` 的元素正常更新全部属性
+
+#### 3.12.6 服务端处理
+
+```
+WS bind message
+  → listenLoop 识别 t == "bind"
+  → 提取 name + value
+  → dispatchBind(ws, state, session, name, value)
+    → 从 state.handlers 查找 handler
+    → ActionContext.params["value"] = value
+    → fn(ctx)
+      → JsonReader 读取 value
+      → T.fromJson(reader) → signal.set(val)
+        → Signal subscriber reRender → patch
+          → 联动字段在 reRender 中自动计算
+```
+
+#### 3.12.7 类型支持矩阵
+
+| 类型 | 支持级别 | 备注 |
+|------|---------|------|
+| `String` | P0 | 内置，`JsonReader.readString()` |
+| `Int64` | P0 | 内置，`JsonReader.readInt64()` |
+| `Bool` | P0 | 内置，`JsonReader.readBool()` |
+| `Float64` | P1 | 内置支持 |
+| `Array<String>` | P1 | 用户 `extend` + `fromJson` |
+| `HashMap<String, String>` | P1 | 用户 `extend` + `fromJson` |
+| 自定义 struct/class | P1 | 实现 `JsonDeserializable<T>` |
+
 ## 4. 技术选型
 
 | 模块 | 技术方案 |
@@ -539,6 +662,10 @@ App.state<AppData>(factory)
   - 编译时类型安全注册，`onMount` 注入组件字段。
   - `LifecycleContext` 与 `ActionContext` 均可访问。
   - 跨导航持久，新 Component 实例通过 onMount 获取。
+- [ ] **数据绑定** — `bind<T>()` 表单双向数据流。
+  - 复用 `JsonDeserializable<T>`，`where T <: JsonDeserializable<T>` 约束。
+  - `ComponentNode._bids` 字段 + WS `bind` 消息。
+  - 前端 debounce/blur/enter 触发 + patch 跳过编辑中 input。
 - [ ] diff.cj 在 Signal 全量覆盖后移除。
 - [ ] LRU 会话淘汰与内存监控。
 - [ ] 组件库抽象（Button、Form、Table、Modal 等）。
