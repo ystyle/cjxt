@@ -90,6 +90,27 @@ class CangjieUI {
         }
         for (const child of node.children || []) this.renderTree(child, el);
         parentEl.appendChild(el);
+        // 绑定 input 事件
+        if (el.hasAttribute('data-bind-id')) this.attachBind(el);
+    }
+    attachBind(el) {
+        const bid = el.getAttribute('data-bind-id');
+        let timer = null;
+        const send = () => {
+            this.send({ type: 'bind', name: bid, value: el.value ?? el.textContent ?? '' });
+        };
+        el.addEventListener('input', () => {
+            clearTimeout(timer);
+            timer = setTimeout(send, 300);
+            el.dataset.bindDirty = '1';
+        });
+        el.addEventListener('blur', () => {
+            clearTimeout(timer);
+            if (el.dataset.bindDirty) { send(); delete el.dataset.bindDirty; }
+        });
+        el.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { clearTimeout(timer); send(); }
+        });
     }
     applyPatches(patches) {
         for (const p of patches) {

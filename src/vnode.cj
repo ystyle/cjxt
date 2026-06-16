@@ -1,7 +1,8 @@
 package cjxt
 
 import std.collection.HashMap
-import stdx.encoding.json.stream.{JsonWriter, JsonSerializable}
+import std.io.{ByteBuffer, SeekPosition}
+import stdx.encoding.json.stream.{JsonWriter, JsonSerializable, JsonReader, JsonDeserializable}
 
 public enum ComponentType <: ToString & Equatable<ComponentType> {
     | Div | Span | Button | Input | Form
@@ -40,10 +41,16 @@ public type Attributes = HashMap<String, String>
 public type ActionMap = HashMap<String, String>
 
 let _hid = [0]
+let _bid = [0]
 
 func nextHid(): String {
     _hid[0] = _hid[0] + 1
     "_h${_hid[0]}"
+}
+
+func nextBid(): String {
+    _bid[0] = _bid[0] + 1
+    "_b${_bid[0]}"
 }
 
 public struct ComponentNode <: JsonSerializable {
@@ -105,6 +112,27 @@ public struct ComponentNode <: JsonSerializable {
         ComponentNode(this._typ, this._children, attrs: this._attrs, key: this._key, actions: Some(acts), handlers: Some(hmap))
     }
 
+    public func bind<T>(signal: Signal<T>): ComponentNode where T <: JsonDeserializable<T> {
+        let id = nextBid()
+        let attrs = addAttrItem(this._attrs, "data-bind-id", id)
+        let handler: ActionHandler = { ctx =>
+            let raw = match (ctx.params.get("value")) { case Some(v) => v case None => "" }
+            let buf = ByteBuffer()
+            let w = JsonWriter(buf)
+            w.jsonValue(raw)
+            w.flush()
+            buf.flush()
+            buf.seek(SeekPosition.Begin(0))
+            let reader = JsonReader(buf)
+            let parsed = reader.readValue<T>()
+            signal.set(parsed)
+            PatchResult.ReRender
+        }
+        let hmap = HashMap<String, ActionHandler>()
+        hmap[id] = handler
+        ComponentNode(this._typ, this._children, attrs: Some(attrs), key: this._key, actions: this._actions, handlers: Some(hmap))
+    }
+
     public func style(v: String): ComponentNode {
         this.attr("style", v)
     }
@@ -130,6 +158,15 @@ public func collectHandlers(node: ComponentNode, out: HashMap<String, ActionHand
 
 func doCollect(m: HashMap<String, ActionHandler>, out: HashMap<String, ActionHandler>): Unit {
     for ((k, v) in m) { out.add(k, v) }
+}
+
+func addAttrItem(existing: Option<HashMap<String, String>>, k: String, v: String): HashMap<String, String> {
+    let m = match (existing) {
+        case Some(mm) => let c = HashMap<String, String>(); for ((kk, vv) in mm) { c[kk] = vv }; c
+        case None => HashMap<String, String>()
+    }
+    m[k] = v
+    m
 }
 
 // ---- 标签辅助函数 ----

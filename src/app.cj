@@ -163,6 +163,10 @@ public class App {
                 } else if (t == "action") {
                     let name = readField(raw, "name")
                     if (name != "") { this.dispatchAction(ws, state, session, name) }
+                } else if (t == "bind") {
+                    let name = readField(raw, "name")
+                    let value = readBindValue(raw)
+                    if (name != "") { this.dispatchBind(ws, state, session, name, value) }
                 } else if (t == "navigate") {
                     let path = readField(raw, "path")
                     if (path != "") { this.handleNavigate(ws, state, session, path) }
@@ -200,6 +204,32 @@ public class App {
             }
         } catch (e: Error) {
             state.page.onError(ErrorContext("", name, e))
+        }
+    }
+
+    private func dispatchBind(ws: WebSocket, state: SessionState, session: Session, name: String, value: String): Unit {
+        match (state.handlers.get(name)) {
+            case Some(fn) => this.doBind(ws, state, session, fn, value, name)
+            case None => ()
+        }
+    }
+
+    private func doBind(ws: WebSocket, state: SessionState, session: Session, fn: ActionHandler, value: String, aname: String): Unit {
+        let params = HashMap<String, String>()
+        params["value"] = value
+        let flag = NavFlag()
+        let router = Router("", { path => this.execNavAction(ws, state, session, flag, path) })
+        let ctx = ActionContext("", session.context, params, router, pushFn: { patches =>
+            wsSendJson(ws, PushMsg(patches))
+        }, sessionStates: session.states)
+        SignalTracker.rendered = false
+        try {
+            match (fn(ctx)) {
+                case PatchResult.ReRender => if (!flag.done && !SignalTracker.rendered) { this.sendPatch(ws, state, session) }
+                case _ => ()
+            }
+        } catch (e: Error) {
+            state.page.onError(ErrorContext("", aname, e))
         }
     }
 
@@ -277,4 +307,16 @@ private func doReadStr(s: String, from: Int64): String {
         case Some(e) => s[from..e]
         case None => ""
     }
+}
+
+private func readBindValue(raw: String): String {
+    let mark = "\"value\":"
+    match (raw.indexOf(mark)) {
+        case Some(idx) => doReadBindValue(raw, idx + mark.size)
+        case None => ""
+    }
+}
+
+func doReadBindValue(s: String, from: Int64): String {
+    s[from..s.size - 1]
 }
