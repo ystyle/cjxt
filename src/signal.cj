@@ -1,10 +1,12 @@
 package cjxt
 
 import std.collection.ArrayList
+import std.sync.Mutex
 
 public class SignalTracker {
     public static var pendingSub: Option<() -> Unit> = None
     public static var rendered: Bool = false
+    public static var execMutex = Mutex()
 }
 
 public class Signal<T> {

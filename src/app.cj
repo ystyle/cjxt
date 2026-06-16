@@ -3,6 +3,7 @@ package cjxt
 import std.collection.{ArrayList, HashMap}
 import std.reflect.*
 import std.fs.File
+import std.sync.Mutex
 import stdx.net.http.{WebSocket, WebSocketFrameType}
 import tang.{Tang, TangHttpContext}
 import tang.middleware.staticfile.{staticFiles, withPrefix, staticMiddleware}
@@ -126,7 +127,7 @@ public class App {
 
     private func startSession(ws: WebSocket, sid: String, page: Component): Unit {
         let session = sessions.save(sid, page, div([text("")]))
-        this.initStates(session)
+        if (session.states.size == 0) { this.initStates(session) }
         let mountCtx = LifecycleContext(sid, HashMap<String, String>(), None, None, states: session.states)
         page.onMount(mountCtx)
         let state = SessionState(page, "/")
@@ -145,6 +146,7 @@ public class App {
             state.refresh(tree)
             session.tree = raw
             wsSendJson(ws, PatchMsg([PatchEntryMsg("replace", "", tree)]))
+            SignalTracker.rendered = true
         }
         SignalTracker.pendingSub = Some(reRender)
         let raw = state.page.render()
@@ -198,6 +200,7 @@ public class App {
     }
 
     private func runAction(ws: WebSocket, state: SessionState, session: Session, name: String, fn: ActionHandler): Unit {
+        SignalTracker.execMutex.lock()
         let flag = NavFlag()
         let router = Router("", { path => this.execNavAction(ws, state, session, flag, path) })
         let ctx = ActionContext("", session.context, HashMap<String, String>(), router, pushFn: { patches =>
@@ -212,13 +215,16 @@ public class App {
         } catch (e: Error) {
             state.page.onError(ErrorContext("", name, e))
         }
+        SignalTracker.execMutex.unlock()
     }
 
     private func dispatchBind(ws: WebSocket, state: SessionState, session: Session, name: String, value: String): Unit {
+        SignalTracker.execMutex.lock()
         match (state.handlers.get(name)) {
             case Some(fn) => this.doBind(ws, state, session, fn, value, name)
             case None => ()
         }
+        SignalTracker.execMutex.unlock()
     }
 
     private func doBind(ws: WebSocket, state: SessionState, session: Session, fn: ActionHandler, value: String, aname: String): Unit {
