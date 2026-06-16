@@ -177,7 +177,9 @@ class CangjieUI {
         }
     }
     applyPatchToDOM(parent, op, parts, value) {
-        let el = parent;
+        // parent = #app, start from its first child (container div)
+        let el = parent.firstElementChild;
+        if (!el) return;
         let i = 0;
         while (i < parts.length && parts[i] === 'children' && i + 1 < parts.length) {
             const idx = parseInt(parts[i + 1]);

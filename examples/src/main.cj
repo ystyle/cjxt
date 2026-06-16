@@ -5,11 +5,11 @@ import cjxt.macros.*
 import std.collection.{ArrayList, HashMap}
 
 let css = @importCSS("style.css")
+let globalCount = Signal<Int64>(0)
 func cls(name: String): String { css.get(name) }
 
 class TabState <: AppState {
     var active = Signal<String>("counter")
-    var globalCount = Signal<Int64>(0)
     var inputText = Signal<String>("")
     var inputEmail = Signal<String>("")
     var inputSearch = Signal<String>("")
@@ -70,12 +70,12 @@ func renderCounter(d: TabState): ComponentNode {
     div([
         div([
             div([text("Global Counter")], attrs: Some(HashMap<String, String>([("class", cls("card-title"))]))),
-            div([text("${d.globalCount.get()}")], attrs: Some(HashMap<String, String>([("class", cls("counter-value"))]))),
+            div([text("${globalCount.get()}")], attrs: Some(HashMap<String, String>([("class", cls("counter-value"))]))),
             div([
-                btn("-5", "btn-outline", { ctx => let st = ctx.getState<TabState>(); st.globalCount.set(st.globalCount.get() - 5); PatchResult.ReRender }),
-                btn("-1", "btn-outline", { ctx => let st = ctx.getState<TabState>(); st.globalCount.set(st.globalCount.get() - 1); PatchResult.ReRender }),
-                btn("+1", "btn-primary", { ctx => let st = ctx.getState<TabState>(); st.globalCount.set(st.globalCount.get() + 1); PatchResult.ReRender }),
-                btn("+5", "btn-primary", { ctx => let st = ctx.getState<TabState>(); st.globalCount.set(st.globalCount.get() + 5); PatchResult.ReRender }),
+                btn("-5", "btn-outline", { ctx => globalCount.set(globalCount.get() - 5); PatchResult.ReRender }),
+                btn("-1", "btn-outline", { ctx => globalCount.set(globalCount.get() - 1); PatchResult.ReRender }),
+                btn("+1", "btn-primary", { ctx => globalCount.set(globalCount.get() + 1); PatchResult.ReRender }),
+                btn("+5", "btn-primary", { ctx => globalCount.set(globalCount.get() + 5); PatchResult.ReRender }),
             ], attrs: Some(attrRow)),
             div([text("所有 session 共享")], attrs: Some(HashMap<String, String>([("class", cls("desc"))]))),
         ], attrs: Some(attrCard)),
