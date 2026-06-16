@@ -6,8 +6,16 @@ import std.collection.HashMap
 import std.convert.*
 
 // ===== 全局 Store（模块级） =====
-// 所有 session 共享同一个值。适合：在线用户数、全局公告等。
+// 所有 session 共享同一个值。适用于：在线用户数、全局配置等。
 let globalCount = Store<Int64>(0)
+
+// ===== AppState =====
+// 实现 AppState 空接口。框架按类型名自动注册每个 session 一个实例。
+// 跨页面/跨组件共享，但只能通过 ctx.getState<T>() 在 action handler 中访问。
+// render 阶段需要同步值的话，组件用 var 字段暂存，action 中同步。
+class AppData <: AppState {
+    var counter = Store<Int64>(0)
+}
 
 func needCount10(ctx: HashMap<String, String>): Bool {
     match (ctx.get("count")) {
@@ -24,17 +32,15 @@ func cardLayout(page: ComponentNode): ComponentNode {
 
 @Page["/", "cjxt Counter"]
 class HomePage <: Component {
-    // ===== 局部 Store（Component 字段） =====
-    // 每个 WS session 创建独立 HomePage 实例，所以是 per-session 的。
-    var localStore = Store<String>("")
     var count: Int64 = 0
+    var sessionCount: Int64 = 0
 
     public func render(): ComponentNode {
         div(
             h1(text("cjxt Counter")),
             p(text("count: ${this.count}")),
             p(text("global: ${globalCount.get()}")),
-            p(text("local: '${this.localStore.get()}'")),
+            p(text("session: ${this.sessionCount}")),
             button(text("+")).onClick({ ctx =>
                 this.count = this.count + 1
                 ctx.context["count"] = "${this.count}"
@@ -44,8 +50,10 @@ class HomePage <: Component {
                 globalCount.set({ v => v + 1 })
                 PatchResult.ReRender
             }),
-            button(text("local+")).onClick({ ctx =>
-                this.localStore.set({ v => "${v}+" })
+            button(text("session+")).onClick({ ctx =>
+                let d = ctx.getState<AppData>()
+                d.counter.set({ v => v + 1 })
+                this.sessionCount = d.counter.get()
                 PatchResult.ReRender
             }),
             button(text("关于")).onClick({ ctx =>
@@ -90,5 +98,7 @@ class AboutPage <: Component {
 }
 
 main() {
-    App().host("0.0.0.0").port(8080).serve()
+    App()
+        .state<AppData>({ => AppData() })
+        .host("0.0.0.0").port(8080).serve()
 }

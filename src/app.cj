@@ -1,6 +1,7 @@
 package cjxt
 
-import std.collection.HashMap
+import std.collection.{ArrayList, HashMap}
+import std.reflect.*
 import stdx.net.http.{WebSocket, WebSocketFrameType}
 import tang.{Tang, TangHttpContext}
 
@@ -29,6 +30,7 @@ public class App {
     var config: AppConfig
     var bindHost: String
     var bindPort: UInt16
+    let stateRegs = ArrayList<StateReg>()
 
     public init() {
         this.tangApp = Tang()
@@ -41,10 +43,22 @@ public class App {
     public func port(p: UInt16): App { this.bindPort = p; this }
     public func configure(c: AppConfig): App { this.config = c; this }
 
+    public func state<T>(factory: () -> T): App where T <: AppState {
+        let name = TypeInfo.of<T>().qualifiedName
+        this.stateRegs.add(StateReg(factory, name))
+        this
+    }
+
     public func serve(): Unit {
         this.tangApp.get("/", { ctx => this.renderHTTP(ctx) })
         this.tangApp.get("/ws", { ctx => this.upgradeWS(ctx) })
         this.tangApp.setHost(this.bindHost).setPort(this.bindPort).listen()
+    }
+
+    private func initStates(session: Session): Unit {
+        for (reg in this.stateRegs) {
+            session.states.add(reg.typeName, reg.factory())
+        }
     }
 
     private func renderHTTP(ctx: TangHttpContext): Unit {
@@ -57,6 +71,7 @@ public class App {
     private func servePage(ctx: TangHttpContext, p: Component): Unit {
         let tree = p.render()
         let session = sessions.create(p, tree)
+        this.initStates(session)
         ctx.contentType("text/html; charset=utf-8").writeString(generateHtmlShell(session.id, config: this.config))
     }
 
@@ -104,6 +119,7 @@ public class App {
 
     private func startSession(ws: WebSocket, sid: String, page: Component): Unit {
         let session = sessions.save(sid, page, div([text("")]))
+        this.initStates(session)
         let state = SessionState(page, "/")
         session.path = "/"
         this.initSignals(ws, state, session)
@@ -173,7 +189,7 @@ public class App {
         let router = Router("", { path => this.execNavAction(ws, state, session, flag, path) })
         let ctx = ActionContext("", session.context, HashMap<String, String>(), router, pushFn: { patches =>
             wsSendJson(ws, PushMsg(patches))
-        })
+        }, sessionStates: session.states)
         SignalTracker.rendered = false
         try {
             match (fn(ctx)) {
@@ -234,6 +250,16 @@ public class App {
 class NavFlag {
     var done: Bool
     public init() { this.done = false }
+}
+
+class StateReg {
+    let factory: () -> AppState
+    let typeName: String
+
+    public init(factory: () -> AppState, typeName: String) {
+        this.factory = factory
+        this.typeName = typeName
+    }
 }
 
 private func readField(raw: String, field: String): String {

@@ -1,7 +1,17 @@
 package cjxt
 
 import std.collection.HashMap
+import std.reflect.*
 import stdx.encoding.json.stream.{JsonWriter, JsonSerializable}
+
+public interface AppState {}
+
+func doGetState<T>(s: AppState): T where T <: AppState {
+    match (s) {
+        case t: T => t
+        case _ => throw Exception("type mismatch for AppState")
+    }
+}
 
 public enum PatchResult {
     | ReRender
@@ -28,17 +38,28 @@ public struct ActionContext {
     let params: HashMap<String, String>
     let router: Router
     let pushFn: (Array<PatchEntryMsg>) -> Unit
+    let sessionStates: HashMap<String, AppState>
 
-    public init(sessionId: String, context: HashMap<String, String>, params: HashMap<String, String>, router: Router, pushFn!: (Array<PatchEntryMsg>) -> Unit = { _ => () }) {
+    public init(sessionId: String, context: HashMap<String, String>, params: HashMap<String, String>, router: Router, pushFn!: (Array<PatchEntryMsg>) -> Unit = { _ => () }, sessionStates!: HashMap<String, AppState> = HashMap<String, AppState>()) {
         this.sessionId = sessionId
         this.context = context
         this.params = params
         this.router = router
         this.pushFn = pushFn
+        this.sessionStates = sessionStates
     }
 
     public func push(patches: Array<PatchEntryMsg>): Unit {
         (this.pushFn)(patches)
+    }
+
+    public func getState<T>(): T where T <: AppState {
+        let key = TypeInfo.of<T>().qualifiedName
+        let raw = this.sessionStates.get(key)
+        match (raw) {
+            case Some(s) => doGetState<T>(s)
+            case None => throw Exception("AppState not registered: ${key}")
+        }
     }
 }
 
