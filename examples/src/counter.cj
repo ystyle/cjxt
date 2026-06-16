@@ -13,17 +13,18 @@ class CounterState <: AppState {
 
 @Page["/"]
 class CounterPage <: Component {
-    var data: Option<CounterState> = None
+    var state: CounterState
+
+    public init() {
+        this.state = CounterState()
+    }
 
     public func onMount(ctx: LifecycleContext): Unit {
-        this.data = Some(ctx.getState<CounterState>())
+        this.state = ctx.getState<CounterState>()
     }
 
     public func render(): ComponentNode {
-        let st = match (this.data) {
-            case Some(s) => s
-            case None => CounterState()
-        }
+        let st = this.state
         let attrContainer = HashMap<String, String>([("class", cls("container"))])
         div([
             renderTabs("/"),

@@ -155,7 +155,7 @@ public class App {
                 if (t == "ack") {
                     let ev = readField(raw, "event")
                     if (ev == "mount") {
-                        state.page.onMount(LifecycleContext(session.id, HashMap<String, String>(), None, None, states: session.states))
+                        // mount ack — 不重复调 onMount（this.data 已由 startSession 设置）
                     } else if (ev == "update") {
                         state.page.onUpdate(LifecycleContext("", HashMap<String, String>(), None, None))
                     }
