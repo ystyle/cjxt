@@ -26,6 +26,10 @@ func isIdent(b: UInt8): Bool {
     (b >= 97u8 && b <= 122u8) || (b >= 65u8 && b <= 90u8) || (b >= 48u8 && b <= 57u8) || b == 45u8 || b == 95u8
 }
 
+func isClassNameStart(b: UInt8): Bool {
+    (b >= 97u8 && b <= 122u8) || (b >= 65u8 && b <= 90u8) || b == 45u8 || b == 95u8
+}
+
 func cssModuleTokens(entries: Array<(String, String)>): Tokens {
     var t = Tokens()
     t = t + Token(TokenKind.IDENTIFIER, "cssModule")
@@ -52,7 +56,7 @@ func processCSSGet(raw: String): (String, Array<(String, String)>) {
     var i: Int64 = 0
 
     while (i < bytes.size) {
-        if (bytes[i] == 46u8 && i + 1 < bytes.size && isIdent(bytes[i + 1])) {
+        if (bytes[i] == 46u8 && i + 1 < bytes.size && isClassNameStart(bytes[i + 1])) {
             var j = i + 1
             while (j < bytes.size && isIdent(bytes[j])) { j++ }
             let name = raw[i + 1..j]

@@ -3,3 +3,6 @@ target/
 build-script-cache/
 *.log
 *.macrocall
+.DS_Store
+public/css/bundle.css
+*.bak

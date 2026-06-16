@@ -113,6 +113,13 @@ class CangjieUI {
         });
     }
     applyPatches(patches) {
+        // 保存焦点状态
+        const activeEl = document.activeElement;
+        const focusBid = activeEl && activeEl.hasAttribute('data-bind-id')
+            ? activeEl.getAttribute('data-bind-id') : null;
+        const focusSelStart = activeEl ? activeEl.selectionStart : null;
+        const focusSelEnd = activeEl ? activeEl.selectionEnd : null;
+
         for (const p of patches) {
             if (p.op === 'replace') {
                 const path = p.path || '';
@@ -121,6 +128,19 @@ class CangjieUI {
                     this.tree = p.value;
                     this.container.innerHTML = '';
                     this.renderTree(this.tree, this.container);
+                }
+            }
+        }
+
+        // 恢复焦点
+        if (focusBid) {
+            const q = '[data-bind-id="' + focusBid + '"]';
+            const newEl = this.container.querySelector(q);
+            if (newEl) {
+                newEl.focus();
+                if (focusSelStart !== null && newEl.selectionStart !== undefined) {
+                    newEl.selectionStart = focusSelStart;
+                    newEl.selectionEnd = focusSelEnd ?? focusSelStart;
                 }
             }
         }

@@ -1,0 +1,25 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif; background: #f0f2f5; color: #333; min-height: 100vh; }
+.container_8922226788318038805 { max-width: 640px; margin: 0 auto; padding: 24px 16px; }
+.tabs_8922226788318038805 { display: flex; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 20px; }
+.tab_8922226788318038805 { flex: 1; padding: 14px 20px; text-align: center; border: none; background: transparent; font-size: 15px; font-weight: 500; cursor: pointer; color: #666; }
+.tab_8922226788318038805.active_8922226788318038805 { color: #4f46e5; background: #f5f3ff; box-shadow: inset 0 -2px 0 #4f46e5; }
+.card_8922226788318038805 { background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 16px; }
+.card-title_8922226788318038805 { font-size: 16px; font-weight: 600; color: #111; margin-bottom: 16px; }
+.counter-value_8922226788318038805 { font-size: 48px; font-weight: 700; color: #4f46e5; text-align: center; padding: 20px 0; }
+.row_8922226788318038805 { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; }
+.btn_8922226788318038805 { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; }
+.btn-primary_8922226788318038805 { background: #4f46e5; color: #fff; }
+.btn-outline_8922226788318038805 { background: transparent; border: 1px solid #d1d5db; color: #374151; }
+.btn-sm_8922226788318038805 { padding: 6px 12px; font-size: 13px; }
+.btn-danger_8922226788318038805 { background: #fee2e2; color: #dc2626; }
+.input_8922226788318038805 { flex: 1; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; outline: none; min-width: 120px; }
+.input_8922226788318038805:focus { border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,0.1); }
+.label_8922226788318038805 { font-size: 13px; font-weight: 500; color: #6b7280; margin-bottom: 6px; }
+.desc_8922226788318038805 { font-size: 13px; color: #9ca3af; margin-top: 4px; }
+.todo-item_8922226788318038805 { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f3f4f6; }
+.todo-text_8922226788318038805 { flex: 1; font-size: 14px; color: #333; }
+.todo-empty_8922226788318038805 { text-align: center; color: #9ca3af; padding: 40px 0; font-size: 14px; }
+.footer_8922226788318038805 { text-align: center; font-size: 12px; color: #d1d5db; margin-top: 24px; }
+.input-group_8922226788318038805 { margin-bottom: 14px; }
+select.input_8922226788318038805 { appearance: auto; }
