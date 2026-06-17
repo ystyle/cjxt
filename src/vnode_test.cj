@@ -90,17 +90,28 @@ public class VnodeTest {
     public func testBindString(): Unit {
         let s = Signal<String>("")
         let node = input().bind(s)
-        doCheckBindAttrs(node)
+        match (node) {
+            case v: VNode => doCheckBindAttrs(v)
+            case _ => @Fail("not VNode")
+        }
     }
 
     @TestCase
     public func testBindHandlerSetValue(): Unit {
         let s = Signal<String>("")
         let node = input().bind(s)
-        let bid = getAttr(node, "data-bind-id")
-        match (bid) {
-            case Some(id) => doTestBindHandler(node, s, id)
-            case None => @Fail("no data-bind-id")
+        match (node) {
+            case v: VNode => doBindHandlerTest(v, s)
+            case _ => @Fail("not VNode")
+        }
+    }
+}
+
+func doBindHandlerTest(node: VNode, s: Signal<String>): Unit {
+    let bid = getAttr(node, "data-bind-id")
+    match (bid) {
+        case Some(id) => doTestBindHandler(node, s, id)
+        case None => @Fail("no data-bind-id")
     }
 }
 
@@ -143,5 +154,4 @@ func doCheckBindHandler(node: VNode, id: String): Unit {
         }
         case None => @Fail("no handlers")
     }
-}
 }
