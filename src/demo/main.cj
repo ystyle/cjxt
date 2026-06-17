@@ -22,7 +22,7 @@ func needCount10(ctx: HashMap<String, String>): Bool {
     }
 }
 
-func cardLayout(page: ComponentNode): ComponentNode {
+func cardLayout(page: Component): Component {
     div(
         div(page).style("max-width: 600px; margin: 2em auto; padding: 2em; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1)")
     ).style("background: #f5f5f5; min-height: 100vh")
@@ -37,7 +37,7 @@ class HomePage <: Component {
         this.data = Some(ctx.getState<AppData>())
     }
 
-    public func render(): ComponentNode {
+    public func render(): Component {
         let d = this.getAppData()
         div(
             h1(text("cjxt Counter")),
@@ -84,7 +84,7 @@ class SecretPage <: Component {
         this.data = Some(ctx.getState<AppData>())
     }
 
-    public func render(): ComponentNode {
+    public func render(): Component {
         let d = this.getAppData()
         div(
             h1(text("🔒 机密信息")),
@@ -108,7 +108,7 @@ class SecretPage <: Component {
 
 @Page["/about", "关于 - cjxt"]
 class AboutPage <: Component {
-    public func render(): ComponentNode {
+    public func render(): Component {
         div(
             h1(text("关于 cjxt")).style("color: #2c6b9e; font-family: sans-serif;"),
             p(text("服务端驱动 UI 框架，纯仓颉实现。")),

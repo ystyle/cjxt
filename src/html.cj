@@ -65,6 +65,11 @@ class CangjieUI {
     }
     renderTree(node, parentEl) {
         const type = (node.type || '').toLowerCase();
+        if (type === 'fragment') {
+            (node.children || []).forEach(c => this.renderTree(c, parentEl));
+            return;
+        }
+        if (type === 'empty') return;
         if (type === 'text') {
             parentEl.appendChild(document.createTextNode(node.attrs ? (node.attrs.text || '') : ''));
             return;
@@ -161,7 +166,7 @@ class CangjieUI {
                 const old = parentEl.childNodes[idx];
                 if (old) {
                     const newEl = this.renderSubtree(p.tree);
-                    parentEl.replaceChild(newEl, old);
+                    if (newEl) parentEl.replaceChild(newEl, old);
                 }
             } else if (p.op === 'add' && p.tree) {
                 const newEl = this.renderSubtree(p.tree);
@@ -192,6 +197,12 @@ class CangjieUI {
     }
     renderSubtree(node) {
         const type = (node.type || '').toLowerCase();
+        if (type === 'fragment') {
+            const wrapper = document.createDocumentFragment();
+            (node.children || []).forEach(c => wrapper.appendChild(this.renderSubtree(c)));
+            return wrapper;
+        }
+        if (type === 'empty') return null;
         if (type === 'text') {
             return document.createTextNode(node.attrs ? (node.attrs.text || '') : '');
         }

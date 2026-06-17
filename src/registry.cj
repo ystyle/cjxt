@@ -44,7 +44,7 @@ private func extractParamNames(path: String): Array<String> {
 }
 
 public type RouteFactory = () -> Component
-public type LayoutFn = (ComponentNode) -> ComponentNode
+public type LayoutFn = (Component) -> Component
 
 public class RouteRegistry {
     let entries = HashMap<String, RouteFactory>()

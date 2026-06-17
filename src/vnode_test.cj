@@ -4,21 +4,29 @@ import std.collection.*
 import std.unittest.*
 import std.unittest.testmacro.*
 
-func getAttr(node: ComponentNode, key: String): Option<String> {
+func getTag(c: Component): String {
+    match (c) { case v: VNode => v._tag; case t: TextNode => "text"; case _ => "unknown" }
+}
+
+func getVNode(c: Component): VNode {
+    match (c) { case v: VNode => v; case _ => throw Exception("not VNode") }
+}
+
+func getAttr(node: VNode, key: String): Option<String> {
     match (node._attrs) {
         case Some(m) => m.get(key)
         case None => None
     }
 }
 
-func assertAction(node: ComponentNode, key: String, expected: String): Unit {
+func assertAction(node: VNode, key: String, expected: String): Unit {
     match (node._actions) {
         case Some(m) => @Expect(m.get(key), Some(expected))
         case None => @Fail("no actions")
     }
 }
 
-func assertAttr(node: ComponentNode, key: String, expected: String): Unit {
+func assertAttr(node: VNode, key: String, expected: String): Unit {
     match (node._attrs) {
         case Some(m) => @Expect(m.get(key), Some(expected))
         case None => @Fail("no attrs")
@@ -30,14 +38,13 @@ public class VnodeTest {
     @TestCase
     public func testCreateDiv(): Unit {
         let node = div()
-        @Expect(node._typ, ComponentType.Div)
+        @Expect(node._tag, "div")
     }
 
     @TestCase
     public func testCreateText(): Unit {
-        let node = text("hello")
-        @Expect(node._typ, ComponentType.Text)
-        @Expect(getAttr(node, "text"), Some("hello"))
+        let t = text("hello")
+        @Expect(t._text, "hello")
     }
 
     @TestCase
@@ -47,8 +54,8 @@ public class VnodeTest {
             p([text("content")])
         ])
         @Expect(node._children.size, 2)
-        @Expect(node._children[0]._typ, ComponentType.H1)
-        @Expect(node._children[1]._typ, ComponentType.P)
+        @Expect(getTag(node._children[0]), "h1")
+        @Expect(getTag(node._children[1]), "p")
     }
 
     @TestCase
@@ -66,8 +73,8 @@ public class VnodeTest {
                 li([text("item2")])
             ])
         ])
-        @Expect(node._children[0]._typ, ComponentType.Ul)
-        @Expect(node._children[0]._children.size, 2)
+        @Expect(getTag(node._children[0]), "ul")
+        @Expect(getVNode(node._children[0])._children.size, 2)
     }
 
     @TestCase
@@ -94,11 +101,10 @@ public class VnodeTest {
         match (bid) {
             case Some(id) => doTestBindHandler(node, s, id)
             case None => @Fail("no data-bind-id")
-        }
     }
 }
 
-func doTestBindHandler(node: ComponentNode, s: Signal<String>, bid: String): Unit {
+func doTestBindHandler(node: VNode, s: Signal<String>, bid: String): Unit {
     match (node._handlers) {
         case Some(h) => match (h.get(bid)) {
             case Some(fn) => doInvokeBind(fn, s)
@@ -119,7 +125,7 @@ func doInvokeBind(fn: ActionHandler, s: Signal<String>): Unit {
     }
 }
 
-func doCheckBindAttrs(node: ComponentNode): Unit {
+func doCheckBindAttrs(node: VNode): Unit {
     match (node._attrs) {
         case Some(m) => match (m.get("data-bind-id")) {
             case Some(id) => doCheckBindHandler(node, id)
@@ -129,7 +135,7 @@ func doCheckBindAttrs(node: ComponentNode): Unit {
     }
 }
 
-func doCheckBindHandler(node: ComponentNode, id: String): Unit {
+func doCheckBindHandler(node: VNode, id: String): Unit {
     match (node._handlers) {
         case Some(h) => match (h.get(id)) {
             case Some(_) => @Expect(true, true)
@@ -137,4 +143,5 @@ func doCheckBindHandler(node: ComponentNode, id: String): Unit {
         }
         case None => @Fail("no handlers")
     }
+}
 }

@@ -37,9 +37,9 @@ public struct PatchEntry {
 public struct TreePatchEntry <: JsonSerializable {
     let op: String
     let path: String
-    let tree: Option<ComponentNode>
+    let tree: Option<Component>
 
-    public init(op: String, path: String, tree: Option<ComponentNode>) {
+    public init(op: String, path: String, tree: Option<Component>) {
         this.op = op
         this.path = path
         this.tree = tree
@@ -187,9 +187,9 @@ public struct ConnectedMsg <: JsonSerializable {
 public struct PatchEntryMsg <: JsonSerializable {
     let op: String
     let path: String
-    let value: ComponentNode
+    let value: Component
 
-    public init(op: String, path: String, value: ComponentNode) {
+    public init(op: String, path: String, value: Component) {
         this.op = op
         this.path = path
         this.value = value
@@ -220,9 +220,9 @@ public struct PatchMsg <: JsonSerializable {
 }
 
 public struct FullTreeMsg <: JsonSerializable {
-    let tree: ComponentNode
+    let tree: Component
 
-    public init(tree: ComponentNode) {
+    public init(tree: Component) {
         this.tree = tree
     }
 

@@ -44,14 +44,32 @@ private func mergeKeys(a: ArrayList<String>, b: ArrayList<String>): ArrayList<St
     ks
 }
 
-// ---- diff engine ----
-
-public func diffTree(old: ComponentNode, newTree: ComponentNode, basePath: String): ArrayList<GranularPatch> {
+public func diffTree(old: Component, newTree: Component, basePath: String): ArrayList<GranularPatch> {
     let patches = ArrayList<GranularPatch>()
 
-    if (old._typ != newTree._typ || !eqOpt(old._key, newTree._key)) {
+    match (old) {
+        case o: VNode => match (newTree) {
+            case n: VNode => diffVNode(o, n, basePath, patches)
+            case _ => patches.add(GranularPatch.SubtreePatch(TreePatchEntry("replace", basePath, Some(newTree))))
+        }
+        case o: TextNode => match (newTree) {
+            case n: TextNode => diffText(o, n, basePath, patches)
+            case _ => patches.add(GranularPatch.SubtreePatch(TreePatchEntry("replace", basePath, Some(newTree))))
+        }
+        case o: FragmentNode => match (newTree) {
+            case n: FragmentNode => diffFragment(o, n, basePath, patches)
+            case _ => patches.add(GranularPatch.SubtreePatch(TreePatchEntry("replace", basePath, Some(newTree))))
+        }
+        case _ => patches.add(GranularPatch.SubtreePatch(TreePatchEntry("replace", basePath, Some(newTree))))
+    }
+
+    patches
+}
+
+private func diffVNode(old: VNode, newTree: VNode, basePath: String, patches: ArrayList<GranularPatch>): Unit {
+    if (old._tag != newTree._tag || !eqOpt(old._key, newTree._key)) {
         patches.add(GranularPatch.SubtreePatch(TreePatchEntry("replace", basePath, Some(newTree))))
-        return patches
+        return
     }
 
     // attrs
@@ -69,18 +87,31 @@ public func diffTree(old: ComponentNode, newTree: ComponentNode, basePath: Strin
     }
 
     // children
-    let maxLen = if (old._children.size > newTree._children.size) { old._children.size } else { newTree._children.size }
+    diffChildren(old._children, newTree._children, basePath, patches)
+}
+
+private func diffText(old: TextNode, newTree: TextNode, basePath: String, patches: ArrayList<GranularPatch>): Unit {
+    if (old._text != newTree._text) {
+        let ap = if (basePath == "") { "/attrs/text" } else { "${basePath}/attrs/text" }
+        patches.add(GranularPatch.AttrPatch(AttrPatchEntry("replace", ap, Some(newTree._text))))
+    }
+}
+
+private func diffFragment(old: FragmentNode, newTree: FragmentNode, basePath: String, patches: ArrayList<GranularPatch>): Unit {
+    diffChildren(old._children, newTree._children, basePath, patches)
+}
+
+private func diffChildren(oldChildren: Array<Component>, newChildren: Array<Component>, basePath: String, patches: ArrayList<GranularPatch>): Unit {
+    let maxLen = if (oldChildren.size > newChildren.size) { oldChildren.size } else { newChildren.size }
     for (i in 0..maxLen) {
         let cp = if (basePath == "") { "/children/${i}" } else { "${basePath}/children/${i}" }
-        if (i >= old._children.size) {
-            patches.add(GranularPatch.SubtreePatch(TreePatchEntry("add", cp, Some(newTree._children[i]))))
-        } else if (i >= newTree._children.size) {
+        if (i >= oldChildren.size) {
+            patches.add(GranularPatch.SubtreePatch(TreePatchEntry("add", cp, Some(newChildren[i]))))
+        } else if (i >= newChildren.size) {
             patches.add(GranularPatch.SubtreePatch(TreePatchEntry("remove", cp, None)))
         } else {
-            let sub = diffTree(old._children[i], newTree._children[i], cp)
+            let sub = diffTree(oldChildren[i], newChildren[i], cp)
             for (p in sub) { patches.add(p) }
         }
     }
-
-    patches
 }

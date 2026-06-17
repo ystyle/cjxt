@@ -2,18 +2,19 @@ package cjxt
 
 import std.collection.HashMap
 import std.reflect.*
+import stdx.encoding.json.stream.{JsonWriter, JsonSerializable, JsonDeserializable}
 
 public type ActionHandler = (ActionContext) -> PatchResult
 
-public interface Component {
-    func render(): ComponentNode
+public interface Component <: JsonSerializable {
+    func render(): Component
     func getComponentKey(): String { "" }
 
     func reRender(): Unit {
         SignalTracker.pendingRender = true
     }
 
-    func renderWithScope(): ComponentNode {
+    func renderWithScope(): Component {
         SignalTracker.enterScope({ => this.reRender() })
         let tree = this.render()
         SignalTracker.exitScope()
@@ -28,6 +29,26 @@ public interface Component {
     func onUpdate(ctx: LifecycleContext): Unit {}
     func onUnmount(ctx: LifecycleContext): Unit {}
     func onError(ctx: ErrorContext): Unit {}
+
+    // 默认序列化 — 内部类型（VNode/TextNode/…）各自覆盖
+    func toJson(w: JsonWriter): Unit {
+        match (this) {
+            case v: VNode => v.toJson(w)
+            case t: TextNode => t.toJson(w)
+            case f: FragmentNode => f.toJson(w)
+            case e: EmptyNode => e.toJson(w)
+            case _ => ()
+        }
+    }
+
+    // 收集 action handler — 内部类型各自覆盖
+    func collectHandlers(out: HashMap<String, ActionHandler>): Unit {
+        match (this) {
+            case v: VNode => vnodeCollectHandlers(v, out)
+            case f: FragmentNode => for (c in f._children) { c.collectHandlers(out) }
+            case _ => ()
+        }
+    }
 }
 
 public struct LifecycleContext {
@@ -64,4 +85,16 @@ public struct ErrorContext {
         this.actionName = actionName
         this.error = error
     }
+}
+
+func vnodeCollectHandlers(v: VNode, out: HashMap<String, ActionHandler>): Unit {
+    match (v._handlers) {
+        case Some(m) => doCollect(m, out)
+        case None => ()
+    }
+    for (c in v._children) { c.collectHandlers(out) }
+}
+
+func doCollect(m: HashMap<String, ActionHandler>, out: HashMap<String, ActionHandler>): Unit {
+    for ((k, v) in m) { out.add(k, v) }
 }

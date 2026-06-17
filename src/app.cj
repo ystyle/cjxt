@@ -20,8 +20,8 @@ class SessionState {
         this.handlers = HashMap<String, ActionHandler>()
     }
 
-    public func refresh(tree: ComponentNode): Unit {
-        collectHandlers(tree, this.handlers)
+    public func refresh(tree: Component): Unit {
+        tree.collectHandlers(this.handlers)
     }
 }
 
@@ -118,7 +118,7 @@ public class App {
         }
     }
 
-    private func applyLayout(path: String, raw: ComponentNode): ComponentNode {
+    private func applyLayout(path: String, raw: Component): Component {
         match (RouteRegistry.global().getLayout(path)) {
             case Some(fn) => fn(raw)
             case None => raw
