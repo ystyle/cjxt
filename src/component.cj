@@ -30,23 +30,23 @@ public interface Component <: JsonSerializable {
     func onUnmount(ctx: LifecycleContext): Unit {}
     func onError(ctx: ErrorContext): Unit {}
 
-    // 默认序列化 — 内部类型（VNode/TextNode/…）各自覆盖
+    // 默认序列化 — 内部类型直接序列化，用户组件通过 render() 展开
     func toJson(w: JsonWriter): Unit {
         match (this) {
             case v: VNode => v.toJson(w)
             case t: TextNode => t.toJson(w)
             case f: FragmentNode => f.toJson(w)
             case e: EmptyNode => e.toJson(w)
-            case _ => ()
+            case _ => this.render().toJson(w)
         }
     }
 
-    // 收集 action handler — 内部类型各自覆盖
+    // 收集 action handler
     func collectHandlers(out: HashMap<String, ActionHandler>): Unit {
         match (this) {
             case v: VNode => vnodeCollectHandlers(v, out)
             case f: FragmentNode => for (c in f._children) { c.collectHandlers(out) }
-            case _ => ()
+            case _ => this.render().collectHandlers(out)
         }
     }
 }
