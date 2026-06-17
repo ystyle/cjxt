@@ -298,6 +298,9 @@ func headTags(config: AppConfig): String {
     if (config.cssBundle != "") {
         html = "${html}    <link rel=\"stylesheet\" href=\"${config.cssBundle}\">\n"
     }
+    if (config.componentsCss != "") {
+        html = "${html}    <link rel=\"stylesheet\" href=\"${config.componentsCss}\">\n"
+    }
     for ((rel, href) in config.links) {
         html = "${html}    <link rel=\"${rel}\" href=\"${href}\">\n"
     }

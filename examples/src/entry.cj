@@ -1,10 +1,11 @@
 package examples
 
 import cjxt.*
+import cjxt.components.*
 
 main() {
     App()
-        .configure(AppConfig(cssBundle: "/css/bundle.css"))
+        .configure(AppConfig(cssBundle: "/css/bundle.css", componentsCss: "/css/element-plus/button.css"))
         .serveStatic("/css", "public/css")
         .state<CounterState>({ => CounterState() })
         .state<InputsState>({ => InputsState() })

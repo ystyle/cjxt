@@ -2,6 +2,7 @@ package examples
 
 import cjxt.*
 import cjxt.macros.*
+import cjxt.components.*
 import std.collection.HashMap
 
 let css = @importCSS("style.css")
@@ -32,10 +33,10 @@ class CounterPage <: Component {
                 div([text("Global Counter")], attrs: Some(HashMap<String, String>([("class", cls("card-title"))]))),
                 div([text("${st.value.get()}")], attrs: Some(HashMap<String, String>([("class", cls("counter-value"))]))),
                 div([
-                btn("-5", "btn-outline", { ctx => st.value.set(st.value.get() - 5); PatchResult.ReRender }),
-                btn("-1", "btn-outline", { ctx => st.value.set(st.value.get() - 1); PatchResult.ReRender }),
-                btn("+1", "btn-primary", { ctx => st.value.set(st.value.get() + 1); PatchResult.ReRender }),
-                btn("+5", "btn-primary", { ctx => st.value.set(st.value.get() + 5); PatchResult.ReRender }),
+                Button("-5", "danger", "default", false, false).onClick({ ctx => st.value.set(st.value.get() - 5); PatchResult.ReRender }),
+                Button("-1", "danger", "default", false, false).onClick({ ctx => st.value.set(st.value.get() - 1); PatchResult.ReRender }),
+                PrimaryButton("+1").onClick({ ctx => st.value.set(st.value.get() + 1); PatchResult.ReRender }),
+                PrimaryButton("+5").onClick({ ctx => st.value.set(st.value.get() + 5); PatchResult.ReRender }),
                 ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
                 div([text("每个 session 独立计数")], attrs: Some(HashMap<String, String>([("class", cls("desc"))]))),
             ], attrs: Some(HashMap<String, String>([("class", cls("card"))]))),
@@ -61,8 +62,4 @@ func navTab(path: String, title: String, isActive: Bool): ComponentNode {
         ctx.navigate(path)
         PatchResult.ReRender
     })
-}
-
-func btn(label: String, style: String, action: ActionHandler): ComponentNode {
-    button([text(label)]).className(cls("btn") + " " + cls(style)).onClick(action)
 }
