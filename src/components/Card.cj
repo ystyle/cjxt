@@ -3,8 +3,7 @@ package cjxt.components
 import cjxt.*
 import std.collection.HashMap
 
-// shadow: "always" / "hover" / "never"
-public func Card(children: Array<Component>, header!: String = "", shadow!: String = "always"): Component {
+public func Card(children: Array<Component>, header!: String = "", shadow!: CardShadow = CardShadow.Always): Component {
     let cls = "el-card"
     let clsMap = HashMap<String, String>([("class", cls)])
 
@@ -18,7 +17,7 @@ public func Card(children: Array<Component>, header!: String = "", shadow!: Stri
     }
 }
 
-public func Row(children: Array<Component>, gutter!: Int64 = 0, justify!: String = "start", align!: String = "top"): Component {
+public func Row(children: Array<Component>, gutter!: Int64 = 0, justify!: RowJustify = RowJustify.Start, align!: RowAlign = RowAlign.Top): Component {
     let cls = "el-row"
     let styleStr = if (gutter > 0) { "margin-left:-${gutter / 2}px;margin-right:-${gutter / 2}px" } else { "" }
     let attrs = HashMap<String, String>([("class", cls)])
