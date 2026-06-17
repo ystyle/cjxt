@@ -5,7 +5,7 @@ import cjxt.components.*
 
 main() {
     App()
-        .configure(AppConfig(cssBundle: "/css/bundle.css", componentsCss: "/css/element-plus/button.css"))
+        .configure(AppConfig(cssBundle: "/css/bundle.css", componentsCss: "/css/element-plus/element-plus.css"))
         .serveStatic("/css", "public/css")
         .state<CounterState>({ => CounterState() })
         .state<InputsState>({ => InputsState() })

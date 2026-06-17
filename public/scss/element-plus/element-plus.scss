@@ -1,0 +1,5 @@
+// Element Plus 组件样式入口
+// base: CSS 变量、transition、图标
+// 各组件按需引入
+@use 'base.scss';
+@use 'button.scss';
