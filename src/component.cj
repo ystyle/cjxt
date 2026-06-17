@@ -49,23 +49,6 @@ public interface Component <: JsonSerializable {
             case _ => ()
         }
     }
-
-    // ——— 通用链式方法（默认实现转发给 VNode） ———
-    func onClick(h: ActionHandler): Component {
-        match (this) { case v: VNode => v.withClick(h); case _ => this }
-    }
-    func className(v: String): Component {
-        match (this) { case vn: VNode => vn.withClass(v); case _ => this }
-    }
-    func style(v: String): Component {
-        match (this) { case vn: VNode => vn.withStyle(v); case _ => this }
-    }
-    func attr(k: String, v: String): Component {
-        match (this) { case vn: VNode => vn.withAttr(k, v); case _ => this }
-    }
-    func bind<T>(signal: Signal<T>): Component where T <: ToString & JsonDeserializable<T> {
-        match (this) { case v: VNode => v.withBind(signal); case _ => this }
-    }
 }
 
 public struct LifecycleContext {

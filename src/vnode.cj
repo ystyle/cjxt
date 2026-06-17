@@ -52,24 +52,29 @@ public struct VNode <: Component {
 
     // ---- 链式方法 ----
 
-    // 内部创建链式方法使用
-    public func withAttrs(m: HashMap<String, String>): VNode {
+    public func attrs(m: HashMap<String, String>): VNode {
         VNode(this._tag, this._children, attrs: Some(m), key: this._key, actions: this._actions, handlers: this._handlers)
     }
 
-    public func withActions(m: HashMap<String, String>): VNode {
+    public func actions(m: HashMap<String, String>): VNode {
         VNode(this._tag, this._children, attrs: this._attrs, key: this._key, actions: Some(m), handlers: this._handlers)
     }
 
-    public func withChildren(c: Array<Component>): VNode {
+    public func children(c: Array<Component>): VNode {
         VNode(this._tag, c, attrs: this._attrs, key: this._key, actions: this._actions, handlers: this._handlers)
     }
 
-    public func withKey(k: String): VNode {
+    public func key(k: String): VNode {
         VNode(this._tag, this._children, attrs: this._attrs, key: Some(k), actions: this._actions, handlers: this._handlers)
     }
 
-    public func withClick(h: ActionHandler): VNode {
+    public func onClick(name: String): VNode {
+        let m = HashMap<String, String>()
+        m["click"] = name
+        this.actions(m)
+    }
+
+    public func onClick(h: ActionHandler): VNode {
         let id = nextHid()
         let acts = HashMap<String, String>()
         acts["click"] = id
@@ -78,7 +83,7 @@ public struct VNode <: Component {
         VNode(this._tag, this._children, attrs: this._attrs, key: this._key, actions: Some(acts), handlers: Some(hmap))
     }
 
-    public func withBind<T>(signal: Signal<T>): VNode where T <: ToString & JsonDeserializable<T> {
+    public func bind<T>(signal: Signal<T>): VNode where T <: ToString & JsonDeserializable<T> {
         let id = nextBid()
         let attrs = addAttrItem(this._attrs, "data-bind-id", id)
         attrs["value"] = signal.get().toString()
@@ -100,25 +105,23 @@ public struct VNode <: Component {
         VNode(this._tag, this._children, attrs: Some(attrs), key: this._key, actions: this._actions, handlers: Some(hmap))
     }
 
-    public func withStyle(v: String): VNode {
+    public func style(v: String): VNode {
         let m = HashMap<String, String>()
         m["style"] = v
-        this.withAttrs(m)
+        this.attrs(m)
     }
 
-    public func withClass(v: String): VNode {
+    public func className(v: String): VNode {
         let m = HashMap<String, String>()
         m["class"] = v
-        this.withAttrs(m)
+        this.attrs(m)
     }
 
-    public func withAttr(k: String, v: String): VNode {
+    public func attr(k: String, v: String): VNode {
         let m = HashMap<String, String>()
         m[k] = v
-        this.withAttrs(m)
+        this.attrs(m)
     }
-
-    // 以 Component 身份使用的链式方法
     // （Component 接口的默认实现通过 match 转发到这些）
 }
 

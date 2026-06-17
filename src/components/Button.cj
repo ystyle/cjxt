@@ -53,11 +53,11 @@ public class ButtonBuilder <: Component {
 
 public func Button(label: String): ButtonBuilder { ButtonBuilder(label) }
 
-// 便捷函数（返回 Component，可直接链式 .onClick）
-public func PrimaryButton(label: String): Component { Button(label).kind(ButtonKind.Primary) }
-public func DangerButton(label: String): Component { Button(label).kind(ButtonKind.Danger) }
-public func InfoButton(label: String): Component { Button(label).kind(ButtonKind.Info) }
-public func SmallButton(label: String): Component { Button(label).size(ButtonSize.Small) }
+// 便捷函数
+public func PrimaryButton(label: String): ButtonBuilder { Button(label).kind(ButtonKind.Primary) }
+public func DangerButton(label: String): ButtonBuilder { Button(label).kind(ButtonKind.Danger) }
+public func InfoButton(label: String): ButtonBuilder { Button(label).kind(ButtonKind.Info) }
+public func SmallButton(label: String): ButtonBuilder { Button(label).size(ButtonSize.Small) }
 
 public func TextButton(label: String): VNode {
     let attrs = HashMap<String, String>()
