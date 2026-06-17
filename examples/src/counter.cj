@@ -33,8 +33,8 @@ class CounterPage <: Component {
                 div([text("Global Counter")], attrs: Some(HashMap<String, String>([("class", cls("card-title"))]))),
                 div([text("${st.value.get()}")], attrs: Some(HashMap<String, String>([("class", cls("counter-value"))]))),
                 div([
-                Button("-5", "danger", "default", false, false).onClick({ ctx => st.value.set(st.value.get() - 5); PatchResult.ReRender }),
-                Button("-1", "danger", "default", false, false).onClick({ ctx => st.value.set(st.value.get() - 1); PatchResult.ReRender }),
+                DangerButton("-5").onClick({ ctx => st.value.set(st.value.get() - 5); PatchResult.ReRender }),
+                DangerButton("-1").onClick({ ctx => st.value.set(st.value.get() - 1); PatchResult.ReRender }),
                 PrimaryButton("+1").onClick({ ctx => st.value.set(st.value.get() + 1); PatchResult.ReRender }),
                 PrimaryButton("+5").onClick({ ctx => st.value.set(st.value.get() + 5); PatchResult.ReRender }),
                 ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),

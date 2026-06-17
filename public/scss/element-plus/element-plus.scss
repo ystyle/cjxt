@@ -3,3 +3,8 @@
 // 各组件按需引入
 @use 'base.scss';
 @use 'button.scss';
+
+// 默认按钮最小宽度（EP 原版无 min-width，短文本按钮太窄）
+.el-button:not(.is-circle) {
+  min-width: 68px;
+}
