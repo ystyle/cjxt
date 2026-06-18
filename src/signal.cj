@@ -49,4 +49,8 @@ public class Signal<T> {
     public func subscribe(fn: () -> Unit): Unit {
         subs.add(fn)
     }
+
+    public func clearSubs(): Unit {
+        subs.clear()
+    }
 }
