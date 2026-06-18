@@ -1,6 +1,39 @@
 package cjxt
 
-import std.collection.ArrayList
+import std.collection.{ArrayList, HashMap}
+import std.convert.*
+
+func doReplace(c: Component, parts: Array<String>, idx: Int64, newSubtree: Component): Component {
+    if (idx >= parts.size) { return newSubtree }
+    let childIdx = Int64.parse(parts[idx + 1], radix: 10)
+    match (c) {
+        case v: VNode =>
+            let newChildren = ArrayList<Component>()
+            for (i in 0..v._children.size) {
+                if (i == childIdx) {
+                    newChildren.add(doReplace(v._children[i], parts, idx + 2, newSubtree))
+                } else {
+                    newChildren.add(v._children[i])
+                }
+            }
+            VNode(v._tag, newChildren.toArray(), attrs: v._attrs, key: v._key, actions: v._actions, handlers: v._handlers)
+        case f: FragmentNode =>
+            let newChildren = ArrayList<Component>()
+            for (i in 0..f._children.size) {
+                if (i == childIdx) {
+                    newChildren.add(doReplace(f._children[i], parts, idx + 2, newSubtree))
+                } else {
+                    newChildren.add(f._children[i])
+                }
+            }
+            FragmentNode(newChildren.toArray())
+        case _ => newSubtree
+    }
+}
+
+func doCollectMap(m: HashMap<String, ActionHandler>, out: HashMap<String, ActionHandler>): Unit {
+    for ((k, v) in m) { out.add(k, v) }
+}
 
 func hasDirtyParent(c: BaseComponent, all: ArrayList<BaseComponent>): Bool {
     let cp = c.getPath()
@@ -16,6 +49,7 @@ func hasDirtyParent(c: BaseComponent, all: ArrayList<BaseComponent>): Bool {
 public class RenderContext {
     // 遍历并展开整棵组件树，为 BaseComponent 分配路径
     // 返回展开后的纯 VNode/TextNode/FragmentNode/EmptyNode 树
+    // 注意：该函数会调用 BaseComponent.renderWithScope()，适合用于初始展开
     public static func expandTree(c: Component, path: String): Component {
         match (c) {
             case v: VNode =>
@@ -39,6 +73,33 @@ public class RenderContext {
             case e: EmptyNode => e
             case other =>
                 expandTree(other.render(), path)
+        }
+    }
+
+    // 在展开树中替换指定路径的子树（不调用 render）
+    // 用于增量更新 session.tree
+    public static func replaceTreeAtPath(tree: Component, path: String, newSubtree: Component): Component {
+        if (path == "") { return newSubtree }
+        let parts = path.split("/")
+        doReplace(tree, parts, 0, newSubtree)
+    }
+
+    // 从展开树重建 handler 映射
+    public static func collectHandlersFromTree(c: Component, out: HashMap<String, ActionHandler>): Unit {
+        match (c) {
+            case v: VNode =>
+                match (v._handlers) {
+                    case Some(m) => doCollectMap(m, out)
+                    case None => ()
+                }
+                for (child in v._children) {
+                    collectHandlersFromTree(child, out)
+                }
+            case f: FragmentNode =>
+                for (child in f._children) {
+                    collectHandlersFromTree(child, out)
+                }
+            case _ => ()
         }
     }
 
