@@ -144,6 +144,13 @@ class CangjieUI {
         });
     }
     applyTreePatches(trees) {
+        const activeEl = document.activeElement;
+        const allInputs = Array.from(document.querySelectorAll('input,textarea'));
+        const focusIdx = activeEl ? allInputs.indexOf(activeEl) : -1;
+        const focusSelStart = activeEl ? activeEl.selectionStart : null;
+        const focusSelEnd = activeEl ? activeEl.selectionEnd : null;
+        if (activeEl) { delete activeEl.dataset.bindDirty; }
+
         for (const p of trees) {
             const parts = (p.path || '').split('/').filter(Boolean);
             if (parts.length === 0) {
@@ -163,6 +170,18 @@ class CangjieUI {
                 if (old) {
                     const newEl = this.renderSubtree(p.tree);
                     if (newEl) parentEl.replaceChild(newEl, old);
+                }
+            }
+        }
+
+        if (focusIdx >= 0) {
+            const newInputs = document.querySelectorAll('input,textarea');
+            if (focusIdx < newInputs.length) {
+                const el = newInputs[focusIdx];
+                el.focus();
+                if (focusSelStart !== null && el.selectionStart !== undefined) {
+                    el.selectionStart = focusSelStart;
+                    el.selectionEnd = focusSelEnd ?? focusSelStart;
                 }
             }
         }

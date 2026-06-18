@@ -14,20 +14,18 @@ func serializeNode(c: IComponent, w: JsonWriter, handlerMap: HashMap<String, Act
             w.writeName("attrs")
             w.writeValue(v._attrs)
 
-            // actions — 从 handlers 分配新 ID，同时写入 handlerMap
+            // actions — 使用 VNode 已有 ID（onClick 时分配），保证前后端一致
             w.writeName("actions")
-            match (v._handlers) {
-                case Some(h) =>
-                    let actionMap = HashMap<String, String>()
-                    for ((ev, handler) in h) {
-                        let id = nextHid()
-                        actionMap[ev] = id
-                        handlerMap[id] = handler
-                    }
-                    w.writeValue(actionMap)
+            match (v._actions) {
+                case Some(a) => w.writeValue(a)
                 case None =>
                     let empty: Option<HashMap<String, String>> = None
                     w.writeValue(empty)
+            }
+            // 收集 handler 映射（用已有 ID）
+            match (v._handlers) {
+                case Some(h) => doCollectSerialize(h, handlerMap)
+                case None => ()
             }
 
             // children
@@ -77,4 +75,8 @@ public func serializeSubtree(c: IComponent, handlerMap: HashMap<String, ActionHa
     w.flush()
     buf.flush()
     String.fromUtf8(buf.bytes())
+}
+
+func doCollectSerialize(m: HashMap<String, ActionHandler>, out: HashMap<String, ActionHandler>): Unit {
+    for ((k, v) in m) { out.add(k, v) }
 }

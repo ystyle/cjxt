@@ -290,8 +290,7 @@ public class App {
             let path = component.getPath()
             let newSubtree = component.renderWithScope(path)
             let expanded = RenderContext.expandTree(newSubtree, path)
-            let handlerMap = HashMap<String, ActionHandler>()
-            let json = serializeSubtree(expanded, handlerMap)
+            let json = serializeSubtree(expanded, HashMap<String, ActionHandler>())
             session.tree = RenderContext.replaceTreeAtPath(session.tree, path, expanded)
 
             let msg = "{\"kind\":\"patch\",\"trees\":[{\"op\":\"replace\",\"path\":\"${path}\",\"tree\":${json}}]}"
