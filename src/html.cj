@@ -127,10 +127,19 @@ class CangjieUI {
     attachBind(el) {
         const bid = el.getAttribute('data-bind-id');
         let timer = null;
+        let composing = false;
         const send = () => {
+            if (composing) return;
             this.send({ type: 'bind', name: bid, value: el.value ?? el.textContent ?? '' });
         };
+        el.addEventListener('compositionstart', () => { composing = true; });
+        el.addEventListener('compositionend', () => {
+            composing = false;
+            clearTimeout(timer);
+            timer = setTimeout(send, 300);
+        });
         el.addEventListener('input', () => {
+            if (composing) return;
             clearTimeout(timer);
             timer = setTimeout(send, 300);
             el.dataset.bindDirty = '1';
@@ -168,10 +177,10 @@ class CangjieUI {
             if (p.op === 'replace' && p.tree) {
                 const old = parentEl.childNodes[idx];
                 if (old) {
-                    // 对 input/textarea 只更新 value 不 replace（保持 IME 输入状态）
+                    // 绑定 input 且无 IME 组合时只更新 value，保持 IME 状态
                     if ((old.tagName === 'INPUT' || old.tagName === 'TEXTAREA') && old.hasAttribute('data-bind-id')) {
                         const newVal = p.tree.attrs && p.tree.attrs.value;
-                        if (newVal !== undefined && newVal !== null) {
+                        if (newVal !== undefined && newVal !== null && old !== document.activeElement) {
                             old.value = newVal;
                         }
                     } else {
