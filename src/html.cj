@@ -47,12 +47,10 @@ class CangjieUI {
                 this.send({ type: 'ack', event: 'mount', sessionId: this.sessionId });
                 break;
             case 'patch':
-                if (msg.attrs && msg.attrs.length) this.applyStrPatches(msg.attrs);
                 if (msg.trees && msg.trees.length) this.applyTreePatches(msg.trees);
                 this.send({ type: 'ack', event: 'update', sessionId: this.sessionId });
                 break;
             case 'push':
-                if (msg.attrs && msg.attrs.length) this.applyStrPatches(msg.attrs);
                 if (msg.trees && msg.trees.length) this.applyTreePatches(msg.trees);
                 break;
             case 'title':
@@ -145,45 +143,8 @@ class CangjieUI {
             if (e.key === 'Enter') { clearTimeout(timer); send(); }
         });
     }
-    applyStrPatches(patches) {
-        const activeEl = document.activeElement;
-        const allInputs = Array.from(document.querySelectorAll('input,textarea'));
-        const focusIdx = activeEl ? allInputs.indexOf(activeEl) : -1;
-        const focusSelStart = activeEl ? activeEl.selectionStart : null;
-        const focusSelEnd = activeEl ? activeEl.selectionEnd : null;
-        if (activeEl) { delete activeEl.dataset.bindDirty; }
-
-        for (const p of patches) {
-            const parts = (p.path || '').split('/').filter(Boolean);
-            this.applyPatchToTree(this.tree, p.op, parts, p.value);
-            this.applyPatchToDOM(this.container, p.op, parts, p.value);
-        }
-
-        if (focusIdx >= 0) {
-            const newInputs = document.querySelectorAll('input,textarea');
-            if (focusIdx < newInputs.length) {
-                const el = newInputs[focusIdx];
-                el.focus();
-                if (focusSelStart !== null && el.selectionStart !== undefined) {
-                    el.selectionStart = focusSelStart;
-                    el.selectionEnd = focusSelEnd ?? focusSelStart;
-                }
-            }
-        }
-    }
     applyTreePatches(trees) {
-        const sortedTrees = [...trees].sort((a, b) => {
-            const partsA = (a.path || '').split('/').filter(Boolean);
-            const partsB = (b.path || '').split('/').filter(Boolean);
-            const minLen = Math.min(partsA.length, partsB.length);
-            for (let i = 0; i < minLen - 1; i++) {
-                if (partsA[i] !== partsB[i]) return partsA[i].localeCompare(partsB[i]);
-            }
-            const idxA = parseInt(partsA[partsA.length - 1]);
-            const idxB = parseInt(partsB[partsB.length - 1]);
-            return idxB - idxA;
-        });
-        for (const p of sortedTrees) {
+        for (const p of trees) {
             const parts = (p.path || '').split('/').filter(Boolean);
             if (parts.length === 0) {
                 if (p.op === 'replace' && p.tree) {
@@ -193,7 +154,6 @@ class CangjieUI {
                 }
                 continue;
             }
-            this.applyPatchToTree(this.tree, p.op, parts, p.tree);
             const parentParts = parts.slice(0, -2);
             const parentEl = parentParts.length ? this.navigateTo(parentParts, this.container) : this.container;
             if (!parentEl) continue;
@@ -204,17 +164,6 @@ class CangjieUI {
                     const newEl = this.renderSubtree(p.tree);
                     if (newEl) parentEl.replaceChild(newEl, old);
                 }
-            } else if (p.op === 'add' && p.tree) {
-                const newEl = this.renderSubtree(p.tree);
-                if (!newEl) continue;
-                if (idx < parentEl.childNodes.length) {
-                    parentEl.insertBefore(newEl, parentEl.childNodes[idx]);
-                } else {
-                    parentEl.appendChild(newEl);
-                }
-            } else if (p.op === 'remove') {
-                const old = parentEl.childNodes[idx];
-                if (old) old.parentNode.removeChild(old);
             }
         }
     }
@@ -272,76 +221,6 @@ class CangjieUI {
         for (const child of node.children || []) el.appendChild(this.renderSubtree(child));
         if (el.hasAttribute('data-bind-id')) this.attachBind(el);
         return el;
-    }
-    applyPatchToTree(node, op, parts, value) {
-        if (!node || parts.length === 0) return;
-        if (parts[0] === 'attrs' && parts.length >= 2) {
-            if (op === 'replace') {
-                if (!node.attrs) node.attrs = {};
-                node.attrs[parts[1]] = value;
-            } else if (op === 'remove' && node.attrs) {
-                delete node.attrs[parts[1]];
-            }
-        } else if (parts[0] === 'actions' && parts.length >= 2) {
-            if (op === 'replace') {
-                if (!node.actions) node.actions = {};
-                node.actions[parts[1]] = value;
-            } else if (op === 'remove' && node.actions) {
-                delete node.actions[parts[1]];
-            }
-        } else if (parts[0] === 'children' && parts.length >= 2) {
-            const idx = parseInt(parts[1]);
-            if (op === 'add' && parts.length === 2 && node.children) {
-                node.children.splice(idx, 0, value || { type: 'div', attrs: {}, actions: null, children: [] });
-            } else if (op === 'replace' && node.children && node.children[idx] && parts.length == 2) {
-                node.children[idx] = value;
-            } else if (op === 'remove' && parts.length === 2 && node.children) {
-                node.children.splice(idx, 1);
-            } else if (node.children && node.children[idx]) {
-                this.applyPatchToTree(node.children[idx], op, parts.slice(2), value);
-            }
-        } else if (parts[0] === 'text' && op === 'replace') {
-            if (!node.attrs) node.attrs = {};
-            node.attrs.text = value;
-        }
-    }
-    applyPatchToDOM(parent, op, parts, value) {
-        let el = parent.firstElementChild;
-        if (!el) return;
-        let i = 0;
-        while (i < parts.length && parts[i] === 'children' && i + 1 < parts.length) {
-            const idx = parseInt(parts[i + 1]);
-            const children = el.childNodes;
-            if (children && idx < children.length) {
-                el = children[idx];
-            } else { return; }
-            i += 2;
-        }
-        if (i >= parts.length) {
-            if (op === 'remove' && el.parentNode) {
-                el.parentNode.removeChild(el);
-            }
-            return;
-        }
-        if (el.nodeType === 3) {
-            if (op === 'replace') el.textContent = value;
-        } else if (parts[i] === 'attrs' && i + 1 < parts.length) {
-            const attr = parts[i + 1];
-            if (attr === 'value') {
-                if (op === 'replace') el.value = value;
-                else if (op === 'remove') el.value = '';
-            } else if (op === 'replace') {
-                el.setAttribute(attr, value);
-            } else if (op === 'remove') {
-                el.removeAttribute(attr);
-            }
-        } else if (parts[i] === 'actions' && i + 1 < parts.length) {
-            const ev = parts[i + 1];
-            if (op === 'replace') el.setAttribute(`data-action-\${ev}`, value);
-            else if (op === 'remove') el.removeAttribute(`data-action-\${ev}`);
-        } else if (parts[i] === 'text' && op === 'replace') {
-            el.textContent = value;
-        }
     }
 }
 """
