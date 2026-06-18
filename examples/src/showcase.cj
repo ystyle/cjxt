@@ -319,26 +319,42 @@ class ShowcasePage <: Component {
     }
 
     func demoRate(): IComponent {
-        Rate().bind(this.state.rateValue)
+        div([
+            Rate().bind(this.state.rateValue),
+            Rate().max(3).showText().texts(["差", "一般", "好"]).bind(this.state.rateValue),
+            Rate().disabled().bind(this.state.rateValue),
+        ], attrs: Some(HashMap<String, String>([("style", "display:flex;flex-direction:column;gap:16px")])))
     }
 
     func demoSelect(): IComponent {
-        Select([
-            SelectOption([text("选项A")], "a"),
-            SelectOption([text("选项B")], "b"),
-            SelectOption([text("选项C")], "c"),
-        ]).placeholder("请选择").bind(this.state.selectValue)
+        div([
+            Select([
+                SelectOption([text("选项A")], "a"),
+                SelectOption([text("选项B")], "b"),
+                SelectOption([text("选项C")], "c").disabled(),
+            ]).placeholder("请选择").bind(this.state.selectValue),
+            Select([
+                SelectOption([text("苹果")], "apple"),
+                SelectOption([text("香蕉")], "banana"),
+                SelectOption([text("橙子")], "orange"),
+            ]).placeholder("禁用").disabled(),
+        ], attrs: Some(HashMap<String, String>([("style", "display:flex;flex-direction:column;gap:16px;width:100%")])))
     }
 
     func demoSlider(): IComponent {
-        Slider().min(0).max(100).bind(this.state.sliderValue)
+        div([
+            Slider().min(0).max(100).bind(this.state.sliderValue),
+            Slider().min(0).max(100).step(10).showStops().bind(this.state.sliderValue),
+            Slider().min(0).max(100).disabled().bind(this.state.sliderValue),
+        ], attrs: Some(HashMap<String, String>([("style", "display:flex;flex-direction:column;gap:16px;width:100%")])))
     }
 
     func demoForm(): IComponent {
         Form([
-            FormItem([Input().placeholder("请输入用户名")]).label("用户名").required(),
-            FormItem([Input().placeholder("请输入密码").password()]).label("密码").required(),
-            FormItem([Input().placeholder("请输入邮箱")]).label("邮箱"),
+            FormItem([Input().placeholder("请输入用户名").prefixIcon("user")]).label("用户名").required(),
+            FormItem([Input().placeholder("请输入密码").password().prefixIcon("lock")]).label("密码").required(),
+            FormItem([Input().placeholder("请输入邮箱").prefixIcon("info-filled")]).label("邮箱"),
+            FormItem([Switch().activeText("启用").inactiveText("禁用")]).label("状态"),
         ])
     }
 
@@ -446,17 +462,23 @@ class ShowcasePage <: Component {
             ])
             case "Rate" => div([
                 this.propRow("max", "Int64 (默认 5)"),
+                this.propRow("allowHalf", "false"),
                 this.propRow("showText", "false"),
+                this.propRow("texts", "Array<String>"),
+                this.propRow("disabled", "false"),
                 this.propRow("bind(signal)", "Signal<Int64>"),
             ])
             case "Select" => div([
                 this.propRow("SelectOption(value)", "String"),
+                this.propRow("SelectOption.disabled", "false"),
                 this.propRow("Select.placeholder", "String"),
+                this.propRow("Select.disabled", "false"),
                 this.propRow("Select.bind(signal)", "Signal<String>"),
             ])
             case "Slider" => div([
                 this.propRow("min / max / step", "Int64"),
                 this.propRow("showStops", "false"),
+                this.propRow("disabled", "false"),
                 this.propRow("bind(signal)", "Signal<Int64>"),
             ])
             case "Form" => div([
