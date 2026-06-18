@@ -1,19 +1,41 @@
 package cjxt.components
 
 import cjxt.*
-import std.collection.HashMap
+import std.collection.{HashMap, ArrayList}
 
-public func Card(children: Array<IComponent>, header!: String = "", shadow!: CardShadow = CardShadow.Always): IComponent {
-    var cls = "el-card is-${shadow.asClass()}-shadow"
-    let clsMap = HashMap<String, String>([("class", cls)])
+public class Card <: Component {
+    var _children: Array<IComponent>
+    var _header: Array<IComponent> = []
+    var _footer: Array<IComponent> = []
+    var _shadow: CardShadow = CardShadow.Always
+    var _bodyStyle: String = ""
+    var _bodyClass: String = ""
 
-    if (header != "") {
-        let hdr = HashMap<String, String>([("class", "el-card__header")])
-        let body = HashMap<String, String>([("class", "el-card__body")])
-        div([div([text(header)], attrs: Some(hdr)), div(children, attrs: Some(body))], attrs: Some(clsMap))
-    } else {
-        let body = HashMap<String, String>([("class", "el-card__body")])
-        div([div(children, attrs: Some(body))], attrs: Some(clsMap))
+    public init(children: Array<IComponent>) { this._children = children }
+
+    public func header(v: String): Card { this._header = [text(v)]; this }
+    public func header(v: Array<IComponent>): Card { this._header = v; this }
+    public func footer(v: String): Card { this._footer = [text(v)]; this }
+    public func footer(v: Array<IComponent>): Card { this._footer = v; this }
+    public func shadow(v: CardShadow): Card { this._shadow = v; this }
+    public func bodyStyle(v: String): Card { this._bodyStyle = v; this }
+    public func bodyClass(v: String): Card { this._bodyClass = v; this }
+
+    public func render(): IComponent {
+        let cls = "el-card is-${this._shadow.asClass()}-shadow"
+        let bodyCls = if (this._bodyClass != "") { "el-card__body ${this._bodyClass}" } else { "el-card__body" }
+        let bodyAttrs = HashMap<String, String>([("class", bodyCls)])
+        if (this._bodyStyle != "") { bodyAttrs["style"] = this._bodyStyle }
+
+        let parts = ArrayList<IComponent>()
+        if (this._header.size > 0) {
+            parts.add(div(this._header, attrs: Some(HashMap<String, String>([("class", "el-card__header")]))))
+        }
+        parts.add(div(this._children, attrs: Some(bodyAttrs)))
+        if (this._footer.size > 0) {
+            parts.add(div(this._footer, attrs: Some(HashMap<String, String>([("class", "el-card__footer")]))))
+        }
+        div(parts.toArray(), attrs: Some(HashMap<String, String>([("class", cls)])))
     }
 }
 

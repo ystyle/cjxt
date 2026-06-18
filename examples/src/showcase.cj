@@ -104,20 +104,47 @@ class ShowcasePage <: Component {
 
     func demoButton(): IComponent {
         div([
-            Button("Default"),
-            PrimaryButton("Primary"),
-            DangerButton("Danger"),
-            InfoButton("Info"),
-            SmallButton("Small"),
-        ], attrs: Some(HashMap<String, String>([("class", cls("row"))])))
+            div([
+                Button("Default"),
+                PrimaryButton("Primary"),
+                SuccessButton("Success"),
+                WarningButton("Warning"),
+                DangerButton("Danger"),
+                InfoButton("Info"),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([
+                Button("Plain").plain(),
+                PrimaryButton("Plain").plain(),
+                DangerButton("Plain").plain(),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([
+                Button([Icon("search"), text("Icon")]).round(),
+                PrimaryButton("Round").round(),
+                DangerButton("Circle").circle().icon("delete"),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([
+                Button("Loading").loading(),
+                PrimaryButton("Disabled").disabled(),
+                Button("Text").text(),
+                Button("Link").link(),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+        ], attrs: Some(HashMap<String, String>([("style", "display:flex;flex-direction:column;gap:16px")])))
     }
 
     func demoButtonGroup(): IComponent {
-        ButtonGroup([Button("上一页"), Button("下一页")])
+        div([
+            ButtonGroup([PrimaryButton("上一页"), PrimaryButton("下一页")]),
+            ButtonGroup([Button("左"), Button("中"), Button("右")]).kind(ButtonKind.Primary),
+            ButtonGroup([Button("Top"), Button("Center"), Button("Bottom")]).direction(SpaceDirection.Vertical),
+        ], attrs: Some(HashMap<String, String>([("class", cls("row"))])))
     }
 
     func demoCard(): IComponent {
-        Card([text("卡片内容")], header: "卡片标题")
+        div([
+            Card([text("卡片内容")]).header("卡片标题"),
+            Card([text("无标题卡片内容")]).shadow(CardShadow.Hover),
+            Card([text("带底部")]).header("Header").footer("Footer"),
+        ], attrs: Some(HashMap<String, String>([("class", cls("row"))])))
     }
 
     func demoRowCol(): IComponent {
@@ -169,36 +196,60 @@ class ShowcasePage <: Component {
 
     func demoText(): IComponent {
         div([
-            Text([text("默认文本")]),
-            Text([text("主色文本")]).kind(ComponentKind.Primary),
-            Text([text("成功文本")]).kind(ComponentKind.Success),
-            Text([text("警告文本")]).kind(ComponentKind.Warning),
-            Text([text("危险文本")]).kind(ComponentKind.Danger),
-            Text([text("信息文本")]).kind(ComponentKind.Info),
-        ]).style("display:flex;flex-wrap:wrap;gap:12px;align-items:center")
+            div([
+                Text([text("默认文本")]),
+                Text([text("主色文本")]).kind(ComponentKind.Primary),
+                Text([text("成功文本")]).kind(ComponentKind.Success),
+                Text([text("危险文本")]).kind(ComponentKind.Danger),
+                Text([text("大尺寸")]).size(TextSize.Large),
+                Text([text("小尺寸")]).size(TextSize.Small),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([
+                div([Text([text("这是一段会被截断的很长很长的文本内容")]).truncated()], attrs: Some(HashMap<String, String>([("class", cls("row")), ("style", "max-width:200px")]))),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+        ])
     }
 
     func demoLink(): IComponent {
         div([
             Link([text("默认链接")]),
             Link([text("主色链接")]).kind(ComponentKind.Primary),
+            Link([text("下划线始终")]).underline(LinkUnderline.Always),
+            Link([text("无下划线")]).noUnderline(),
             Link([text("禁用链接")]).disabled(),
-        ]).style("display:flex;flex-wrap:wrap;gap:16px;align-items:center")
+            Link([Icon("edit"), text("带图标")]).kind(ComponentKind.Success),
+        ], attrs: Some(HashMap<String, String>([("class", cls("row"))])))
     }
 
     func demoTag(): IComponent {
         div([
-            Tag([text("标签")]),
-            Tag([text("成功")]).kind(ComponentKind.Success),
-            Tag([text("可移除")]).kind(ComponentKind.Info).closable(),
-            Tag([text("深色")]).kind(ComponentKind.Danger).effect(TagEffect.Dark),
-        ], attrs: Some(HashMap<String, String>([("class", cls("row"))])))
+            div([
+                Tag([text("标签")]),
+                Tag([text("成功")]).kind(ComponentKind.Success),
+                Tag([text("警告")]).kind(ComponentKind.Warning),
+                Tag([text("危险")]).kind(ComponentKind.Danger),
+                Tag([text("信息")]).kind(ComponentKind.Info),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([
+                Tag([text("Plain")]).effect(TagEffect.Plain),
+                Tag([text("Dark")]).effect(TagEffect.Dark),
+                Tag([text("Round")]).round().kind(ComponentKind.Primary),
+                Tag([text("Hit")]).hit().kind(ComponentKind.Success),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([
+                Tag([text("Small")]).size(TagSize.Small).kind(ComponentKind.Primary),
+                Tag([text("Large")]).size(TagSize.Large).kind(ComponentKind.Danger),
+                Tag([text("可移除")]).kind(ComponentKind.Info).closable(),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+        ], attrs: Some(HashMap<String, String>([("style", "display:flex;flex-direction:column;gap:16px")])))
     }
 
     func demoBadge(): IComponent {
         div([
             Badge([Button("消息")]).value(5),
+            Badge([Button("热门")]).value(120).max(99),
             Badge([Button("动态")]).dot(),
+            Badge([Button("Zero")]).value(0).showZero(false),
         ], attrs: Some(HashMap<String, String>([("class", cls("row"))])))
     }
 
@@ -208,11 +259,18 @@ class ShowcasePage <: Component {
 
     func demoIcon(): IComponent {
         div([
-            Icon("edit"),
-            Icon("delete"),
-            Icon("star-on"),
-            Icon("search"),
-        ], attrs: Some(HashMap<String, String>([("class", cls("row"))])))
+            div([
+                Icon("edit"),
+                Icon("delete"),
+                Icon("search"),
+                Icon("close"),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([
+                Icon("star-filled").size("24px"),
+                Icon("star").size("24px").color("#e6a23c"),
+                Icon("check").size("24px").color("#67c23a"),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+        ], attrs: Some(HashMap<String, String>([("style", "display:flex;flex-direction:column;gap:16px")])))
     }
 
     func demoInput(): IComponent {
@@ -264,47 +322,64 @@ class ShowcasePage <: Component {
     func renderProps(sel: String): IComponent {
         match (sel) {
             case "Button" => div([
-                this.propRow("kind", "Primary | Danger | Info | Default"),
+                this.propRow("kind", "Default | Primary | Success | Warning | Danger | Info"),
                 this.propRow("size", "Large | Default | Small"),
-                this.propRow("plain", "false"),
-                this.propRow("disabled", "false"),
+                this.propRow("plain / round / circle", "false"),
+                this.propRow("loading / disabled", "false"),
+                this.propRow("text / link / bg", "false"),
+                this.propRow("icon(name)", "String"),
                 this.propRow("onClick", "(ActionContext) -> PatchResult"),
             ])
             case "ButtonGroup" => div([
                 this.propRow("children", "Array<IComponent>"),
+                this.propRow("direction", "Horizontal | Vertical"),
+                this.propRow("size / kind", "apply to children"),
             ])
             case "Card" => div([
-                this.propRow("header", "String"),
+                this.propRow("header", "String | Array<IComponent>"),
+                this.propRow("footer", "String | Array<IComponent>"),
                 this.propRow("shadow", "Always | Hover | Never"),
+                this.propRow("bodyStyle / bodyClass", "String"),
             ])
             case "RowCol" => div([
                 this.propRow("Row.gutter", "Int64"),
+                this.propRow("Row.justify", "Start | End | Center | SpaceAround | SpaceBetween | SpaceEvenly"),
+                this.propRow("Row.align", "Top | Middle | Bottom"),
                 this.propRow("Col.span", "Int64 (默认 24)"),
+                this.propRow("Col.offset / push / pull", "Int64"),
             ])
             case "Divider" => div([
                 this.propRow("direction", "Horizontal | Vertical"),
                 this.propRow("contentPosition", "Left | Center | Right"),
             ])
             case "Text" => div([
-                this.propRow("kind", "Default | Primary | ... | Plain"),
+                this.propRow("kind", "Default | Primary | Success | Warning | Danger | Info | Plain"),
                 this.propRow("size", "Default | Large | Small"),
                 this.propRow("truncated", "false"),
+                this.propRow("lineClamp", "Int64"),
+                this.propRow("tag", "String (默认 span)"),
             ])
             case "Link" => div([
-                this.propRow("kind", "Default | Primary | ... | Info"),
-                this.propRow("underline", "true"),
+                this.propRow("kind", "Default | Primary | Success | Warning | Danger | Info"),
+                this.propRow("underline", "Always | Hover | Never"),
+                this.propRow("href / target", "String"),
                 this.propRow("disabled", "false"),
+                this.propRow("icon(name)", "String"),
                 this.propRow("onClick", "(ActionContext) -> PatchResult"),
             ])
             case "Tag" => div([
-                this.propRow("kind", "Default | Primary | ... | Info"),
-                this.propRow("size", "Default | Large | Small | Mini"),
+                this.propRow("kind", "Default | Primary | Success | Warning | Danger | Info"),
+                this.propRow("size", "Default | Large | Medium | Small | Mini"),
                 this.propRow("effect", "Dark | Light | Plain"),
-                this.propRow("closable", "false"),
+                this.propRow("closable / hit / round", "false"),
+                this.propRow("color", "String"),
             ])
             case "Badge" => div([
                 this.propRow("value", "Int64 | String"),
-                this.propRow("dot", "false"),
+                this.propRow("max", "Int64 (默认 99)"),
+                this.propRow("dot / hidden", "false"),
+                this.propRow("showZero", "true"),
+                this.propRow("kind", "Default | Primary | Success | Warning | Danger | Info"),
             ])
             case "Space" => div([
                 this.propRow("size", "Int64 (默认 8)"),

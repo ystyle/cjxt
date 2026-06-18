@@ -43,6 +43,18 @@ public enum ButtonSize {
     }
 }
 
+public enum ButtonNativeType {
+    | Button | Submit | Reset
+
+    public func asAttr(): String {
+        match (this) {
+            case Button => "button"
+            case Submit => "submit"
+            case Reset => "reset"
+        }
+    }
+}
+
 public enum ComponentSize {
     | Large | Default | Small
 

@@ -1,7 +1,20 @@
-.el-space {
+@use 'mixins/mixins' as *;
+@use 'common/var' as *;
+
+@include b(space) {
   display: inline-flex;
-  flex-wrap: wrap;
-  &.el-space--vertical { flex-direction: column; }
-  &.el-space--wrap { flex-wrap: wrap; }
+  vertical-align: top;
+
+  @include e(item) {
+    display: flex;
+    flex-wrap: wrap;
+
+    & > * {
+      flex: 1;
+    }
+  }
+
+  @include m(vertical) {
+    flex-direction: column;
+  }
 }
-.el-space__item { display: flex; align-items: center; }

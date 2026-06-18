@@ -25,13 +25,3 @@ public class Space <: Component {
         div(items.toArray(), attrs: Some(attrs))
     }
 }
-
-public class ButtonGroup <: Component {
-    var _children: Array<IComponent>
-
-    public init(children: Array<IComponent>) { this._children = children }
-
-    public func render(): IComponent {
-        div(this._children, attrs: Some(HashMap<String, String>([("class", "el-button-group")])))
-    }
-}
