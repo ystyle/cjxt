@@ -12,7 +12,7 @@
 
 ## 组件实现流程
 
-参照 Element Plus 的属性、样式和事件来设计和实现组件。
+参照 Element Plus(本地: ~/Projects/element-plus/) 的属性、样式和事件来设计和实现组件。
 
 ### 步骤
 
