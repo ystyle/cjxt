@@ -12,15 +12,27 @@ public interface Component <: JsonSerializable {
 
     func expand(): Component { this.render().expand() }
 
+    // dirty 标记 + 路径追踪
+    func markDirty(): Unit { SignalTracker.pendingRender = true }
+    func isDirty(): Bool { false }
+    func clearDirty(): Unit {}
+    func getPath(): String { "" }
+    func setPath(p: String): Unit {}
+
     func reRender(): Unit {
         SignalTracker.pendingRender = true
     }
 
-    func renderWithScope(): Component {
-        SignalTracker.enterScope({ => this.reRender() })
+    func renderWithScope(path: String): Component {
+        this.setPath(path)
+        SignalTracker.enterScope({ => this.markDirty() })
         let tree = this.render()
         SignalTracker.exitScope()
         tree
+    }
+
+    func renderWithScope(): Component {
+        this.renderWithScope("")
     }
 
     func getActions(): HashMap<String, ActionHandler> {
@@ -51,6 +63,23 @@ public interface Component <: JsonSerializable {
             case _ => ()
         }
     }
+}
+
+public abstract class BaseComponent <: Component {
+    var _dirty: Bool = false
+    var _path: String = ""
+
+    public init() {}
+
+    public func markDirty(): Unit {
+        this._dirty = true
+        SignalTracker.pendingRender = true
+    }
+
+    public func isDirty(): Bool { this._dirty }
+    public func clearDirty(): Unit { this._dirty = false }
+    public func getPath(): String { this._path }
+    public func setPath(p: String): Unit { this._path = p }
 }
 
 public struct LifecycleContext {
