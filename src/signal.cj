@@ -7,6 +7,7 @@ public class SignalTracker {
     static var scopeStack = ArrayList<() -> Unit>()
     public static var pendingRender: Bool = false
     public static var execMutex = Mutex()
+    public static var dirtyComponents = ArrayList<BaseComponent>()
 
     public static func enterScope(cb: () -> Unit): Unit {
         scopeStack.add(cb)
@@ -48,5 +49,9 @@ public class Signal<T> {
 
     public func subscribe(fn: () -> Unit): Unit {
         subs.add(fn)
+    }
+
+    public func clearSubs(): Unit {
+        subs.clear()
     }
 }

@@ -102,4 +102,18 @@ class SignalTest {
         @Expect(captured.value, 20)
         @Expect(st.get(), 20)
     }
+
+    @TestCase
+    public func testSignalClearSubs() {
+        let s = Signal<Int64>(0)
+        let captured = Box<Int64>(-1)
+        s.subscribe({ => captured.value = 99 })
+        s.set(5)
+        @Expect(captured.value, 99)
+
+        s.clearSubs()
+        captured.value = -1
+        s.set(10)
+        @Expect(captured.value, -1)
+    }
 }

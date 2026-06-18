@@ -9,19 +9,18 @@ import tang.middleware.staticfile.{staticFiles, withPrefix, staticMiddleware}
 
 class SessionState {
     var page: Component
-    var actions: HashMap<String, ActionHandler>
     var handlers: HashMap<String, ActionHandler>
     var path: String
 
     public init(page: Component, path: String) {
         this.page = page
         this.path = path
-        this.actions = page.getActions()
         this.handlers = HashMap<String, ActionHandler>()
     }
 
-    public func refresh(tree: Component): Unit {
-        tree.collectHandlers(this.handlers)
+    public func refreshFromTree(tree: Component): Unit {
+        this.handlers.clear()
+        RenderContext.collectHandlersFromTree(tree, this.handlers)
     }
 }
 
@@ -91,7 +90,7 @@ public class App {
         let session = sessions.create(p, text(""))
         this.initStates(session)
         p.onMount(LifecycleContext(session.id, HashMap<String, String>(), None, None, states: session.states))
-        let tree = p.renderWithScope().expand()
+        let tree = RenderContext.expandTree(p.renderWithScope(), "")
         session.tree = tree
         ctx.contentType("text/html; charset=utf-8").writeString(generateHtmlShell(session.id, config: this.config))
     }
@@ -116,8 +115,8 @@ public class App {
         session.wsState = WsState.Connected
         session.touch()
         let state = SessionState(session.page, session.path)
-        let tree = applyLayout(session.path, session.tree).expand()
-        state.refresh(tree)
+        let tree = RenderContext.expandTree(applyLayout(session.path, session.tree), "")
+        state.refreshFromTree(tree)
         wsSendJson(ws, ConnectedMsg())
         wsSendJson(ws, CombinedPatchMsg([], [TreePatchEntry("replace", "", Some(tree))]))
         sendTitle(ws, session.path)
@@ -153,10 +152,10 @@ public class App {
     }
 
     private func initSignals(ws: WebSocket, state: SessionState, session: Session): Unit {
-        let raw = state.page.renderWithScope().expand()
-        let tree = applyLayout(state.path, raw).expand()
-        state.refresh(tree)
-        session.tree = raw
+        let raw = state.page.renderWithScope()
+        let tree = RenderContext.expandTree(applyLayout(state.path, raw), "")
+        state.refreshFromTree(tree)
+        session.tree = tree
     }
 
     private func listenLoop(ws: WebSocket, state: SessionState, session: Session): Unit {
@@ -189,16 +188,13 @@ public class App {
             }
         }
         session.wsState = WsState.Disconnected
-        session.tree = state.page.render().expand()
+        session.tree = RenderContext.expandTree(state.page.renderWithScope(), "")
     }
 
     private func dispatchAction(ws: WebSocket, state: SessionState, session: Session, name: String): Unit {
-        match (state.actions.get(name)) {
+        match (state.handlers.get(name)) {
             case Some(fn) => this.runAction(ws, state, session, name, fn)
-            case None => match (state.handlers.get(name)) {
-                case Some(fn) => this.runAction(ws, state, session, name, fn)
-                case None => ()
-            }
+            case None => ()
         }
     }
 
@@ -267,13 +263,12 @@ public class App {
     private func applyNav(ws: WebSocket, state: SessionState, session: Session, newPage: Component, path: String): Unit {
         state.page = newPage
         state.path = path
-        state.actions = newPage.getActions()
         let mountCtx = LifecycleContext(session.id, HashMap<String, String>(), None, None, states: session.states)
         newPage.onMount(mountCtx)
-        let raw = newPage.renderWithScope().expand()
-        let tree = applyLayout(path, raw).expand()
-        state.refresh(tree)
-        session.updatePage(newPage, raw)
+        let raw = newPage.renderWithScope()
+        let tree = RenderContext.expandTree(applyLayout(path, raw), "")
+        state.refreshFromTree(tree)
+        session.updatePage(newPage, tree)
         session.path = path
         wsSendJson(ws, FullTreeMsg(tree))
         sendTitle(ws, path)
@@ -288,12 +283,24 @@ public class App {
 
     private func sendPatch(ws: WebSocket, state: SessionState, session: Session): Unit {
         SignalTracker.pendingRender = false
-        let oldTree = session.tree
-        let newTree = state.page.render().expand()
-        let patches = diffTree(oldTree, newTree, "")
-        state.refresh(newTree)
-        session.tree = newTree
-        sendGranularPatch(ws, patches)
+        let dirty = RenderContext.collectDirty()
+        if (dirty.size == 0) { return }
+
+        for (component in dirty) {
+            let path = component.getPath()
+            let newSubtree = component.renderWithScope(path)
+            let expanded = RenderContext.expandTree(newSubtree, path)
+            let handlerMap = HashMap<String, ActionHandler>()
+            let json = serializeSubtree(expanded, handlerMap)
+            session.tree = RenderContext.replaceTreeAtPath(session.tree, path, expanded)
+
+            let msg = "{\"kind\":\"patch\",\"trees\":[{\"op\":\"replace\",\"path\":\"${path}\",\"tree\":${json}}]}"
+            wsSendText(ws, msg)
+        }
+
+        state.handlers.clear()
+        RenderContext.collectHandlersFromTree(session.tree, state.handlers)
+        RenderContext.clearDirty()
     }
 }
 

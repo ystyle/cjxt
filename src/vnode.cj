@@ -41,14 +41,6 @@ public struct VNode <: Component {
 
     public func render(): Component { this }
 
-    public func expand(): Component {
-        let expanded = ArrayList<Component>()
-        for (c in this._children) {
-            expanded.add(c.expand())
-        }
-        VNode(this._tag, expanded.toArray(), attrs: this._attrs, key: this._key, actions: this._actions, handlers: this._handlers)
-    }
-
     public func toJson(w: JsonWriter): Unit {
         w.startObject()
         w.writeName("type").writeValue(this._tag)
@@ -151,8 +143,6 @@ public struct TextNode <: Component {
 
     public func render(): Component { this }
 
-    public func expand(): Component { this }
-
     public func toJson(w: JsonWriter): Unit {
         w.startObject()
         w.writeName("type").writeValue("text")
@@ -175,14 +165,6 @@ public struct FragmentNode <: Component {
 
     public func render(): Component { this }
 
-    public func expand(): Component {
-        let expanded = ArrayList<Component>()
-        for (c in this._children) {
-            expanded.add(c.expand())
-        }
-        FragmentNode(expanded.toArray())
-    }
-
     public func toJson(w: JsonWriter): Unit {
         w.startObject()
         w.writeName("type").writeValue("fragment")
@@ -197,8 +179,6 @@ public struct EmptyNode <: Component {
     public init() {}
 
     public func render(): Component { this }
-
-    public func expand(): Component { this }
 
     public func toJson(w: JsonWriter): Unit {
         w.startObject()

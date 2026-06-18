@@ -111,14 +111,14 @@ public class VnodeTest {
     @TestCase
     public func testExpandCustomComponent(): Unit {
         let wrapper = Wrapper()
-        let expanded = wrapper.expand()
+        let expanded = RenderContext.expandTree(wrapper, "")
         doCheckExpanded(expanded)
     }
 
     @TestCase
     public func testExpandActionIdsConsistent(): Unit {
         let wrapper = Wrapper()
-        let expanded = wrapper.expand()
+        let expanded = RenderContext.expandTree(wrapper, "")
         doCheckActionIds(expanded)
     }
 }
@@ -157,7 +157,7 @@ func doCheckActionIds(expanded: Component): Unit {
     }
 }
 
-public class Wrapper <: Component {
+public class Wrapper <: BaseComponent {
     public init() {}
     public func render(): Component {
         div([span([text("hello")]).onClick({ _ => PatchResult.ReRender })])
