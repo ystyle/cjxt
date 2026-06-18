@@ -1,15 +1,14 @@
 #!/bin/sh
-# 编译 Element Plus 组件 SCSS 为单一 CSS 文件
+# 编译 Element Plus 组件 SCSS，追加到 examples/public/css/bundle.css
 
 set -e
-OUT="public/css/element-plus/element-plus.css"
 IN="public/scss/element-plus/element-plus.scss"
 SASS_FLAGS="--load-path=public/scss/element-plus"
+BUNDLE="examples/public/css/bundle.css"
 
-mkdir -p "$(dirname "$OUT")"
-sass "$IN" "$OUT" $SASS_FLAGS
-
-# 复制到示例项目
-mkdir -p examples/public/css/element-plus
-cp "$OUT" examples/public/css/element-plus/
-echo "compiled $OUT ($(wc -c < "$OUT") bytes)"
+TMP=$(mktemp)
+mkdir -p "$(dirname "$BUNDLE")"
+sass "$IN" "$TMP" $SASS_FLAGS
+cat "$TMP" >> "$BUNDLE"
+rm "$TMP"
+echo "appended Element Plus styles to $BUNDLE ($(wc -c < "$BUNDLE") bytes total)"
