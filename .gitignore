@@ -6,3 +6,4 @@ build-script-cache/
 .DS_Store
 public/css/bundle.css
 *.bak
+.worktrees/
