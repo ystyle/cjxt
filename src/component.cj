@@ -72,7 +72,10 @@ public abstract class BaseComponent <: Component {
     public init() {}
 
     public func markDirty(): Unit {
-        this._dirty = true
+        if (!this._dirty) {
+            this._dirty = true
+            SignalTracker.dirtyComponents.add(this)
+        }
         SignalTracker.pendingRender = true
     }
 

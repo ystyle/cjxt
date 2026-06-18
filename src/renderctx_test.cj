@@ -56,6 +56,40 @@ class RenderContextTest {
             case _ => @Fail("expected VNode")
         }
     }
+
+    @TestCase
+    public func testCollectDirtyParentOverrideChild(): Unit {
+        let parent = TestComponent("div", [])
+        let child = TestComponent("span", [])
+        parent._path = "children/0"
+        child._path = "children/0/children/2"
+
+        parent.markDirty()
+        child.markDirty()
+
+        let dirty = RenderContext.collectDirty()
+        RenderContext.clearDirty()
+
+        // 父覆盖子 — child 不应出现在结果中
+        @Expect(dirty.size, 1)
+        @Expect(dirty[0].getPath(), "children/0")
+    }
+
+    @TestCase
+    public func testCollectDirtyIndependent(): Unit {
+        let a = TestComponent("div", [])
+        let b = TestComponent("span", [])
+        a._path = "children/0"
+        b._path = "children/1"
+
+        a.markDirty()
+        b.markDirty()
+
+        let dirty = RenderContext.collectDirty()
+        RenderContext.clearDirty()
+
+        @Expect(dirty.size, 2)
+    }
 }
 
 class TestComponent <: BaseComponent {
