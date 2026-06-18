@@ -48,20 +48,17 @@ class ShowcasePage <: Component {
     }
 
     func sidebar(sel: String): IComponent {
-        let items = ArrayList<IComponent>()
+        let menu = Menu().mode(MenuMode.Vertical)
         for (name in componentNames) {
             let active = name == sel
-            var itemCls = "showcase-sidebar-item"
-            if (active) { itemCls = "${itemCls} active" }
-            items.add(
-                button([text(name)], attrs: Some(HashMap<String, String>([("class", itemCls)]))
-                ).onClick({ ctx =>
+            menu.add(
+                MenuItem(name, [text(name)]).active(active).onClick({ ctx =>
                     this.state.selected.set(name)
                     PatchResult.ReRender
                 })
             )
         }
-        div(items.toArray(), attrs: Some(HashMap<String, String>([("class", cls("showcase-sidebar"))])))
+        div([menu.render()], attrs: Some(HashMap<String, String>([("class", cls("showcase-sidebar"))])))
     }
 
     func demoArea(sel: String): IComponent {

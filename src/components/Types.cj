@@ -181,3 +181,14 @@ public enum SpaceDirection {
     }
 }
 
+public enum MenuMode {
+    | Horizontal | Vertical
+
+    public func asClass(): String {
+        match (this) {
+            case Horizontal => "horizontal"
+            case Vertical => "vertical"
+        }
+    }
+}
+
