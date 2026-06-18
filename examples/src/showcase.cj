@@ -32,7 +32,7 @@ class ShowcasePage <: Component {
         this.state = ctx.getState<ShowcaseState>()
     }
 
-    public func render(): Component {
+    public func render(): IComponent {
         let sel = this.state.selected.get()
         let wrapCls = HashMap<String, String>([("class", cls("showcase-wrap"))])
         div([
@@ -47,8 +47,8 @@ class ShowcasePage <: Component {
         ], attrs: Some(wrapCls))
     }
 
-    func sidebar(sel: String): Component {
-        let items = ArrayList<Component>()
+    func sidebar(sel: String): IComponent {
+        let items = ArrayList<IComponent>()
         for (name in componentNames) {
             let active = name == sel
             var itemCls = "showcase-sidebar-item"
@@ -64,11 +64,11 @@ class ShowcasePage <: Component {
         div(items.toArray(), attrs: Some(HashMap<String, String>([("class", cls("showcase-sidebar"))])))
     }
 
-    func demoArea(sel: String): Component {
+    func demoArea(sel: String): IComponent {
         div([this.renderDemo(sel)], attrs: Some(HashMap<String, String>([("class", cls("showcase-demo"))])))
     }
 
-    func propsPanel(sel: String): Component {
+    func propsPanel(sel: String): IComponent {
         let titleCls = HashMap<String, String>([("class", cls("showcase-props-title"))])
         div([
             div([text("属性")], attrs: Some(titleCls)),
@@ -78,7 +78,7 @@ class ShowcasePage <: Component {
 
     // ============ Demos ============
 
-    func renderDemo(sel: String): Component {
+    func renderDemo(sel: String): IComponent {
         match (sel) {
             case "Button" => this.demoButton()
             case "ButtonGroup" => this.demoButtonGroup()
@@ -104,7 +104,7 @@ class ShowcasePage <: Component {
         }
     }
 
-    func demoButton(): Component {
+    func demoButton(): IComponent {
         div([
             Button("Default"),
             PrimaryButton("Primary"),
@@ -114,15 +114,15 @@ class ShowcasePage <: Component {
         ], attrs: Some(HashMap<String, String>([("class", cls("row"))])))
     }
 
-    func demoButtonGroup(): Component {
+    func demoButtonGroup(): IComponent {
         ButtonGroup([Button("上一页"), Button("下一页")])
     }
 
-    func demoCard(): Component {
+    func demoCard(): IComponent {
         Card([text("卡片内容")], header: "卡片标题")
     }
 
-    func demoRowCol(): Component {
+    func demoRowCol(): IComponent {
         let gutter: Int64 = 12
         let cell = { label: String =>
             div([text(label)]).style("background:#f5f3ff;border:1px solid #4f46e5;border-radius:8px;padding:16px 0;text-align:center;color:#4f46e5;font-weight:600")
@@ -137,7 +137,7 @@ class ShowcasePage <: Component {
         ], gutter: gutter)
     }
 
-    func demoDivider(): Component {
+    func demoDivider(): IComponent {
         div([
             text("上面"),
             Divider(),
@@ -147,7 +147,7 @@ class ShowcasePage <: Component {
         ])
     }
 
-    func demoText(): Component {
+    func demoText(): IComponent {
         div([
             Text([text("默认文本")]),
             Text([text("主色文本")]).kind(ComponentKind.Primary),
@@ -158,7 +158,7 @@ class ShowcasePage <: Component {
         ]).style("display:flex;flex-wrap:wrap;gap:12px;align-items:center")
     }
 
-    func demoLink(): Component {
+    func demoLink(): IComponent {
         div([
             Link([text("默认链接")]),
             Link([text("主色链接")]).kind(ComponentKind.Primary),
@@ -166,7 +166,7 @@ class ShowcasePage <: Component {
         ]).style("display:flex;flex-wrap:wrap;gap:16px;align-items:center")
     }
 
-    func demoTag(): Component {
+    func demoTag(): IComponent {
         div([
             Tag([text("标签")]),
             Tag([text("成功")]).kind(ComponentKind.Success),
@@ -175,18 +175,18 @@ class ShowcasePage <: Component {
         ], attrs: Some(HashMap<String, String>([("class", cls("row"))])))
     }
 
-    func demoBadge(): Component {
+    func demoBadge(): IComponent {
         div([
             Badge([Button("消息")]).value(5),
             Badge([Button("动态")]).dot(),
         ], attrs: Some(HashMap<String, String>([("class", cls("row"))])))
     }
 
-    func demoSpace(): Component {
+    func demoSpace(): IComponent {
         Space([Button("按钮1"), Button("按钮2"), Button("按钮3")]).size(16)
     }
 
-    func demoIcon(): Component {
+    func demoIcon(): IComponent {
         div([
             Icon("edit"),
             Icon("delete"),
@@ -195,19 +195,19 @@ class ShowcasePage <: Component {
         ], attrs: Some(HashMap<String, String>([("class", cls("row"))])))
     }
 
-    func demoInput(): Component {
+    func demoInput(): IComponent {
         Input().placeholder("请输入内容").prefixIcon("search")
     }
 
-    func demoInputNumber(): Component {
+    func demoInputNumber(): IComponent {
         InputNumber().min(0).max(10).bind(this.state.inputNumberValue)
     }
 
-    func demoSwitch(): Component {
+    func demoSwitch(): IComponent {
         Switch().bind(this.state.switchValue)
     }
 
-    func demoRadio(): Component {
+    func demoRadio(): IComponent {
         RadioGroup([
             Radio([text("选项A")], "a"),
             Radio([text("选项B")], "b"),
@@ -215,7 +215,7 @@ class ShowcasePage <: Component {
         ]).bind(this.state.radioValue)
     }
 
-    func demoCheckbox(): Component {
+    func demoCheckbox(): IComponent {
         CheckboxGroup([
             Checkbox([text("A")], "a"),
             Checkbox([text("B")], "b"),
@@ -223,11 +223,11 @@ class ShowcasePage <: Component {
         ]).bind(this.state.checkboxValue)
     }
 
-    func demoRate(): Component {
+    func demoRate(): IComponent {
         Rate().bind(this.state.rateValue)
     }
 
-    func demoSelect(): Component {
+    func demoSelect(): IComponent {
         Select([
             SelectOption([text("选项A")], "a"),
             SelectOption([text("选项B")], "b"),
@@ -235,11 +235,11 @@ class ShowcasePage <: Component {
         ]).placeholder("请选择").bind(this.state.selectValue)
     }
 
-    func demoSlider(): Component {
+    func demoSlider(): IComponent {
         Slider().min(0).max(100).bind(this.state.sliderValue)
     }
 
-    func demoForm(): Component {
+    func demoForm(): IComponent {
         Form([
             FormItem([Input().placeholder("请输入用户名")]).label("用户名").required(),
             FormItem([Input().placeholder("请输入密码").password()]).label("密码").required(),
@@ -249,7 +249,7 @@ class ShowcasePage <: Component {
 
     // ============ Props ============
 
-    func renderProps(sel: String): Component {
+    func renderProps(sel: String): IComponent {
         match (sel) {
             case "Button" => div([
                 this.propRow("kind", "Primary | Danger | Info | Default"),
@@ -259,7 +259,7 @@ class ShowcasePage <: Component {
                 this.propRow("onClick", "(ActionContext) -> PatchResult"),
             ])
             case "ButtonGroup" => div([
-                this.propRow("children", "Array<Component>"),
+                this.propRow("children", "Array<IComponent>"),
             ])
             case "Card" => div([
                 this.propRow("header", "String"),
@@ -350,7 +350,7 @@ class ShowcasePage <: Component {
         }
     }
 
-    func propRow(name: String, value: String): Component {
+    func propRow(name: String, value: String): IComponent {
         div([
             div([text(name)], attrs: Some(HashMap<String, String>([("class", cls("showcase-prop-name"))]))),
             div([text(value)], attrs: Some(HashMap<String, String>([("class", cls("showcase-prop-value"))]))),

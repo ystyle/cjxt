@@ -4,27 +4,27 @@ import cjxt.*
 import std.collection.{HashMap, ArrayList}
 
 public class FormItem <: Component {
-    var _children: Array<Component>
+    var _children: Array<IComponent>
     var _label: String = ""
     var _prop: String = ""
     var _required: Bool = false
     var _error: String = ""
 
-    public init(children: Array<Component>) { this._children = children }
+    public init(children: Array<IComponent>) { this._children = children }
     public func label(v: String): FormItem { this._label = v; this }
     public func setProp(v: String): FormItem { this._prop = v; this }
     public func required(): FormItem { this._required = true; this }
     public func error(v: String): FormItem { this._error = v; this }
 
-    public func render(): Component {
+    public func render(): IComponent {
         var cls = "el-form-item"
         if (this._error != "") { cls = "${cls} is-error" }
         if (this._required) { cls = "${cls} is-required" }
-        let children = ArrayList<Component>()
+        let children = ArrayList<IComponent>()
         if (this._label != "") {
             children.add(VNode("label", [text(this._label)], attrs: Some(HashMap<String, String>([("class", "el-form-item__label")]))))
         }
-        let contentChildren = ArrayList<Component>()
+        let contentChildren = ArrayList<IComponent>()
         for (c in this._children) { contentChildren.add(c) }
         if (this._error != "") {
             contentChildren.add(VNode("span", [text(this._error)], attrs: Some(HashMap<String, String>([("class", "el-form-item__error")]))))
@@ -35,11 +35,11 @@ public class FormItem <: Component {
 }
 
 public class Form <: Component {
-    var _children: Array<Component>
+    var _children: Array<IComponent>
 
-    public init(children: Array<Component>) { this._children = children }
+    public init(children: Array<IComponent>) { this._children = children }
 
-    public func render(): Component {
+    public func render(): IComponent {
         VNode("form", this._children, attrs: Some(HashMap<String, String>([("class", "el-form")])))
     }
 }

@@ -11,18 +11,18 @@ func nextRadioGroupName(): String {
 }
 
 public class Radio <: Component {
-    var _children: Array<Component>
+    var _children: Array<IComponent>
     var _value: String
     var _disabled: Bool = false
 
-    public init(children: Array<Component>, value: String) {
+    public init(children: Array<IComponent>, value: String) {
         this._children = children
         this._value = value
     }
     public func disabled(): Radio { this._disabled = true; this }
-    public func render(): Component { this.renderRadio(false, None, "") }
+    public func render(): IComponent { this.renderRadio(false, None, "") }
 
-    func renderRadio(checked: Bool, signal: Option<Signal<String>>, name: String): Component {
+    func renderRadio(checked: Bool, signal: Option<Signal<String>>, name: String): IComponent {
         var cls = "el-radio"
         if (checked) { cls = "${cls} is-checked" }
         if (this._disabled) { cls = "${cls} is-disabled" }
@@ -45,19 +45,19 @@ public class Radio <: Component {
 }
 
 public class RadioGroup <: Component {
-    var _children: Array<Component>
+    var _children: Array<IComponent>
     var _signal: Option<Signal<String>> = None
 
-    public init(children: Array<Component>) { this._children = children }
+    public init(children: Array<IComponent>) { this._children = children }
     public func bind(signal: Signal<String>): RadioGroup { this._signal = Some(signal); this }
 
-    public func render(): Component {
+    public func render(): IComponent {
         let currentValue = match (this._signal) {
             case Some(s) => s.get()
             case None => ""
         }
         let name = nextRadioGroupName()
-        let items = ArrayList<Component>()
+        let items = ArrayList<IComponent>()
         for (c in this._children) {
             match (c) {
                 case r: Radio => items.add(r.renderRadio(r._value == currentValue, this._signal, name))

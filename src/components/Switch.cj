@@ -17,7 +17,7 @@ public class Switch <: Component {
     public func size(v: ComponentSize): Switch { this._size = Some(v); this }
     public func bind(signal: Signal<Bool>): Switch { this._signal = Some(signal); this }
 
-    public func render(): Component {
+    public func render(): IComponent {
         var cls = "el-switch"
         match (this._size) {
             case Some(s) => cls = "${cls} el-switch--${s.asClass()}"

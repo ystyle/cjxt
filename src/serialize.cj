@@ -4,7 +4,7 @@ import std.collection.HashMap
 import std.io.ByteBuffer
 import stdx.encoding.json.stream.{JsonWriter, JsonSerializable}
 
-func serializeNode(c: Component, w: JsonWriter, handlerMap: HashMap<String, ActionHandler>): Unit {
+func serializeNode(c: IComponent, w: JsonWriter, handlerMap: HashMap<String, ActionHandler>): Unit {
     match (c) {
         case v: VNode =>
             w.startObject()
@@ -70,7 +70,7 @@ func serializeNode(c: Component, w: JsonWriter, handlerMap: HashMap<String, Acti
     }
 }
 
-public func serializeSubtree(c: Component, handlerMap: HashMap<String, ActionHandler>): String {
+public func serializeSubtree(c: IComponent, handlerMap: HashMap<String, ActionHandler>): String {
     let buf = ByteBuffer()
     let w = JsonWriter(buf)
     serializeNode(c, w, handlerMap)

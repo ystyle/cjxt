@@ -4,21 +4,21 @@ import cjxt.*
 import std.collection.{HashMap, ArrayList}
 
 public class Checkbox <: Component {
-    var _children: Array<Component>
+    var _children: Array<IComponent>
     var _value: String
     var _disabled: Bool = false
     var _toggleFn: Option<(String) -> Unit> = None
 
-    public init(children: Array<Component>, value: String) {
+    public init(children: Array<IComponent>, value: String) {
         this._children = children
         this._value = value
     }
     public func disabled(): Checkbox { this._disabled = true; this }
-    public func render(): Component { this.renderCheckbox(false, this._toggleFn) }
+    public func render(): IComponent { this.renderCheckbox(false, this._toggleFn) }
 
     func setToggle(fn: (String) -> Unit): Unit { this._toggleFn = Some(fn) }
 
-    func renderCheckbox(checked: Bool, toggleFn: Option<(String) -> Unit>): Component {
+    func renderCheckbox(checked: Bool, toggleFn: Option<(String) -> Unit>): IComponent {
         var cls = "el-checkbox"
         if (checked) { cls = "${cls} is-checked" }
         if (this._disabled) { cls = "${cls} is-disabled" }
@@ -40,18 +40,18 @@ public class Checkbox <: Component {
 }
 
 public class CheckboxGroup <: Component {
-    var _children: Array<Component>
+    var _children: Array<IComponent>
     var _signal: Option<Signal<ArrayList<String>>> = None
 
-    public init(children: Array<Component>) { this._children = children }
+    public init(children: Array<IComponent>) { this._children = children }
     public func bind(signal: Signal<ArrayList<String>>): CheckboxGroup { this._signal = Some(signal); this }
 
-    public func render(): Component {
+    public func render(): IComponent {
         let selected = match (this._signal) {
             case Some(s) => s.get()
             case None => ArrayList<String>()
         }
-        let items = ArrayList<Component>()
+        let items = ArrayList<IComponent>()
         for (c in this._children) {
             match (c) {
                 case cb: Checkbox => items.add(this.renderGroupCheckbox(selected, cb))
@@ -61,7 +61,7 @@ public class CheckboxGroup <: Component {
         VNode("div", items.toArray(), attrs: Some(HashMap<String, String>([("class", "el-checkbox-group")])))
     }
 
-    func renderGroupCheckbox(selected: ArrayList<String>, cb: Checkbox): Component {
+    func renderGroupCheckbox(selected: ArrayList<String>, cb: Checkbox): IComponent {
         let checked = this.isSelected(selected, cb._value)
         let toggle: (String) -> Unit = { v => this.toggleValue(v) }
         cb.setToggle(toggle)

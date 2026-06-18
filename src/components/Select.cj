@@ -4,17 +4,17 @@ import cjxt.*
 import std.collection.{HashMap, ArrayList}
 
 public class SelectOption <: Component {
-    var _children: Array<Component>
+    var _children: Array<IComponent>
     var _value: String
     var _disabled: Bool = false
 
-    public init(children: Array<Component>, value: String) {
+    public init(children: Array<IComponent>, value: String) {
         this._children = children
         this._value = value
     }
     public func disabled(): SelectOption { this._disabled = true; this }
 
-    public func render(): Component {
+    public func render(): IComponent {
         var cls = "el-select__option"
         if (this._disabled) { cls = "${cls} is-disabled" }
         VNode("li", this._children, attrs: Some(HashMap<String, String>([("class", cls)])))
@@ -23,16 +23,16 @@ public class SelectOption <: Component {
 
 public class Select <: Component {
     var _signal: Option<Signal<String>> = None
-    var _children: Array<Component>
+    var _children: Array<IComponent>
     var _placeholder: String = ""
     var _disabled: Bool = false
 
-    public init(children: Array<Component>) { this._children = children }
+    public init(children: Array<IComponent>) { this._children = children }
     public func bind(signal: Signal<String>): Select { this._signal = Some(signal); this }
     public func placeholder(v: String): Select { this._placeholder = v; this }
     public func disabled(): Select { this._disabled = true; this }
 
-    public func render(): Component {
+    public func render(): IComponent {
         var cls = "el-select"
         if (this._disabled) { cls = "${cls} el-select--disabled" }
         let currentValue = match (this._signal) {
@@ -48,7 +48,7 @@ public class Select <: Component {
             case None => ()
         }
         let displayValue = if (label != "") { label } else { this._placeholder }
-        let children = ArrayList<Component>()
+        let children = ArrayList<IComponent>()
         children.add(native)
         children.add(VNode("span", [text(displayValue)], attrs: Some(HashMap<String, String>([("class", if (label == "") { "el-select__placeholder is-placeholder" } else { "el-select__selected" })]))))
         children.add(VNode("span", [Icon("arrow-down").size("14px")], attrs: Some(HashMap<String, String>([("class", "el-select__suffix")]))))
@@ -76,8 +76,8 @@ public class Select <: Component {
         } else { "" }
     }
 
-    func buildOptions(): Array<Component> {
-        let items = ArrayList<Component>()
+    func buildOptions(): Array<IComponent> {
+        let items = ArrayList<IComponent>()
         for (c in this._children) {
             match (c) {
                 case o: SelectOption => items.add(this.buildOptionItem(o))
@@ -87,7 +87,7 @@ public class Select <: Component {
         items.toArray()
     }
 
-    func buildOptionItem(o: SelectOption): Component {
+    func buildOptionItem(o: SelectOption): IComponent {
         let optAttrs = HashMap<String, String>([("value", o._value)])
         if (o._disabled) { optAttrs["disabled"] = "disabled" }
         VNode("option", o._children, attrs: Some(optAttrs))

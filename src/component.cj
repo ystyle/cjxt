@@ -6,11 +6,12 @@ import stdx.encoding.json.stream.{JsonWriter, JsonSerializable, JsonDeserializab
 
 public type ActionHandler = (ActionContext) -> PatchResult
 
-public interface Component <: JsonSerializable {
-    func render(): Component
+// 框架内部接口，match 用。自定义组件应继承 Component 类而非直接实现此接口
+public interface IComponent <: JsonSerializable {
+    func render(): IComponent
     func getComponentKey(): String { "" }
 
-    // dirty 标记 + 路径追踪
+    // dirty 标记 + 路径追踪（默认空实现，Component 类覆写）
     func markDirty(): Unit { SignalTracker.pendingRender = true }
     func isDirty(): Bool { false }
     func clearDirty(): Unit {}
@@ -21,7 +22,7 @@ public interface Component <: JsonSerializable {
         SignalTracker.pendingRender = true
     }
 
-    func renderWithScope(path: String): Component {
+    func renderWithScope(path: String): IComponent {
         this.setPath(path)
         SignalTracker.enterScope({ => this.markDirty() })
         let tree = this.render()
@@ -29,7 +30,7 @@ public interface Component <: JsonSerializable {
         tree
     }
 
-    func renderWithScope(): Component {
+    func renderWithScope(): IComponent {
         this.renderWithScope("")
     }
 
@@ -63,9 +64,11 @@ public interface Component <: JsonSerializable {
     }
 }
 
-public abstract class BaseComponent <: Component {
+// 自定义组件的唯一基类。继承此类即可获得脏追踪、路径、事件注册等能力
+public abstract class Component <: IComponent {
     var _dirty: Bool = false
     var _path: String = ""
+    var _events = HashMap<String, ActionHandler>()
 
     public init() {}
 
@@ -81,6 +84,12 @@ public abstract class BaseComponent <: Component {
     public func clearDirty(): Unit { this._dirty = false }
     public func getPath(): String { this._path }
     public func setPath(p: String): Unit { this._path = p }
+
+    // 注册事件回调
+    public func on(ev: String, h: ActionHandler): Component {
+        this._events[ev] = h
+        this
+    }
 }
 
 public struct LifecycleContext {

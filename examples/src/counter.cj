@@ -24,7 +24,7 @@ class CounterPage <: Component {
         this.state = ctx.getState<CounterState>()
     }
 
-    public func render(): Component {
+    public func render(): IComponent {
         let st = this.state
         let attrContainer = HashMap<String, String>([("class", cls("container"))])
         div([
@@ -45,7 +45,7 @@ class CounterPage <: Component {
     }
 }
 
-func renderTabs(active: String): Component {
+func renderTabs(active: String): IComponent {
     div([
         navTab("/", "Counter", active == "/"),
         navTab("/inputs", "Inputs", active == "/inputs"),
@@ -54,7 +54,7 @@ func renderTabs(active: String): Component {
     ], attrs: Some(HashMap<String, String>([("class", cls("tabs"))])))
 }
 
-func navTab(path: String, title: String, isActive: Bool): Component {
+func navTab(path: String, title: String, isActive: Bool): IComponent {
     let clsName = if (isActive) { cls("tab") + " " + cls("active") } else { cls("tab") }
     button(
         [text(title)],

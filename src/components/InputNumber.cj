@@ -22,7 +22,7 @@ public class InputNumber <: Component {
     public func noControls(): InputNumber { this._controls = false; this }
     public func bind(signal: Signal<Int64>): InputNumber { this._signal = Some(signal); this }
 
-    public func render(): Component {
+    public func render(): IComponent {
         var cls = "el-input-number"
         match (this._size) {
             case Some(s) => cls = "${cls} el-input-number--${s.asClass()}"
@@ -33,7 +33,7 @@ public class InputNumber <: Component {
         let innerAttrs = HashMap<String, String>([("class", "el-input__inner"), ("type", "text")])
         if (this._disabled) { innerAttrs["disabled"] = "disabled" }
         let inner = this.buildInput(innerAttrs)
-        let children = ArrayList<Component>()
+        let children = ArrayList<IComponent>()
         if (this._controls) {
             let step = this._step
             let decHandler: ActionHandler = { ctx => this.doStep(-step); PatchResult.ReRender }
@@ -47,7 +47,7 @@ public class InputNumber <: Component {
         }
     }
 
-    func buildInput(attrs: HashMap<String, String>): Component {
+    func buildInput(attrs: HashMap<String, String>): IComponent {
         match (this._signal) {
             case Some(s) => this.buildBoundInput(attrs, s)
             case None => VNode("input", [], attrs: Some(attrs))

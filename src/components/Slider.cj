@@ -19,7 +19,7 @@ public class Slider <: Component {
     public func showStops(): Slider { this._showStops = true; this }
     public func disabled(): Slider { this._disabled = true; this }
 
-    public func render(): Component {
+    public func render(): IComponent {
         var cls = "el-slider"
         if (this._disabled) { cls = "${cls} is-disabled" }
         let value = match (this._signal) {
@@ -31,7 +31,7 @@ public class Slider <: Component {
         let track = VNode("div", [], attrs: Some(HashMap<String, String>([("class", "el-slider__runway")])))
         let bar = VNode("div", [], attrs: Some(HashMap<String, String>([("class", "el-slider__bar"), ("style", "width: ${percentage}%")])))
         let button = VNode("div", [VNode("div", [], attrs: Some(HashMap<String, String>([("class", "el-slider__button")])))], attrs: Some(HashMap<String, String>([("class", "el-slider__button-wrapper"), ("style", "left: ${percentage}%")])))
-        let children = ArrayList<Component>()
+        let children = ArrayList<IComponent>()
         let stepVal = this._step
         match (this._signal) {
             case Some(s) => this.addSliderChildren(children, track, bar, button, stepVal, s)
@@ -43,19 +43,19 @@ public class Slider <: Component {
         VNode("div", children.toArray(), attrs: Some(HashMap<String, String>([("class", cls)])))
     }
 
-    func addSliderChildren(children: ArrayList<Component>, track: VNode, bar: VNode, button: VNode, stepVal: Int64, s: Signal<Int64>): Unit {
+    func addSliderChildren(children: ArrayList<IComponent>, track: VNode, bar: VNode, button: VNode, stepVal: Int64, s: Signal<Int64>): Unit {
         children.add(track.onClick({ ctx => this.doStep(stepVal); PatchResult.ReRender }))
         children.add(bar.onClick({ ctx => this.doStep(stepVal); PatchResult.ReRender }))
         children.add(button.onClick({ ctx => this.doToggleStep(s, stepVal); PatchResult.ReRender }))
     }
 
-    func addStaticChildren(children: ArrayList<Component>, track: VNode, bar: VNode, button: VNode): Unit {
+    func addStaticChildren(children: ArrayList<IComponent>, track: VNode, bar: VNode, button: VNode): Unit {
         children.add(track)
         children.add(bar)
         children.add(button)
     }
 
-    func addStops(children: ArrayList<Component>, range: Int64): Unit {
+    func addStops(children: ArrayList<IComponent>, range: Int64): Unit {
         var pos = this._min + this._step
         while (pos < this._max) {
             let stopPct = (pos - this._min) * 100 / range

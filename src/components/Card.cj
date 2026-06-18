@@ -3,7 +3,7 @@ package cjxt.components
 import cjxt.*
 import std.collection.HashMap
 
-public func Card(children: Array<Component>, header!: String = "", shadow!: CardShadow = CardShadow.Always): Component {
+public func Card(children: Array<IComponent>, header!: String = "", shadow!: CardShadow = CardShadow.Always): IComponent {
     var cls = "el-card is-${shadow.asClass()}-shadow"
     let clsMap = HashMap<String, String>([("class", cls)])
 
@@ -17,7 +17,7 @@ public func Card(children: Array<Component>, header!: String = "", shadow!: Card
     }
 }
 
-public func Row(children: Array<Component>, gutter!: Int64 = 0, justify!: RowJustify = RowJustify.Start, align!: RowAlign = RowAlign.Top): Component {
+public func Row(children: Array<IComponent>, gutter!: Int64 = 0, justify!: RowJustify = RowJustify.Start, align!: RowAlign = RowAlign.Top): IComponent {
     var cls = "el-row"
     let justifyCls = justify.asClass()
     let alignCls = align.asClass()
@@ -29,7 +29,7 @@ public func Row(children: Array<Component>, gutter!: Int64 = 0, justify!: RowJus
     div(children, attrs: Some(attrs))
 }
 
-public func Col(children: Array<Component>, span!: Int64 = 24, offset!: Int64 = 0, pull!: Int64 = 0, push!: Int64 = 0, gutter!: Int64 = 0): Component {
+public func Col(children: Array<IComponent>, span!: Int64 = 24, offset!: Int64 = 0, pull!: Int64 = 0, push!: Int64 = 0, gutter!: Int64 = 0): IComponent {
     var cls = "el-col el-col-${span}"
     if (offset > 0) { cls = "${cls} el-col-offset-${offset}" }
     if (pull > 0) { cls = "${cls} el-col-pull-${pull}" }

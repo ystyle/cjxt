@@ -10,8 +10,8 @@ public enum WsState {
 
 public class Session {
     let id: String
-    var page: Component
-    var tree: Component
+    var page: IComponent
+    var tree: IComponent
     var path: String
     var wsState: WsState
     var createdAt: Int64
@@ -19,7 +19,7 @@ public class Session {
     let context: HashMap<String, String>
     var states: HashMap<String, AppState>
 
-    public init(id: String, page: Component, tree: Component) {
+    public init(id: String, page: IComponent, tree: IComponent) {
         this.id = id
         this.page = page
         this.tree = tree
@@ -35,7 +35,7 @@ public class Session {
         this.lastActiveAt = nowMillis()
     }
 
-    public func updatePage(page: Component, tree: Component): Unit {
+    public func updatePage(page: IComponent, tree: IComponent): Unit {
         this.page = page
         this.tree = tree
         this.touch()
@@ -54,14 +54,14 @@ public class SessionManager {
         this.ttlMillis = ttlMillis
     }
 
-    public func create(page: Component, tree: Component): Session {
+    public func create(page: IComponent, tree: IComponent): Session {
         let id = this.generateId()
         let session = Session(id, page, tree)
         sessions.add(id, session)
         session
     }
 
-    public func save(id: String, page: Component, tree: Component): Session {
+    public func save(id: String, page: IComponent, tree: IComponent): Session {
         let session = Session(id, page, tree)
         sessions.add(id, session)
         session

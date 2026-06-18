@@ -27,7 +27,7 @@ public class Button <: Component {
     public func loading(): Button { this._loading = true; this }
     public func onClick(h: ActionHandler): Button { this._onClick = Some(h); this }
 
-    public func render(): Component {
+    public func render(): IComponent {
         var cls = "el-button"
         let kc = this._kind.asClass()
         if (kc != "") { cls = "${cls} el-button--${kc}" }

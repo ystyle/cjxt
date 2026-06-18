@@ -7,7 +7,7 @@ public class SignalTracker {
     static var scopeStack = ArrayList<() -> Unit>()
     public static var pendingRender: Bool = false
     public static var execMutex = Mutex()
-    public static var dirtyComponents = ArrayList<BaseComponent>()
+    public static var dirtyComponents = ArrayList<Component>()
 
     public static func enterScope(cb: () -> Unit): Unit {
         scopeStack.add(cb)

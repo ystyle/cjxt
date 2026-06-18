@@ -92,16 +92,16 @@ class RenderContextTest {
     }
 }
 
-class TestComponent <: BaseComponent {
+class TestComponent <: Component {
     let tag: String
-    let children: Array<Component>
+    let children: Array<IComponent>
 
-    public init(tag: String, children: Array<Component>) {
+    public init(tag: String, children: Array<IComponent>) {
         this.tag = tag
         this.children = children
     }
 
-    public func render(): Component {
+    public func render(): IComponent {
         VNode(this.tag, this.children)
     }
 }

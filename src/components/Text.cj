@@ -4,17 +4,17 @@ import cjxt.*
 import std.collection.HashMap
 
 public class Text <: Component {
-    var _children: Array<Component>
+    var _children: Array<IComponent>
     var _kind: ComponentKind = ComponentKind.Default
     var _size: TextSize = TextSize.Default
     var _truncated: Bool = false
 
-    public init(children: Array<Component>) { this._children = children }
+    public init(children: Array<IComponent>) { this._children = children }
     public func kind(v: ComponentKind): Text { this._kind = v; this }
     public func size(v: TextSize): Text { this._size = v; this }
     public func truncated(): Text { this._truncated = true; this }
 
-    public func render(): Component {
+    public func render(): IComponent {
         var cls = "el-text"
         let kc = this._kind.asClass()
         if (kc != "") { cls = "${cls} is-${kc}" }
@@ -26,21 +26,21 @@ public class Text <: Component {
 }
 
 public class Link <: Component {
-    var _children: Array<Component>
+    var _children: Array<IComponent>
     var _kind: ComponentKind = ComponentKind.Default
     var _underline: Bool = true
     var _disabled: Bool = false
     var _href: String = ""
     var _onClick: Option<ActionHandler> = None
 
-    public init(children: Array<Component>) { this._children = children }
+    public init(children: Array<IComponent>) { this._children = children }
     public func kind(v: ComponentKind): Link { this._kind = v; this }
     public func underline(v: Bool): Link { this._underline = v; this }
     public func disabled(): Link { this._disabled = true; this }
     public func href(v: String): Link { this._href = v; this }
     public func onClick(h: ActionHandler): Link { this._onClick = Some(h); this }
 
-    public func render(): Component {
+    public func render(): IComponent {
         var cls = "el-link"
         let kc = this._kind.asClass()
         if (kc != "") { cls = "${cls} el-link--${kc}" }

@@ -22,15 +22,15 @@ func nextBid(): String {
 
 // ============ VNode — HTML 元素 ============
 
-public struct VNode <: Component {
+public struct VNode <: IComponent {
     let _tag: String
     let _attrs: Option<Attributes>
-    let _children: Array<Component>
+    let _children: Array<IComponent>
     let _key: Option<String>
     let _actions: Option<ActionMap>
     let _handlers: Option<HashMap<String, ActionHandler>>
 
-    public init(tag: String, children: Array<Component>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None, handlers!: Option<HashMap<String, ActionHandler>> = None) {
+    public init(tag: String, children: Array<IComponent>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None, handlers!: Option<HashMap<String, ActionHandler>> = None) {
         this._tag = tag
         this._attrs = attrs
         this._children = children
@@ -39,7 +39,7 @@ public struct VNode <: Component {
         this._handlers = handlers
     }
 
-    public func render(): Component { this }
+    public func render(): IComponent { this }
 
     public func toJson(w: JsonWriter): Unit {
         w.startObject()
@@ -60,7 +60,7 @@ public struct VNode <: Component {
         VNode(this._tag, this._children, attrs: this._attrs, key: this._key, actions: Some(m), handlers: this._handlers)
     }
 
-    public func children(c: Array<Component>): VNode {
+    public func children(c: Array<IComponent>): VNode {
         VNode(this._tag, c, attrs: this._attrs, key: this._key, actions: this._actions, handlers: this._handlers)
     }
 
@@ -86,6 +86,22 @@ public struct VNode <: Component {
         let acts = HashMap<String, String>()
         acts["click"] = id
         let hmap = HashMap<String, ActionHandler>()
+        hmap[id] = h
+        VNode(this._tag, this._children, attrs: this._attrs, key: this._key, actions: Some(acts), handlers: Some(hmap))
+    }
+
+    // 泛用事件注册（合并已有 events/handlers）
+    public func on(ev: String, h: ActionHandler): VNode {
+        let id = nextHid()
+        let acts = match (this._actions) {
+            case Some(a) => doCloneActionMap(a)
+            case None => HashMap<String, String>()
+        }
+        acts[ev] = id
+        let hmap = match (this._handlers) {
+            case Some(hh) => doCloneHandlerMap(hh)
+            case None => HashMap<String, ActionHandler>()
+        }
         hmap[id] = h
         VNode(this._tag, this._children, attrs: this._attrs, key: this._key, actions: Some(acts), handlers: Some(hmap))
     }
@@ -129,19 +145,19 @@ public struct VNode <: Component {
         m[k] = v
         this.attrs(m)
     }
-    // （Component 接口的默认实现通过 match 转发到这些）
+    // （IComponent 接口的默认实现通过 match 转发到这些）
 }
 
 // ============ TextNode ============
 
-public struct TextNode <: Component {
+public struct TextNode <: IComponent {
     let _text: String
 
     public init(text: String) {
         this._text = text
     }
 
-    public func render(): Component { this }
+    public func render(): IComponent { this }
 
     public func toJson(w: JsonWriter): Unit {
         w.startObject()
@@ -156,14 +172,14 @@ public struct TextNode <: Component {
 
 // ============ FragmentNode ============
 
-public struct FragmentNode <: Component {
-    let _children: Array<Component>
+public struct FragmentNode <: IComponent {
+    let _children: Array<IComponent>
 
-    public init(children: Array<Component>) {
+    public init(children: Array<IComponent>) {
         this._children = children
     }
 
-    public func render(): Component { this }
+    public func render(): IComponent { this }
 
     public func toJson(w: JsonWriter): Unit {
         w.startObject()
@@ -175,10 +191,10 @@ public struct FragmentNode <: Component {
 
 // ============ EmptyNode ============
 
-public struct EmptyNode <: Component {
+public struct EmptyNode <: IComponent {
     public init() {}
 
-    public func render(): Component { this }
+    public func render(): IComponent { this }
 
     public func toJson(w: JsonWriter): Unit {
         w.startObject()
@@ -200,15 +216,15 @@ func addAttrItem(existing: Option<HashMap<String, String>>, k: String, v: String
 
 // 标签辅助函数
 
-public func div(children: Array<Component>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): VNode {
+public func div(children: Array<IComponent>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): VNode {
     VNode("div", children, attrs: attrs, key: key, actions: actions)
 }
 
-public func span(children: Array<Component>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): VNode {
+public func span(children: Array<IComponent>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): VNode {
     VNode("span", children, attrs: attrs, key: key, actions: actions)
 }
 
-public func button(children: Array<Component>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): VNode {
+public func button(children: Array<IComponent>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): VNode {
     VNode("button", children, attrs: attrs, key: key, actions: actions)
 }
 
@@ -220,23 +236,23 @@ public func input(attrs!: Option<Attributes> = None, key!: Option<String> = None
     VNode("input", [], attrs: attrs, key: key, actions: actions)
 }
 
-public func h1(children: Array<Component>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): VNode {
+public func h1(children: Array<IComponent>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): VNode {
     VNode("h1", children, attrs: attrs, key: key, actions: actions)
 }
 
-public func h2(children: Array<Component>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): VNode {
+public func h2(children: Array<IComponent>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): VNode {
     VNode("h2", children, attrs: attrs, key: key, actions: actions)
 }
 
-public func h3(children: Array<Component>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): VNode {
+public func h3(children: Array<IComponent>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): VNode {
     VNode("h3", children, attrs: attrs, key: key, actions: actions)
 }
 
-public func p(children: Array<Component>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): VNode {
+public func p(children: Array<IComponent>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): VNode {
     VNode("p", children, attrs: attrs, key: key, actions: actions)
 }
 
-public func form(children: Array<Component>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): VNode {
+public func form(children: Array<IComponent>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): VNode {
     VNode("form", children, attrs: attrs, key: key, actions: actions)
 }
 
@@ -244,19 +260,19 @@ public func image(attrs!: Option<Attributes> = None, key!: Option<String> = None
     VNode("image", [], attrs: attrs, key: key)
 }
 
-public func a(children: Array<Component>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): VNode {
+public func a(children: Array<IComponent>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): VNode {
     VNode("a", children, attrs: attrs, key: key, actions: actions)
 }
 
-public func ul(children: Array<Component>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): VNode {
+public func ul(children: Array<IComponent>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): VNode {
     VNode("ul", children, attrs: attrs, key: key, actions: actions)
 }
 
-public func li(children: Array<Component>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): VNode {
+public func li(children: Array<IComponent>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): VNode {
     VNode("li", children, attrs: attrs, key: key, actions: actions)
 }
 
-public func Fragment(children: Array<Component>): FragmentNode {
+public func Fragment(children: Array<IComponent>): FragmentNode {
     FragmentNode(children)
 }
 
@@ -264,7 +280,7 @@ public func Empty(): EmptyNode {
     EmptyNode()
 }
 
-public func i(children: Array<Component>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): VNode {
+public func i(children: Array<IComponent>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): VNode {
     VNode("i", children, attrs: attrs, key: key, actions: actions)
 }
 
@@ -272,4 +288,16 @@ public func cssStyle(content: String): VNode {
     let a = HashMap<String, String>()
     a["text"] = content
     VNode("style", [], attrs: Some(a))
+}
+
+func doCloneActionMap(m: HashMap<String, String>): HashMap<String, String> {
+    let c = HashMap<String, String>()
+    for ((k, v) in m) { c[k] = v }
+    c
+}
+
+func doCloneHandlerMap(m: HashMap<String, ActionHandler>): HashMap<String, ActionHandler> {
+    let c = HashMap<String, ActionHandler>()
+    for ((k, v) in m) { c[k] = v }
+    c
 }

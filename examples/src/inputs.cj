@@ -18,7 +18,7 @@ class InputsPage <: Component {
         this.data = Some(ctx.getState<InputsState>())
     }
 
-    public func render(): Component {
+    public func render(): IComponent {
         let st = match (this.data) {
             case Some(s) => s
             case None => InputsState()
@@ -40,7 +40,7 @@ class InputsPage <: Component {
     }
 }
 
-func inputCard(title: String, signal: Signal<String>, placeholder: String, desc: String): Component {
+func inputCard(title: String, signal: Signal<String>, placeholder: String, desc: String): IComponent {
     let attrCard = HashMap<String, String>([("class", cls("card"))])
     div([
         div([text(title)], attrs: Some(HashMap<String, String>([("class", cls("card-title"))]))),
@@ -49,7 +49,7 @@ func inputCard(title: String, signal: Signal<String>, placeholder: String, desc:
     ], attrs: Some(attrCard))
 }
 
-func inputGroup(signal: Signal<String>, placeholder: String): Component {
+func inputGroup(signal: Signal<String>, placeholder: String): IComponent {
     let a = HashMap<String, String>()
     a["class"] = cls("input")
     a["placeholder"] = placeholder

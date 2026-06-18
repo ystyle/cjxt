@@ -7,11 +7,11 @@ import std.unittest.testmacro.*
 import std.io.{ByteBuffer, SeekPosition}
 import stdx.encoding.json.stream.{JsonWriter, JsonSerializable, JsonReader, JsonDeserializable}
 
-func getTag(c: Component): String {
+func getTag(c: IComponent): String {
     match (c) { case v: VNode => v._tag; case t: TextNode => "text"; case _ => "unknown" }
 }
 
-func getVNode(c: Component): VNode {
+func getVNode(c: IComponent): VNode {
     match (c) { case v: VNode => v; case _ => throw Exception("not VNode") }
 }
 
@@ -123,7 +123,7 @@ public class VnodeTest {
     }
 }
 
-func doCheckExpanded(c: Component): Unit {
+func doCheckExpanded(c: IComponent): Unit {
     match (c) {
         case v: VNode => doCheckVNode(v)
         case _ => @Fail("expected VNode")
@@ -139,7 +139,7 @@ func doCheckVNode(v: VNode): Unit {
     }
 }
 
-func doCheckActionIds(expanded: Component): Unit {
+func doCheckActionIds(expanded: IComponent): Unit {
     let handlers = HashMap<String, ActionHandler>()
     expanded.collectHandlers(handlers)
 
@@ -157,9 +157,9 @@ func doCheckActionIds(expanded: Component): Unit {
     }
 }
 
-public class Wrapper <: BaseComponent {
+public class Wrapper <: Component {
     public init() {}
-    public func render(): Component {
+    public func render(): IComponent {
         div([span([text("hello")]).onClick({ _ => PatchResult.ReRender })])
     }
 }

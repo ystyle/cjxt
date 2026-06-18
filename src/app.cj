@@ -8,17 +8,17 @@ import tang.{Tang, TangHttpContext}
 import tang.middleware.staticfile.{staticFiles, withPrefix, staticMiddleware}
 
 class SessionState {
-    var page: Component
+    var page: IComponent
     var handlers: HashMap<String, ActionHandler>
     var path: String
 
-    public init(page: Component, path: String) {
+    public init(page: IComponent, path: String) {
         this.page = page
         this.path = path
         this.handlers = HashMap<String, ActionHandler>()
     }
 
-    public func refreshFromTree(tree: Component): Unit {
+    public func refreshFromTree(tree: IComponent): Unit {
         this.handlers.clear()
         RenderContext.collectHandlersFromTree(tree, this.handlers)
     }
@@ -75,7 +75,7 @@ public class App {
         }
     }
 
-    private func doRoute(ctx: TangHttpContext, p: Component): Unit {
+    private func doRoute(ctx: TangHttpContext, p: IComponent): Unit {
         servePage(ctx, p)
     }
 
@@ -86,7 +86,7 @@ public class App {
         }
     }
 
-    private func servePage(ctx: TangHttpContext, p: Component): Unit {
+    private func servePage(ctx: TangHttpContext, p: IComponent): Unit {
         let session = sessions.create(p, text(""))
         this.initStates(session)
         p.onMount(LifecycleContext(session.id, HashMap<String, String>(), None, None, states: session.states))
@@ -130,14 +130,14 @@ public class App {
         }
     }
 
-    private func applyLayout(path: String, raw: Component): Component {
+    private func applyLayout(path: String, raw: IComponent): IComponent {
         match (RouteRegistry.global().getLayout(path)) {
             case Some(fn) => fn(raw)
             case None => raw
         }
     }
 
-    private func startSession(ws: WebSocket, sid: String, page: Component): Unit {
+    private func startSession(ws: WebSocket, sid: String, page: IComponent): Unit {
         let session = sessions.save(sid, page, div([text("")]))
         if (session.states.size == 0) { this.initStates(session) }
         let mountCtx = LifecycleContext(sid, HashMap<String, String>(), None, None, states: session.states)
@@ -260,7 +260,7 @@ public class App {
         }
     }
 
-    private func applyNav(ws: WebSocket, state: SessionState, session: Session, newPage: Component, path: String): Unit {
+    private func applyNav(ws: WebSocket, state: SessionState, session: Session, newPage: IComponent, path: String): Unit {
         state.page = newPage
         state.path = path
         let mountCtx = LifecycleContext(session.id, HashMap<String, String>(), None, None, states: session.states)

@@ -10,7 +10,7 @@ public class Icon <: Component {
     public init(name: String) { this._name = name }
     public func size(v: String): Icon { this._size = v; this }
 
-    public func render(): Component {
+    public func render(): IComponent {
         let pathData = getIconSvg(this._name)
         let svgStyle = "width:${this._size};height:${this._size}"
         let iconCls = HashMap<String, String>([("class", "el-icon"), ("style", "font-size:${this._size}")])

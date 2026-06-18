@@ -17,7 +17,7 @@ class TodoPage <: Component {
         this.data = Some(ctx.getState<TodoState>())
     }
 
-    public func render(): Component {
+    public func render(): IComponent {
         let st = match (this.data) {
             case Some(s) => s
             case None => TodoState()
@@ -53,18 +53,18 @@ class TodoPage <: Component {
     }
 }
 
-func todoInput(signal: Signal<String>): Component {
+func todoInput(signal: Signal<String>): IComponent {
     let a = HashMap<String, String>()
     a["class"] = cls("input")
     a["placeholder"] = "输入待办事项..."
     input(attrs: Some(a)).bind(signal)
 }
 
-func renderTodoList(items: ArrayList<String>, st: TodoState): Component {
+func renderTodoList(items: ArrayList<String>, st: TodoState): IComponent {
     if (items.size == 0) {
         return div([text("还没有待办事项 :)")], attrs: Some(HashMap<String, String>([("class", cls("todo-empty"))])))
     }
-    let children = ArrayList<Component>()
+    let children = ArrayList<IComponent>()
     for (i in 0..items.size) {
         let item = items[i]
         let idx = i

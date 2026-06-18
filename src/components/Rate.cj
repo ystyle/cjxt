@@ -19,13 +19,13 @@ public class Rate <: Component {
     public func disabled(): Rate { this._disabled = true; this }
     public func texts(v: Array<String>): Rate { this._texts = v; this }
 
-    public func render(): Component {
+    public func render(): IComponent {
         let value = match (this._signal) {
             case Some(s) => s.get()
             case None => 0
         }
         let outerCls = if (this._disabled) { "el-rate is-disabled" } else { "el-rate" }
-        let items = ArrayList<Component>()
+        let items = ArrayList<IComponent>()
         var idx: Int64 = 1
         while (idx <= this._max) {
             let isActive = idx <= value

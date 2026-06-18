@@ -43,8 +43,8 @@ private func extractParamNames(path: String): Array<String> {
     names.toArray()
 }
 
-public type RouteFactory = () -> Component
-public type LayoutFn = (Component) -> Component
+public type RouteFactory = () -> IComponent
+public type LayoutFn = (IComponent) -> IComponent
 
 public class RouteRegistry {
     let entries = HashMap<String, RouteFactory>()
@@ -89,7 +89,7 @@ public class RouteRegistry {
         layouts.add(path, layout)
     }
 
-    public func create(path: String): Option<Component> {
+    public func create(path: String): Option<IComponent> {
         match (entries.get(path)) {
             case Some(f) => Some(f())
             case None => None
