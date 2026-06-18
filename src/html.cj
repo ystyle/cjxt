@@ -168,8 +168,16 @@ class CangjieUI {
             if (p.op === 'replace' && p.tree) {
                 const old = parentEl.childNodes[idx];
                 if (old) {
-                    const newEl = this.renderSubtree(p.tree);
-                    if (newEl) parentEl.replaceChild(newEl, old);
+                    // 对 input/textarea 只更新 value 不 replace（保持 IME 输入状态）
+                    if ((old.tagName === 'INPUT' || old.tagName === 'TEXTAREA') && old.hasAttribute('data-bind-id')) {
+                        const newVal = p.tree.attrs && p.tree.attrs.value;
+                        if (newVal !== undefined && newVal !== null) {
+                            old.value = newVal;
+                        }
+                    } else {
+                        const newEl = this.renderSubtree(p.tree);
+                        if (newEl) parentEl.replaceChild(newEl, old);
+                    }
                 }
             }
         }
