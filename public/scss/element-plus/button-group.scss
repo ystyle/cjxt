@@ -1,0 +1,6 @@
+.el-button-group {
+  display: inline-flex;
+  .el-button:not(:first-child) { border-left: 0; margin-left: 0; border-radius: 0; }
+  .el-button:first-child { border-radius: 4px 0 0 4px; }
+  .el-button:last-child { border-radius: 0 4px 4px 0; }
+}

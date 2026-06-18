@@ -1,0 +1,32 @@
+.el-switch {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+  cursor: pointer;
+  &.is-disabled { opacity: 0.5; cursor: not-allowed; }
+  &.is-checked .el-switch__core { background: var(--el-color-primary, #409eff); border-color: var(--el-color-primary, #409eff); }
+}
+.el-switch__input { position: absolute; opacity: 0; width: 0; height: 0; }
+.el-switch__core {
+  display: inline-block;
+  width: 40px;
+  height: 20px;
+  border-radius: 10px;
+  background: var(--el-border-color, #dcdfe6);
+  border: 1px solid var(--el-border-color, #dcdfe6);
+  transition: background .2s;
+  cursor: pointer;
+  position: relative;
+  &::after {
+    content: '';
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    transition: left .2s;
+  }
+}
+.el-switch.is-checked .el-switch__core::after { left: 21px; }

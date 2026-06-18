@@ -15,7 +15,35 @@ public enum ButtonKind {
     }
 }
 
+public enum ComponentKind {
+    | Default | Primary | Success | Warning | Danger | Info | Plain
+
+    public func asClass(): String {
+        match (this) {
+            case Default => ""
+            case Primary => "primary"
+            case Success => "success"
+            case Warning => "warning"
+            case Danger => "danger"
+            case Info => "info"
+            case Plain => "plain"
+        }
+    }
+}
+
 public enum ButtonSize {
+    | Large | Default | Small
+
+    public func asClass(): String {
+        match (this) {
+            case Large => "large"
+            case Default => ""
+            case Small => "small"
+        }
+    }
+}
+
+public enum ComponentSize {
     | Large | Default | Small
 
     public func asClass(): String {
@@ -65,3 +93,91 @@ public enum RowAlign {
         }
     }
 }
+
+public enum DividerDirection {
+    | Horizontal | Vertical
+
+    public func asClass(): String {
+        match (this) {
+            case Horizontal => "horizontal"
+            case Vertical => "vertical"
+        }
+    }
+}
+
+public enum ContentPosition {
+    | Left | Center | Right
+
+    public func asClass(): String {
+        match (this) {
+            case Left => "left"
+            case Center => "center"
+            case Right => "right"
+        }
+    }
+}
+
+public enum TextSize {
+    | Default | Large | Small
+
+    public func asClass(): String {
+        match (this) {
+            case Large => "large"
+            case Default => ""
+            case Small => "small"
+        }
+    }
+}
+
+public enum TagSize {
+    | Default | Large | Medium | Small | Mini
+
+    public func asClass(): String {
+        match (this) {
+            case Large => "large"
+            case Default => ""
+            case Medium => "medium"
+            case Small => "small"
+            case Mini => "mini"
+        }
+    }
+}
+
+public enum TagKind {
+    | Default | Primary | Success | Warning | Danger | Info
+
+    public func asClass(): String {
+        match (this) {
+            case Default => ""
+            case Primary => "primary"
+            case Success => "success"
+            case Warning => "warning"
+            case Danger => "danger"
+            case Info => "info"
+        }
+    }
+}
+
+public enum TagEffect {
+    | Dark | Light | Plain
+
+    public func asClass(): String {
+        match (this) {
+            case Dark => "dark"
+            case Light => "light"
+            case Plain => "plain"
+        }
+    }
+}
+
+public enum SpaceDirection {
+    | Horizontal | Vertical
+
+    public func asClass(): String {
+        match (this) {
+            case Horizontal => "horizontal"
+            case Vertical => "vertical"
+        }
+    }
+}
+

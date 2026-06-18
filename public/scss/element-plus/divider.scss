@@ -1,0 +1,26 @@
+.el-divider {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin: 24px 0;
+  border-top: 1px solid var(--el-border-color-lighter, #dcdfe6);
+  &.el-divider--horizontal { width: 100%; }
+  &.el-divider--vertical {
+    display: inline-flex;
+    width: 1px;
+    height: 1em;
+    margin: 0 8px;
+    border-top: none;
+    border-left: 1px solid var(--el-border-color-lighter, #dcdfe6);
+  }
+}
+.el-divider__text {
+  position: absolute;
+  padding: 0 20px;
+  font-size: 14px;
+  color: var(--el-text-color-primary, #303133);
+  background: #fff;
+  &.is-left { left: 20px; }
+  &.is-center { left: 50%; transform: translateX(-50%); }
+  &.is-right { right: 20px; }
+}

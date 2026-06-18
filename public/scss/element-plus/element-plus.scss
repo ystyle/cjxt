@@ -3,9 +3,26 @@
 // 各组件按需引入
 @use 'base.scss';
 @use 'button.scss';
+@use 'button-group.scss';
 @use 'card.scss';
 @use 'row.scss';
 @use 'col.scss';
+@use 'divider.scss';
+@use 'text.scss';
+@use 'link.scss';
+@use 'tag.scss';
+@use 'badge.scss';
+@use 'space.scss';
+@use 'icon.scss';
+@use 'input.scss';
+@use 'input-number.scss';
+@use 'switch.scss';
+@use 'radio.scss';
+@use 'checkbox.scss';
+@use 'rate.scss';
+@use 'select.scss';
+@use 'slider.scss';
+@use 'form.scss';
 
 .el-button:not(.is-circle) {
   min-width: 68px;

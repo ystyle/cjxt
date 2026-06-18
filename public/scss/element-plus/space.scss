@@ -1,0 +1,7 @@
+.el-space {
+  display: inline-flex;
+  flex-wrap: wrap;
+  &.el-space--vertical { flex-direction: column; }
+  &.el-space--wrap { flex-wrap: wrap; }
+}
+.el-space__item { display: flex; align-items: center; }

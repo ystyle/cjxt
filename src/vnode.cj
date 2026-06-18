@@ -1,6 +1,6 @@
 package cjxt
 
-import std.collection.HashMap
+import std.collection.{HashMap, ArrayList}
 import std.io.{ByteBuffer, SeekPosition}
 import stdx.encoding.json.stream.{JsonWriter, JsonSerializable, JsonReader, JsonDeserializable}
 
@@ -41,6 +41,14 @@ public struct VNode <: Component {
 
     public func render(): Component { this }
 
+    public func expand(): Component {
+        let expanded = ArrayList<Component>()
+        for (c in this._children) {
+            expanded.add(c.expand())
+        }
+        VNode(this._tag, expanded.toArray(), attrs: this._attrs, key: this._key, actions: this._actions, handlers: this._handlers)
+    }
+
     public func toJson(w: JsonWriter): Unit {
         w.startObject()
         w.writeName("type").writeValue(this._tag)
@@ -72,6 +80,13 @@ public struct VNode <: Component {
         let m = HashMap<String, String>()
         m["click"] = name
         this.actions(m)
+    }
+
+    public func onClick(h: Option<ActionHandler>): VNode {
+        match (h) {
+            case Some(hh) => this.onClick(hh)
+            case None => this
+        }
     }
 
     public func onClick(h: ActionHandler): VNode {
@@ -136,6 +151,8 @@ public struct TextNode <: Component {
 
     public func render(): Component { this }
 
+    public func expand(): Component { this }
+
     public func toJson(w: JsonWriter): Unit {
         w.startObject()
         w.writeName("type").writeValue("text")
@@ -158,6 +175,14 @@ public struct FragmentNode <: Component {
 
     public func render(): Component { this }
 
+    public func expand(): Component {
+        let expanded = ArrayList<Component>()
+        for (c in this._children) {
+            expanded.add(c.expand())
+        }
+        FragmentNode(expanded.toArray())
+    }
+
     public func toJson(w: JsonWriter): Unit {
         w.startObject()
         w.writeName("type").writeValue("fragment")
@@ -172,6 +197,8 @@ public struct EmptyNode <: Component {
     public init() {}
 
     public func render(): Component { this }
+
+    public func expand(): Component { this }
 
     public func toJson(w: JsonWriter): Unit {
         w.startObject()
@@ -255,6 +282,10 @@ public func Fragment(children: Array<Component>): FragmentNode {
 
 public func Empty(): EmptyNode {
     EmptyNode()
+}
+
+public func i(children: Array<Component>, attrs!: Option<Attributes> = None, key!: Option<String> = None, actions!: Option<ActionMap> = None): VNode {
+    VNode("i", children, attrs: attrs, key: key, actions: actions)
 }
 
 public func cssStyle(content: String): VNode {

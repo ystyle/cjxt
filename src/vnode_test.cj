@@ -4,6 +4,9 @@ import std.collection.*
 import std.unittest.*
 import std.unittest.testmacro.*
 
+import std.io.{ByteBuffer, SeekPosition}
+import stdx.encoding.json.stream.{JsonWriter, JsonSerializable, JsonReader, JsonDeserializable}
+
 func getTag(c: Component): String {
     match (c) { case v: VNode => v._tag; case t: TextNode => "text"; case _ => "unknown" }
 }
@@ -104,6 +107,60 @@ public class VnodeTest {
             case v: VNode => doBindHandlerTest(v, s)
             case _ => @Fail("not VNode")
         }
+    }
+    @TestCase
+    public func testExpandCustomComponent(): Unit {
+        let wrapper = Wrapper()
+        let expanded = wrapper.expand()
+        doCheckExpanded(expanded)
+    }
+
+    @TestCase
+    public func testExpandActionIdsConsistent(): Unit {
+        let wrapper = Wrapper()
+        let expanded = wrapper.expand()
+        doCheckActionIds(expanded)
+    }
+}
+
+func doCheckExpanded(c: Component): Unit {
+    match (c) {
+        case v: VNode => doCheckVNode(v)
+        case _ => @Fail("expected VNode")
+    }
+}
+
+func doCheckVNode(v: VNode): Unit {
+    @Expect(v._tag, "div")
+    @Expect(v._children.size, 1)
+    match (v._children[0]) {
+        case span: VNode => @Expect(span._tag, "span")
+        case _ => @Fail("expected span")
+    }
+}
+
+func doCheckActionIds(expanded: Component): Unit {
+    let handlers = HashMap<String, ActionHandler>()
+    expanded.collectHandlers(handlers)
+
+    let buf = ByteBuffer()
+    let w = JsonWriter(buf)
+    expanded.toJson(w)
+    w.flush()
+    buf.flush()
+    let json = String.fromUtf8(buf.bytes())
+
+    for ((id, _) in handlers) {
+        if (!json.contains(id)) {
+            @Fail("handler id ${id} not found in serialized json")
+        }
+    }
+}
+
+public class Wrapper <: Component {
+    public init() {}
+    public func render(): Component {
+        div([span([text("hello")]).onClick({ _ => PatchResult.ReRender })])
     }
 }
 

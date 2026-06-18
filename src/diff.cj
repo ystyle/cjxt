@@ -86,6 +86,20 @@ private func diffVNode(old: VNode, newTree: VNode, basePath: String, patches: Ar
         }
     }
 
+    // actions
+    let actionKeys = mergeKeys(optKeys(old._actions), optKeys(newTree._actions))
+    for (key in actionKeys) {
+        let oldV = optGet(old._actions, key)
+        let newV = optGet(newTree._actions, key)
+        if (oldV != newV) {
+            let ap = if (basePath == "") { "/actions/${key}" } else { "${basePath}/actions/${key}" }
+            match (newV) {
+                case Some(v) => patches.add(GranularPatch.AttrPatch(AttrPatchEntry("replace", ap, Some(v))))
+                case None => patches.add(GranularPatch.AttrPatch(AttrPatchEntry("remove", ap, None)))
+            }
+        }
+    }
+
     // children
     diffChildren(old._children, newTree._children, basePath, patches)
 }

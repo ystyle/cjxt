@@ -10,6 +10,8 @@ public interface Component <: JsonSerializable {
     func render(): Component
     func getComponentKey(): String { "" }
 
+    func expand(): Component { this.render().expand() }
+
     func reRender(): Unit {
         SignalTracker.pendingRender = true
     }
@@ -37,7 +39,7 @@ public interface Component <: JsonSerializable {
             case t: TextNode => t.toJson(w)
             case f: FragmentNode => f.toJson(w)
             case e: EmptyNode => e.toJson(w)
-            case _ => this.render().toJson(w)
+            case _ => this.expand().toJson(w)
         }
     }
 
@@ -46,7 +48,7 @@ public interface Component <: JsonSerializable {
         match (this) {
             case v: VNode => vnodeCollectHandlers(v, out)
             case f: FragmentNode => for (c in f._children) { c.collectHandlers(out) }
-            case _ => this.render().collectHandlers(out)
+            case _ => ()
         }
     }
 }

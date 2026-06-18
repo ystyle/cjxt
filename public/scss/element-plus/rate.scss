@@ -1,0 +1,17 @@
+.el-rate {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.el-rate__item {
+  display: inline-flex;
+  cursor: pointer;
+  .el-rate.is-disabled & { cursor: not-allowed; }
+}
+.el-rate__icon { font-size: 18px; color: var(--el-border-color-lighter, #e4e7ed); }
+.el-icon-star-on { color: var(--el-color-warning, #e6a23c); }
+.el-rate__text {
+  margin-left: 8px;
+  font-size: 14px;
+  color: var(--el-text-color-regular, #606266);
+}

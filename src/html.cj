@@ -13,7 +13,20 @@ class CangjieUI {
     }
     init() {
         if (this.tree) this.renderTree(this.tree, this.container);
+        this.attachClickDelegate();
         this.connectWS();
+    }
+    attachClickDelegate() {
+        this.container.addEventListener('click', (e) => {
+            const el = e.target.closest('[data-action-click]');
+            if (!el) return;
+            const name = el.getAttribute('data-action-click');
+            const params = {};
+            for (const a of el.attributes) {
+                if (a.name.startsWith('data-') && !a.name.startsWith('data-action-')) params[a.name.slice(5)] = a.value;
+            }
+            this.send({ type: 'action', name, params, sessionId: this.sessionId });
+        });
     }
     connectWS() {
         const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -57,6 +70,13 @@ class CangjieUI {
         if (this.ws && this.ws.readyState === WebSocket.OPEN)
             this.ws.send(JSON.stringify(data));
     }
+    createElement(type) {
+        const svgTags = { svg: 1, path: 1, circle: 1, rect: 1, line: 1, polyline: 1, polygon: 1, ellipse: 1, g: 1, defs: 1, use: 1, text: 1, tspan: 1 };
+        if (svgTags[type]) {
+            return document.createElementNS('http://www.w3.org/2000/svg', type);
+        }
+        return document.createElement(type);
+    }
     loadNewPage(msg) {
         this.tree = msg.tree;
         this.container.innerHTML = '';
@@ -80,7 +100,7 @@ class CangjieUI {
             parentEl.appendChild(el);
             return;
         }
-        const el = document.createElement(type);
+        const el = this.createElement(type);
         for (const k in node.attrs || {}) {
             if (k === 'text') continue;
             if (k === 'value') { el.value = node.attrs[k]; continue; }
@@ -88,13 +108,18 @@ class CangjieUI {
         }
         for (const ev in node.actions || {}) {
             const action = node.actions[ev];
-            el.addEventListener(ev, (e) => {
-                const params = {};
-                for (const a of el.attributes) {
-                    if (a.name.startsWith('data-')) params[a.name.slice(5)] = a.value;
-                }
-                this.send({ type: 'action', name: action, params, sessionId: this.sessionId });
-            });
+            el.setAttribute(`data-action-\${ev}`, action);
+            if (ev !== 'click') {
+                el.addEventListener(ev, (e) => {
+                    const name = el.getAttribute(`data-action-\${ev}`);
+                    if (!name) return;
+                    const params = {};
+                    for (const a of el.attributes) {
+                        if (a.name.startsWith('data-') && !a.name.startsWith('data-action-')) params[a.name.slice(5)] = a.value;
+                    }
+                    this.send({ type: 'action', name, params, sessionId: this.sessionId });
+                });
+            }
         }
         for (const child of node.children || []) this.renderTree(child, el);
         parentEl.appendChild(el);
@@ -147,7 +172,18 @@ class CangjieUI {
         }
     }
     applyTreePatches(trees) {
-        for (const p of trees) {
+        const sortedTrees = [...trees].sort((a, b) => {
+            const partsA = (a.path || '').split('/').filter(Boolean);
+            const partsB = (b.path || '').split('/').filter(Boolean);
+            const minLen = Math.min(partsA.length, partsB.length);
+            for (let i = 0; i < minLen - 1; i++) {
+                if (partsA[i] !== partsB[i]) return partsA[i].localeCompare(partsB[i]);
+            }
+            const idxA = parseInt(partsA[partsA.length - 1]);
+            const idxB = parseInt(partsB[partsB.length - 1]);
+            return idxB - idxA;
+        });
+        for (const p of sortedTrees) {
             const parts = (p.path || '').split('/').filter(Boolean);
             if (parts.length === 0) {
                 if (p.op === 'replace' && p.tree) {
@@ -170,6 +206,7 @@ class CangjieUI {
                 }
             } else if (p.op === 'add' && p.tree) {
                 const newEl = this.renderSubtree(p.tree);
+                if (!newEl) continue;
                 if (idx < parentEl.childNodes.length) {
                     parentEl.insertBefore(newEl, parentEl.childNodes[idx]);
                 } else {
@@ -211,7 +248,7 @@ class CangjieUI {
             el.textContent = node.attrs ? (node.attrs.text || '') : '';
             return el;
         }
-        const el = document.createElement(type);
+        const el = this.createElement(type);
         for (const k in node.attrs || {}) {
             if (k === 'text') continue;
             if (k === 'value') { el.value = node.attrs[k]; continue; }
@@ -219,13 +256,18 @@ class CangjieUI {
         }
         for (const ev in node.actions || {}) {
             const action = node.actions[ev];
-            el.addEventListener(ev, (e) => {
-                const params = {};
-                for (const a of el.attributes) {
-                    if (a.name.startsWith('data-')) params[a.name.slice(5)] = a.value;
-                }
-                this.send({ type: 'action', name: action, params, sessionId: this.sessionId });
-            });
+            el.setAttribute(`data-action-\${ev}`, action);
+            if (ev !== 'click') {
+                el.addEventListener(ev, (e) => {
+                    const name = el.getAttribute(`data-action-\${ev}`);
+                    if (!name) return;
+                    const params = {};
+                    for (const a of el.attributes) {
+                        if (a.name.startsWith('data-') && !a.name.startsWith('data-action-')) params[a.name.slice(5)] = a.value;
+                    }
+                    this.send({ type: 'action', name, params, sessionId: this.sessionId });
+                });
+            }
         }
         for (const child of node.children || []) el.appendChild(this.renderSubtree(child));
         if (el.hasAttribute('data-bind-id')) this.attachBind(el);
@@ -249,11 +291,11 @@ class CangjieUI {
             }
         } else if (parts[0] === 'children' && parts.length >= 2) {
             const idx = parseInt(parts[1]);
-            if (op === 'add' && node.children) {
+            if (op === 'add' && parts.length === 2 && node.children) {
                 node.children.splice(idx, 0, value || { type: 'div', attrs: {}, actions: null, children: [] });
             } else if (op === 'replace' && node.children && node.children[idx] && parts.length == 2) {
                 node.children[idx] = value;
-            } else if (op === 'remove' && node.children) {
+            } else if (op === 'remove' && parts.length === 2 && node.children) {
                 node.children.splice(idx, 1);
             } else if (node.children && node.children[idx]) {
                 this.applyPatchToTree(node.children[idx], op, parts.slice(2), value);
@@ -294,7 +336,9 @@ class CangjieUI {
                 el.removeAttribute(attr);
             }
         } else if (parts[i] === 'actions' && i + 1 < parts.length) {
-            // actions only matter in virtual tree, DOM events already attached
+            const ev = parts[i + 1];
+            if (op === 'replace') el.setAttribute(`data-action-\${ev}`, value);
+            else if (op === 'remove') el.removeAttribute(`data-action-\${ev}`);
         } else if (parts[i] === 'text' && op === 'replace') {
             el.textContent = value;
         }

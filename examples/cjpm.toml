@@ -4,7 +4,7 @@ name = "examples"
 version = "0.1.0"
 output-type = "executable"
 compile-option = "--static -Woff unused"
-link-option = "-L${CANGJIE_STDX_PATH} -lcangjie-dynamicLoader-opensslFFI"
+link-option = "-lcangjie-dynamicLoader-opensslFFI"
 
 [target.x86_64-unknown-linux-gnu.bin-dependencies]
 path-option = ["${CANGJIE_STDX_PATH}"]

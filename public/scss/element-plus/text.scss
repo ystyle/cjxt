@@ -1,0 +1,19 @@
+.el-text {
+  display: inline-flex;
+  align-items: center;
+  font-size: 14px;
+  line-height: 1.5;
+  &.is-primary { color: var(--el-color-primary, #409eff); }
+  &.is-success { color: var(--el-color-success, #67c23a); }
+  &.is-warning { color: var(--el-color-warning, #e6a23c); }
+  &.is-danger { color: var(--el-color-danger, #f56c6c); }
+  &.is-info { color: var(--el-color-info, #909399); }
+  &.is-plain { color: var(--el-text-color-regular, #606266); }
+  &.el-text--large { font-size: 16px; }
+  &.el-text--small { font-size: 13px; }
+  &.is-truncated {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

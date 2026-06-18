@@ -1,0 +1,16 @@
+.el-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: none;
+  color: var(--el-text-color-primary, #303133);
+  &.is-underline:hover { text-decoration: underline; }
+  &.el-link--primary { color: var(--el-color-primary, #409eff); }
+  &.el-link--success { color: var(--el-color-success, #67c23a); }
+  &.el-link--warning { color: var(--el-color-warning, #e6a23c); }
+  &.el-link--danger { color: var(--el-color-danger, #f56c6c); }
+  &.el-link--info { color: var(--el-color-info, #909399); }
+  &.is-disabled { opacity: 0.5; cursor: not-allowed; }
+}

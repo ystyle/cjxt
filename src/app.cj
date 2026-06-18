@@ -57,6 +57,7 @@ public class App {
 
     public func serve(): Unit {
         this.tangApp.get("/", { ctx => this.renderHTTP(ctx) })
+        this.tangApp.get("/showcase", { ctx => this.renderHTTP(ctx) })
         this.tangApp.get("/ws", { ctx => this.upgradeWS(ctx) })
         this.tangApp.setHost(this.bindHost).setPort(this.bindPort).listen()
     }
@@ -68,6 +69,18 @@ public class App {
     }
 
     private func renderHTTP(ctx: TangHttpContext): Unit {
+        let requestPath = ctx.path()
+        match (RouteRegistry.global().create(requestPath)) {
+            case Some(p) => this.doRoute(ctx, p)
+            case None => this.tryRootRoute(ctx)
+        }
+    }
+
+    private func doRoute(ctx: TangHttpContext, p: Component): Unit {
+        servePage(ctx, p)
+    }
+
+    private func tryRootRoute(ctx: TangHttpContext): Unit {
         match (RouteRegistry.global().create("/")) {
             case Some(p) => servePage(ctx, p)
             case None => ctx.status(404).writeString("Not Found")
@@ -78,7 +91,7 @@ public class App {
         let session = sessions.create(p, text(""))
         this.initStates(session)
         p.onMount(LifecycleContext(session.id, HashMap<String, String>(), None, None, states: session.states))
-        let tree = p.renderWithScope()
+        let tree = p.renderWithScope().expand()
         session.tree = tree
         ctx.contentType("text/html; charset=utf-8").writeString(generateHtmlShell(session.id, config: this.config))
     }
@@ -103,7 +116,7 @@ public class App {
         session.wsState = WsState.Connected
         session.touch()
         let state = SessionState(session.page, session.path)
-        let tree = applyLayout(session.path, session.tree)
+        let tree = applyLayout(session.path, session.tree).expand()
         state.refresh(tree)
         wsSendJson(ws, ConnectedMsg())
         wsSendJson(ws, CombinedPatchMsg([], [TreePatchEntry("replace", "", Some(tree))]))
@@ -140,8 +153,8 @@ public class App {
     }
 
     private func initSignals(ws: WebSocket, state: SessionState, session: Session): Unit {
-        let raw = state.page.renderWithScope()
-        let tree = applyLayout(state.path, raw)
+        let raw = state.page.renderWithScope().expand()
+        let tree = applyLayout(state.path, raw).expand()
         state.refresh(tree)
         session.tree = raw
     }
@@ -176,7 +189,7 @@ public class App {
             }
         }
         session.wsState = WsState.Disconnected
-        session.tree = state.page.render()
+        session.tree = state.page.render().expand()
     }
 
     private func dispatchAction(ws: WebSocket, state: SessionState, session: Session, name: String): Unit {
@@ -257,8 +270,8 @@ public class App {
         state.actions = newPage.getActions()
         let mountCtx = LifecycleContext(session.id, HashMap<String, String>(), None, None, states: session.states)
         newPage.onMount(mountCtx)
-        let raw = newPage.renderWithScope()
-        let tree = applyLayout(path, raw)
+        let raw = newPage.renderWithScope().expand()
+        let tree = applyLayout(path, raw).expand()
         state.refresh(tree)
         session.updatePage(newPage, raw)
         session.path = path
@@ -276,7 +289,7 @@ public class App {
     private func sendPatch(ws: WebSocket, state: SessionState, session: Session): Unit {
         SignalTracker.pendingRender = false
         let oldTree = session.tree
-        let newTree = state.page.render()
+        let newTree = state.page.render().expand()
         let patches = diffTree(oldTree, newTree, "")
         state.refresh(newTree)
         session.tree = newTree

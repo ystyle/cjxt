@@ -5,10 +5,7 @@
   version = "0.1.0"
   output-type = "static"
   compile-option = "-Woff unused"
-  link-option = "-L/home/ystyle/.config/cjvs/stdx/1.1.0-alpha.0421/linux_x86_64_cjnative/static/stdx -lcangjie-dynamicLoader-opensslFFI"
-
-[package.package-configuration."cjxt.demo"]
-output-type = "executable"
+  link-option = "-L${CANGJIE_STDX_PATH} -lcangjie-dynamicLoader-opensslFFI"
 
 [target.x86_64-unknown-linux-gnu.bin-dependencies]
   path-option = ["${CANGJIE_STDX_PATH}"]

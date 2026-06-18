@@ -47,7 +47,7 @@ public class DiffTest {
     }
 
     @TestCase
-    public func testDiffActionsSkipped(): Unit {
+    public func testDiffActionsChanged(): Unit {
         let a1 = HashMap<String, String>()
         a1["click"] = "h1"
         let a2 = HashMap<String, String>()
@@ -55,11 +55,12 @@ public class DiffTest {
         let old = div([text("test")], actions: Some(a1))
         let newTree = div([text("test")], actions: Some(a2))
         let patches = diffTree(old, newTree, "")
-        @Expect(patches.size, 0)
+        @Expect(patches.size, 1)
+        @Expect(patches[0].op(), "replace")
     }
 
     @TestCase
-    public func testActionsDoesNotBlockOtherDiff(): Unit {
+    public func testActionsDiffedAlongsideAttrs(): Unit {
         let a1 = HashMap<String, String>()
         a1["click"] = "h1"
         let a2 = HashMap<String, String>()
@@ -67,7 +68,6 @@ public class DiffTest {
         let old = div([text("hello")], attrs: attrsOf("box"), actions: Some(a1))
         let newTree = div([text("hello")], attrs: attrsOf("big-box"), actions: Some(a2))
         let patches = diffTree(old, newTree, "")
-        @Expect(patches.size, 1)
-        @Expect(patches[0].op(), "replace")
+        @Expect(patches.size, 2)
     }
 }

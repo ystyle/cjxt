@@ -50,6 +50,7 @@ func renderTabs(active: String): Component {
         navTab("/", "Counter", active == "/"),
         navTab("/inputs", "Inputs", active == "/inputs"),
         navTab("/todo", "Todo", active == "/todo"),
+        navTab("/showcase", "组件库", active == "/showcase"),
     ], attrs: Some(HashMap<String, String>([("class", cls("tabs"))])))
 }
 
