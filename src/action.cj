@@ -33,7 +33,8 @@ public struct PatchEntry {
     }
 }
 
-// 颗粒 patch（用于 diffTree，value 为字符串）
+// 颗粒 patch
+
 public struct TreePatchEntry <: JsonSerializable {
     let op: String
     let path: String
@@ -57,59 +58,16 @@ public struct TreePatchEntry <: JsonSerializable {
     }
 }
 
-public enum GranularPatch {
-    | AttrPatch(AttrPatchEntry)
-    | SubtreePatch(TreePatchEntry)
-
-    public func op(): String {
-        match (this) {
-            case GranularPatch.AttrPatch(a) => a.op
-            case GranularPatch.SubtreePatch(t) => t.op
-        }
-    }
-}
-
-public func sendGranularPatch(ws: WebSocket, patches: ArrayList<GranularPatch>): Unit {
-    if (patches.size == 0) { return }
-    let attrs = ArrayList<AttrPatchEntry>()
-    let trees = ArrayList<TreePatchEntry>()
-    for (p in patches) {
-        match (p) {
-            case GranularPatch.AttrPatch(a) => attrs.add(a)
-            case GranularPatch.SubtreePatch(t) => trees.add(t)
-        }
-    }
-    wsSendJson(ws, CombinedPatchMsg(attrs.toArray(), trees.toArray()))
-}
-
-public struct AttrPatchEntry <: JsonSerializable {
-    let op: String
-    let path: String
-    let value: Option<String>
-
-    public init(op: String, path: String, value: Option<String>) {
-        this.op = op
-        this.path = path
-        this.value = value
-    }
-
-    public func toJson(w: JsonWriter): Unit {
-        w.startObject()
-        w.writeName("op").writeValue(this.op)
-        w.writeName("path").writeValue(this.path)
-        match (this.value) {
-            case Some(v) => w.writeName("value").writeValue(v)
-            case None => ()
-        }
-        w.endObject()
-    }
+public struct DummyPatchEntry <: JsonSerializable {
+    public init() {}
+    public func toJson(w: JsonWriter): Unit {}
 }
 
 public struct CombinedPatchMsg <: JsonSerializable {
-    let attrs: Array<AttrPatchEntry>
+    let attrs: Array<DummyPatchEntry>
     let trees: Array<TreePatchEntry>
 
-    public init(attrs: Array<AttrPatchEntry>, trees: Array<TreePatchEntry>) {
+    public init(attrs: Array<DummyPatchEntry>, trees: Array<TreePatchEntry>) {
         this.attrs = attrs
         this.trees = trees
     }

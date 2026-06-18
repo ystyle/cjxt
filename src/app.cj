@@ -90,7 +90,7 @@ public class App {
         let session = sessions.create(p, text(""))
         this.initStates(session)
         p.onMount(LifecycleContext(session.id, HashMap<String, String>(), None, None, states: session.states))
-        let tree = p.renderWithScope().expand()
+        let tree = RenderContext.expandTree(p.renderWithScope(), "")
         session.tree = tree
         ctx.contentType("text/html; charset=utf-8").writeString(generateHtmlShell(session.id, config: this.config))
     }
@@ -115,7 +115,7 @@ public class App {
         session.wsState = WsState.Connected
         session.touch()
         let state = SessionState(session.page, session.path)
-        let tree = applyLayout(session.path, session.tree).expand()
+        let tree = RenderContext.expandTree(applyLayout(session.path, session.tree), "")
         state.refreshFromTree(tree)
         wsSendJson(ws, ConnectedMsg())
         wsSendJson(ws, CombinedPatchMsg([], [TreePatchEntry("replace", "", Some(tree))]))
@@ -152,10 +152,10 @@ public class App {
     }
 
     private func initSignals(ws: WebSocket, state: SessionState, session: Session): Unit {
-        let raw = state.page.renderWithScope().expand()
-        let tree = applyLayout(state.path, raw).expand()
+        let raw = state.page.renderWithScope()
+        let tree = RenderContext.expandTree(applyLayout(state.path, raw), "")
         state.refreshFromTree(tree)
-        session.tree = raw
+        session.tree = tree
     }
 
     private func listenLoop(ws: WebSocket, state: SessionState, session: Session): Unit {
@@ -188,7 +188,7 @@ public class App {
             }
         }
         session.wsState = WsState.Disconnected
-        session.tree = state.page.render().expand()
+        session.tree = RenderContext.expandTree(state.page.renderWithScope(), "")
     }
 
     private func dispatchAction(ws: WebSocket, state: SessionState, session: Session, name: String): Unit {
@@ -265,10 +265,10 @@ public class App {
         state.path = path
         let mountCtx = LifecycleContext(session.id, HashMap<String, String>(), None, None, states: session.states)
         newPage.onMount(mountCtx)
-        let raw = newPage.renderWithScope().expand()
-        let tree = applyLayout(path, raw).expand()
+        let raw = newPage.renderWithScope()
+        let tree = RenderContext.expandTree(applyLayout(path, raw), "")
         state.refreshFromTree(tree)
-        session.updatePage(newPage, raw)
+        session.updatePage(newPage, tree)
         session.path = path
         wsSendJson(ws, FullTreeMsg(tree))
         sendTitle(ws, path)
