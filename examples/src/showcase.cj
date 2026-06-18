@@ -187,11 +187,17 @@ class ShowcasePage <: Component {
     }
 
     func demoCheckbox(): IComponent {
-        CheckboxGroup([
-            Checkbox([text("A")], "a"),
-            Checkbox([text("B")], "b"),
-            Checkbox([text("C")], "c"),
-        ]).bind(this.state.checkboxValue)
+        div([
+            CheckboxGroup([
+                Checkbox([text("A")], "a"),
+                Checkbox([text("B")], "b"),
+                Checkbox([text("C")], "c").disabled(),
+            ]).bind(this.state.checkboxValue),
+            div([
+                Checkbox([text("单独复选")], "single"),
+                Checkbox([text("选中并禁用")], "x").disabled(),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+        ], attrs: Some(HashMap<String, String>([("style", "display:flex;flex-direction:column;gap:16px")])))
     }
 
     func demoText(): IComponent {
@@ -274,23 +280,42 @@ class ShowcasePage <: Component {
     }
 
     func demoInput(): IComponent {
-        Input().placeholder("请输入内容").prefixIcon("search")
+        div([
+            Input().placeholder("请输入内容").prefixIcon("search"),
+            Input().placeholder("禁用").disabled(),
+            Input().placeholder("密码").password().suffixIcon("view"),
+            Input().placeholder("大号").size(ComponentSize.Large).clearable(),
+        ], attrs: Some(HashMap<String, String>([("style", "display:flex;flex-direction:column;gap:16px;width:100%")])))
     }
 
     func demoInputNumber(): IComponent {
-        InputNumber().min(0).max(10).bind(this.state.inputNumberValue)
+        div([
+            InputNumber().min(0).max(10).bind(this.state.inputNumberValue),
+            InputNumber().min(0).max(100).step(5).noControls().bind(this.state.inputNumberValue),
+            InputNumber().min(0).max(100).size(ComponentSize.Small).bind(this.state.inputNumberValue),
+        ], attrs: Some(HashMap<String, String>([("style", "display:flex;flex-direction:column;gap:16px")])))
     }
 
     func demoSwitch(): IComponent {
-        Switch().bind(this.state.switchValue)
+        div([
+            Switch().bind(this.state.switchValue),
+            Switch().activeText("开").inactiveText("关").bind(this.state.switchValue),
+            Switch().size(ComponentSize.Small).disabled().bind(this.state.switchValue),
+        ], attrs: Some(HashMap<String, String>([("style", "display:flex;flex-direction:column;gap:16px")])))
     }
 
     func demoRadio(): IComponent {
-        RadioGroup([
-            Radio([text("选项A")], "a"),
-            Radio([text("选项B")], "b"),
-            Radio([text("选项C")], "c").disabled(),
-        ]).bind(this.state.radioValue)
+        div([
+            RadioGroup([
+                Radio([text("选项A")], "a"),
+                Radio([text("选项B")], "b"),
+                Radio([text("选项C")], "c").disabled(),
+            ]).bind(this.state.radioValue),
+            RadioGroup([
+                Radio([Button("A")], "a"),
+                Radio([Button("B")], "b"),
+            ]).bind(this.state.radioValue),
+        ], attrs: Some(HashMap<String, String>([("style", "display:flex;flex-direction:column;gap:16px")])))
     }
 
     func demoRate(): IComponent {
@@ -392,26 +417,32 @@ class ShowcasePage <: Component {
             case "Input" => div([
                 this.propRow("placeholder", "String"),
                 this.propRow("size", "Large | Default | Small"),
-                this.propRow("clearable", "false"),
-                this.propRow("prefixIcon", "String"),
+                this.propRow("clearable / disabled / password", "false"),
+                this.propRow("prefixIcon / suffixIcon", "String"),
                 this.propRow("bind(signal)", "Signal<String>"),
             ])
             case "InputNumber" => div([
                 this.propRow("min / max / step", "Int64"),
+                this.propRow("size", "Large | Default | Small"),
                 this.propRow("noControls", "隐藏 +/- 按钮"),
                 this.propRow("bind(signal)", "Signal<Int64>"),
             ])
             case "Switch" => div([
                 this.propRow("activeText / inactiveText", "String"),
+                this.propRow("activeValue / inactiveValue", "Bool"),
+                this.propRow("size", "Large | Default | Small"),
+                this.propRow("disabled", "false"),
                 this.propRow("bind(signal)", "Signal<Bool>"),
             ])
             case "Radio" => div([
                 this.propRow("Radio(value)", "String"),
+                this.propRow("Radio.disabled", "false"),
                 this.propRow("RadioGroup.bind(signal)", "Signal<String>"),
             ])
             case "Checkbox" => div([
                 this.propRow("Checkbox(value)", "String"),
-                this.propRow("Group.bind(signal)", "Signal<ArrayList<String>>"),
+                this.propRow("Checkbox.disabled", "false"),
+                this.propRow("CheckboxGroup.bind(signal)", "Signal<ArrayList<String>>"),
             ])
             case "Rate" => div([
                 this.propRow("max", "Int64 (默认 5)"),

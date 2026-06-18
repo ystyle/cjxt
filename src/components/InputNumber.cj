@@ -38,9 +38,9 @@ public class InputNumber <: Component {
             let step = this._step
             let decHandler: ActionHandler = { ctx => this.doStep(-step); PatchResult.ReRender }
             let incHandler: ActionHandler = { ctx => this.doStep(step); PatchResult.ReRender }
-            children.add(button([text("-")], attrs: Some(HashMap<String, String>([("class", "el-input-number__decrease")]))).onClick(decHandler))
+            children.add(VNode("span", [Icon("minus").render()], attrs: Some(HashMap<String, String>([("class", "el-input-number__decrease")]))).onClick(decHandler))
             children.add(VNode("div", [inner], attrs: Some(HashMap<String, String>([("class", "el-input-number__input")]))))
-            children.add(button([text("+")], attrs: Some(HashMap<String, String>([("class", "el-input-number__increase")]))).onClick(incHandler))
+            children.add(VNode("span", [Icon("plus").render()], attrs: Some(HashMap<String, String>([("class", "el-input-number__increase")]))).onClick(incHandler))
             VNode("div", children.toArray(), attrs: Some(HashMap<String, String>([("class", cls)])))
         } else {
             VNode("div", [VNode("div", [inner], attrs: Some(HashMap<String, String>([("class", "el-input-number__input")])))], attrs: Some(HashMap<String, String>([("class", cls)])))

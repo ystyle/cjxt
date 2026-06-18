@@ -12,6 +12,7 @@ public class Input <: Component {
     var _inputType: String = "text"
     var _prefixIcon: String = ""
     var _suffixIcon: String = ""
+    var _rows: Int64 = 2
 
     public init() {}
     public func placeholder(v: String): Input { this._placeholder = v; this }
@@ -30,42 +31,42 @@ public class Input <: Component {
             case None => ()
         }
         if (this._disabled) { cls = "${cls} is-disabled" }
-        if (this._clearable) { cls = "${cls} is-clearable" }
         if (this._prefixIcon != "") { cls = "${cls} el-input--prefix" }
-        if (this._suffixIcon != "") { cls = "${cls} el-input--suffix" }
+        if (this._suffixIcon != "" || this._clearable) { cls = "${cls} el-input--suffix" }
+
+        let wrapperChildren = ArrayList<IComponent>()
+        if (this._prefixIcon != "") { wrapperChildren.add(this.makePrefix()) }
+        wrapperChildren.add(this.makeInner())
+        if (this._suffixIcon != "" || this._clearable) { wrapperChildren.add(this.makeSuffix()) }
+
+        let wrapper = VNode("div", wrapperChildren.toArray(), attrs: Some(HashMap<String, String>([("class", "el-input__wrapper")])))
+        VNode("div", [wrapper], attrs: Some(HashMap<String, String>([("class", cls)])))
+    }
+
+    func makeInner(): IComponent {
         let innerAttrs = HashMap<String, String>([("class", "el-input__inner"), ("type", this._inputType)])
         if (this._placeholder != "") { innerAttrs["placeholder"] = this._placeholder }
         if (this._disabled) { innerAttrs["disabled"] = "disabled" }
-        let inner = this.maybeBind(VNode("input", [], attrs: Some(innerAttrs)))
-        let children = ArrayList<IComponent>()
-        if (this._prefixIcon != "") { children.add(this.makePrefix()) }
-        children.add(inner)
-        if (this._clearable || this._suffixIcon != "") { children.add(this.makeSuffix()) }
-        VNode("div", children.toArray(), attrs: Some(HashMap<String, String>([("class", cls)])))
-    }
-
-    func maybeBind(v: VNode): VNode {
+        let inner = VNode("input", [], attrs: Some(innerAttrs))
         match (this._signal) {
-            case Some(s) => v.bind(s)
-            case None => v
+            case Some(s) => inner.bind(s)
+            case None => inner
         }
     }
 
     func makePrefix(): IComponent {
-        let icon = i([], attrs: Some(HashMap<String, String>([("class", "el-input__icon el-icon-${this._prefixIcon}")])))
-        VNode("span", [icon], attrs: Some(HashMap<String, String>([("class", "el-input__prefix")])))
+        let icon = Icon(this._prefixIcon).render()
+        VNode("span", [VNode("span", [icon], attrs: Some(HashMap<String, String>([("class", "el-input__prefix-inner")])))], attrs: Some(HashMap<String, String>([("class", "el-input__prefix")])))
     }
 
     func makeSuffix(): IComponent {
         let items = ArrayList<IComponent>()
         if (this._clearable) {
-            let clearIcon = i([], attrs: Some(HashMap<String, String>([("class", "el-input__icon el-icon-circle-close el-input__clear")])))
-            items.add(clearIcon)
+            items.add(Icon("circle-close").render())
         }
         if (this._suffixIcon != "") {
-            let suffixIcon = i([], attrs: Some(HashMap<String, String>([("class", "el-input__icon el-icon-${this._suffixIcon}")])))
-            items.add(suffixIcon)
+            items.add(Icon(this._suffixIcon).render())
         }
-        VNode("span", items.toArray(), attrs: Some(HashMap<String, String>([("class", "el-input__suffix")])))
+        VNode("span", [VNode("span", items.toArray(), attrs: Some(HashMap<String, String>([("class", "el-input__suffix-inner")])))], attrs: Some(HashMap<String, String>([("class", "el-input__suffix")])))
     }
 }
