@@ -58,7 +58,8 @@ class ShowcasePage <: Component {
                 })
             )
         }
-        div([menu.render()], attrs: Some(HashMap<String, String>([("class", cls("showcase-sidebar"))])))
+        let attrs = HashMap<String, String>([("class", "${cls("showcase-sidebar")} showcase-menu-wrap")])
+        div([menu.render()], attrs: Some(attrs))
     }
 
     func demoArea(sel: String): IComponent {
@@ -136,12 +137,34 @@ class ShowcasePage <: Component {
 
     func demoDivider(): IComponent {
         div([
-            text("上面"),
+            div([text("默认分割线")], attrs: Some(HashMap<String, String>([("class", cls("divider-section-title"))]))),
             Divider(),
-            text("中间"),
-            Divider([text("分割文字")]).contentPosition(ContentPosition.Center),
-            text("下面"),
-        ])
+            div([text("带文字的分割线")], attrs: Some(HashMap<String, String>([("class", cls("divider-section-title"))]))),
+            div([
+                text("左侧"),
+                Divider([text("Left")]).contentPosition(ContentPosition.Left),
+                text("居中"),
+                Divider([text("Center")]).contentPosition(ContentPosition.Center),
+                text("右侧"),
+                Divider([text("Right")]).contentPosition(ContentPosition.Right),
+            ], attrs: Some(HashMap<String, String>([("class", cls("divider-group"))]))),
+            div([text("垂直分割线")], attrs: Some(HashMap<String, String>([("class", cls("divider-section-title"))]))),
+            div([
+                text("Item 1"),
+                Divider().direction(DividerDirection.Vertical),
+                text("Item 2"),
+                Divider().direction(DividerDirection.Vertical),
+                text("Item 3"),
+            ], attrs: Some(HashMap<String, String>([("class", cls("divider-group"))]))),
+        ], attrs: Some(HashMap<String, String>([("class", cls("divider-demo"))])))
+    }
+
+    func demoCheckbox(): IComponent {
+        CheckboxGroup([
+            Checkbox([text("A")], "a"),
+            Checkbox([text("B")], "b"),
+            Checkbox([text("C")], "c"),
+        ]).bind(this.state.checkboxValue)
     }
 
     func demoText(): IComponent {
@@ -210,14 +233,6 @@ class ShowcasePage <: Component {
             Radio([text("选项B")], "b"),
             Radio([text("选项C")], "c").disabled(),
         ]).bind(this.state.radioValue)
-    }
-
-    func demoCheckbox(): IComponent {
-        CheckboxGroup([
-            Checkbox([text("A")], "a"),
-            Checkbox([text("B")], "b"),
-            Checkbox([text("C")], "c"),
-        ]).bind(this.state.checkboxValue)
     }
 
     func demoRate(): IComponent {

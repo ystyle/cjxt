@@ -1,26 +1,49 @@
-.el-divider {
+@use 'common/var' as *;
+@use 'mixins/mixins' as *;
+
+@include b(divider) {
   position: relative;
-  display: flex;
-  align-items: center;
-  margin: 24px 0;
-  border-top: 1px solid var(--el-border-color-lighter, #dcdfe6);
-  &.el-divider--horizontal { width: 100%; }
-  &.el-divider--vertical {
-    display: inline-flex;
+
+  @include m(horizontal) {
+    display: block;
+    height: 1px;
+    width: 100%;
+    margin: 24px 0;
+    border-top: 1px getCssVar('border-color') getCssVar('border-style');
+  }
+
+  @include m(vertical) {
+    display: inline-block;
     width: 1px;
     height: 1em;
     margin: 0 8px;
-    border-top: none;
-    border-left: 1px solid var(--el-border-color-lighter, #dcdfe6);
+    vertical-align: middle;
+    position: relative;
+    border-left: 1px getCssVar('border-color') getCssVar('border-style');
   }
-}
-.el-divider__text {
-  position: absolute;
-  padding: 0 20px;
-  font-size: 14px;
-  color: var(--el-text-color-primary, #303133);
-  background: #fff;
-  &.is-left { left: 20px; }
-  &.is-center { left: 50%; transform: translateX(-50%); }
-  &.is-right { right: 20px; }
+
+  @include e(text) {
+    position: absolute;
+    background-color: getCssVar('bg-color');
+    padding: 0 20px;
+    font-weight: 500;
+    color: getCssVar('text-color', 'primary');
+    font-size: 14px;
+    white-space: nowrap;
+
+    @include when(left) {
+      left: 20px;
+      transform: translateY(-50%);
+    }
+
+    @include when(center) {
+      left: 50%;
+      transform: translateX(-50%) translateY(-50%);
+    }
+
+    @include when(right) {
+      right: 20px;
+      transform: translateY(-50%);
+    }
+  }
 }

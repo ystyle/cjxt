@@ -28,3 +28,18 @@
 .el-button:not(.is-circle) {
   min-width: 68px;
 }
+
+.showcase-menu-wrap .el-menu {
+  border-right: none;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.showcase-menu-wrap .el-menu-item {
+  --el-menu-level: 0;
+}
+
+.showcase-menu-wrap .el-sub-menu .el-menu-item,
+.showcase-menu-wrap .el-menu-item-group .el-menu-item {
+  --el-menu-level: 1;
+}
