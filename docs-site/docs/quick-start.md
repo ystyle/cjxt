@@ -44,6 +44,7 @@ package demo
 
 import cjxt.*
 
+@Page["/"]
 class Counter <: Component {
     var count = Signal<Int64>(0)
 
