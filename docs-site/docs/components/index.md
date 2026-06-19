@@ -2,7 +2,11 @@
 
 基于 Element Plus 设计语言，使用 builder 模式链式调用。
 
-> 使用组件库需要 Element Plus 样式。建议从 cjxt 仓库复制编译好的 `element-plus.css` 到项目 `public/css/`，详情见 [CSS 体系](/docs/basics/styling)。后续将通过包管理自动分发。
+> 使用组件库需要 Element Plus 样式。可用以下命令下载编译好的样式文件到项目中：
+> ```bash
+> curl -sL https://raw.githubusercontent.com/ystyle/cjxt/master/examples/public/css/element-plus.css -o public/css/element-plus.css
+> ```
+> 也可使用 cjxt 仓库中的脚本：`scripts/download-ep-css.sh`。后续将通过包管理自动分发。
 
 ## 查看演示
 
