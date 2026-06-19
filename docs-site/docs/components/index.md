@@ -2,7 +2,21 @@
 
 基于 Element Plus 设计语言，使用 builder 模式链式调用。
 
-> 使用组件库需要配置 Element Plus 样式，详情见 [CSS 体系](/docs/basics/styling)。
+> 使用组件库需要 Element Plus 样式。建议从 cjxt 仓库复制编译好的 `element-plus.css` 到项目 `public/css/`，详情见 [CSS 体系](/docs/basics/styling)。后续将通过包管理自动分发。
+
+## 查看演示
+
+```bash
+git clone https://atomgit.com/ystyle/cjxt.git
+cd cjxt
+eval "$(cjvs env zsh)" && eval "$(cjvs stdx env zsh)"
+cjpm build
+cd examples && cjpm build && cd ..
+./scripts/build-css.sh
+cd examples && ./target/release/bin/main
+```
+
+浏览器打开 `http://localhost:8080`，点击 "组件库" tab 查看全部交互演示。
 
 ## 基础
 
@@ -82,17 +96,3 @@ SpaceDirection:   Horizontal | Vertical
 MenuMode:         Horizontal | Vertical
 LinkUnderline:    Always | Hover | Never
 ```
-
-## 查看演示
-
-```bash
-git clone https://atomgit.com/ystyle/cjxt.git
-cd cjxt
-eval "$(cjvs env zsh)" && eval "$(cjvs stdx env zsh)"
-cjpm build
-cd examples && cjpm build && cd ..
-./scripts/build-css.sh
-cd examples && ./target/release/bin/main
-```
-
-浏览器打开 `http://localhost:8080`，点击 "组件库" tab 查看全部交互演示。
