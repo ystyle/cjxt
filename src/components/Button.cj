@@ -42,6 +42,10 @@ public class Button <: Component {
     public func autofocus(): Button { this._autofocus = true; this }
     public func icon(name: String): Button { this._iconName = Some(name); this }
     public func onClick(h: ActionHandler): Button { this._onClick = Some(h); this }
+    public func onClick(h: (ActionContext) -> Unit): Button {
+        let wrapped: ActionHandler = { ctx => h(ctx); PatchResult.ReRender }
+        this.onClick(wrapped)
+    }
 
     public func render(): IComponent {
         var cls = "el-button"
