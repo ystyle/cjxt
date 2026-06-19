@@ -61,6 +61,11 @@ public class MenuItem <: Component {
         this
     }
 
+    public func onClick(h: (ActionContext) -> Unit): MenuItem {
+        let wrapped: ActionHandler = { ctx => h(ctx); PatchResult.ReRender }
+        this.onClick(wrapped)
+    }
+
     public func render(): IComponent {
         var cls = "el-menu-item"
         if (this._active) { cls = "${cls} is-active" }

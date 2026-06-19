@@ -58,7 +58,6 @@ class ShowcasePage <: Component {
             menu.add(
                 MenuItem(name, [text(name)]).active(active).onClick({ ctx =>
                     this.state.selected.set(name)
-                    PatchResult.ReRender
                 })
             )
         }

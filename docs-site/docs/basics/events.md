@@ -3,10 +3,21 @@
 ## 点击事件
 
 ```cangjie
-button(text("提交")).onClick({ ctx =>
+button([text("提交")]).onClick({ ctx =>
     PatchResult.ReRender
 })
 ```
+
+如果不需要显式返回 `PatchResult`，也可简写（组件类支持，如 `MenuItem`）：
+
+```cangjie
+MenuItem("首页").onClick({ ctx =>
+    ctx.navigate("/")
+    // 框架自动走 ReRender
+})
+```
+
+## 其他事件
 
 ## 其他事件
 
