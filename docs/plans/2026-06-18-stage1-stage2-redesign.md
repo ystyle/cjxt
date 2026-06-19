@@ -72,6 +72,43 @@
 
 ## 构建顺序
 
-1. `cd examples && cjpm build`（生成 CSS module → bundle.css）
-2. `./scripts/build-css.sh`（追加 Element Plus 全局样式 → bundle.css）
+1. `cd examples && cjpm build`（生成 CSS module → `public/css/bundle.css`）
+2. `cd .. && ./scripts/build-css.sh`（编译 Element Plus SCSS → `examples/public/css/element-plus.css`）
 3. 启动 `./target/release/bin/main` 验证
+
+## CSS 加载流程
+
+组件库样式由两个独立 CSS 文件加载：
+
+### 1. `bundle.css` — CSS Module
+- **来源**：`@importCSS` 宏编译期输出
+- **内容**：组件级 hashed class（`.container_4507100390487511585`、`.tab_4507100390487511585` 等）
+- **生成**：`cd examples && cjpm build`
+- **加载**：`<link rel="stylesheet" href="/css/bundle.css?v=2">`
+- **生命周期**：每次 cjpm build 覆盖重写
+
+### 2. `element-plus.css` — Element Plus 全局样式
+- **来源**：`public/scss/element-plus/element-plus.scss` + `custom/` 自定义扩展
+- **内容**：EP 组件全局 class 样式（`.el-button`、`.el-menu`、`.el-slider` 等）
+- **生成**：`../../scripts/build-css.sh`（sass 编译）
+- **加载**：`<link rel="stylesheet" href="/css/element-plus.css?v=2">`
+- **生命周期**：独立文件，不受 cjpm build 影响
+
+### 3. 自定义 SCSS 扩展（custom/）
+- 位置：`public/scss/element-plus/custom/*.scss`
+- 用途：替代 EP 原始组件样式的自定义实现（如 `slider-range.scss` 用 `<input type="range">` 伪元素对齐 EP CSS 变量）
+- 在 `element-plus.scss` 中在原始组件 SCSS 之后 import，确保覆盖优先级
+
+### 4. 服务端配置
+```
+serveStatic("/css", "public/css")
+```
+- CWD 为 `examples/`，解析到 `examples/public/css/`
+- 两个 CSS 文件均通过该路由提供
+
+### 5. HTML 加载
+```html
+<link rel="stylesheet" href="/css/bundle.css?v=2">
+<link rel="stylesheet" href="/css/element-plus.css?v=2">
+```
+由 `AppConfig(cssBundle: ..., componentsCss: ...)` 配置，`src/html.cj` 渲染。

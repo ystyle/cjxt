@@ -114,7 +114,7 @@ public class ButtonGroup <: Component {
         var cls = "el-button-group"
         match (this._direction) {
             case Vertical => cls = "${cls} el-button-group--vertical"
-            case _ => ()
+            case _ => cls = "${cls} el-button-group--horizontal"
         }
         let attrs = HashMap<String, String>([("class", cls)])
         let items = ArrayList<IComponent>()

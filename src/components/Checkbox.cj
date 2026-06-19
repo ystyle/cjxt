@@ -34,7 +34,8 @@ public class Checkbox <: Component {
             case Some(fn) => inputEl.onClick({ ctx => fn(v); PatchResult.ReRender })
             case None => inputEl
         }
-        let inputSpan2 = VNode("span", [clickableInput, innerSpan], attrs: Some(HashMap<String, String>([("class", "el-checkbox__input")])))
+        let inputCls = if (checked) { "el-checkbox__input is-checked" } else { "el-checkbox__input" }
+        let inputSpan2 = VNode("span", [clickableInput, innerSpan], attrs: Some(HashMap<String, String>([("class", inputCls)])))
         VNode("label", [inputSpan2, labelEl], attrs: Some(HashMap<String, String>([("class", cls)])))
     }
 }

@@ -1,0 +1,70 @@
+@use 'sass:map';
+
+@use '../mixins/mixins' as *;
+@use '../common/var' as *;
+
+@include b(slider) {
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    flex: 1;
+    height: getCssVar('slider-height');
+    border-radius: getCssVar('slider-border-radius');
+    background: linear-gradient(
+      to right,
+      getCssVar('slider-main-bg-color') 0%,
+      getCssVar('slider-main-bg-color') var(--pct, 0%),
+      getCssVar('slider-runway-bg-color') var(--pct, 0%),
+      getCssVar('slider-runway-bg-color') 100%
+    );
+    outline: none;
+    cursor: pointer;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: getCssVar('slider-button-size');
+    height: getCssVar('slider-button-size');
+    border-radius: 50%;
+    background-color: getCssVar('color-white');
+    border: 2px solid getCssVar('slider-main-bg-color');
+    box-sizing: border-box;
+    cursor: grab;
+    transition: getCssVar('transition-duration-fast');
+  }
+
+  input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+    cursor: grab;
+  }
+
+  input[type="range"]::-moz-range-track {
+    height: getCssVar('slider-height');
+    border-radius: getCssVar('slider-border-radius');
+    background: transparent;
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    width: getCssVar('slider-button-size');
+    height: getCssVar('slider-button-size');
+    border-radius: 50%;
+    background-color: getCssVar('color-white');
+    border: 2px solid getCssVar('slider-main-bg-color');
+    box-sizing: border-box;
+    cursor: grab;
+  }
+
+  input[type="range"]::-moz-range-progress {
+    height: getCssVar('slider-height');
+    border-radius: getCssVar('slider-border-radius');
+    background-color: getCssVar('slider-main-bg-color');
+  }
+
+  // disabled
+  &.is-disabled input[type="range"],
+  input[type="range"]:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}

@@ -113,6 +113,93 @@
 | Stage 4 交互组件 | 12 | ❌ |
 | Stage 5 复杂组件 | ~20 | ❌ |
 
+## CSS 加载流程
+
+### 概览
+
+组件库样式由两个独立 CSS 文件提供，通过 `serveStatic` 路由加载：
+
+```
+浏览器                        服务器 (CWD: examples/)
+ │                           │
+ ├─ /css/bundle.css?v=2      │  ← CSS Module（hashed class）
+ │   └─ 来源: @importCSS     │     生成: cjpm build（覆盖写入）
+ │                           │
+ └─ /css/element-plus.css?v=2   ← Element Plus 全局样式
+     └─ 来源: element-plus.scss  生成: build-css.sh（独立写入）
+         + custom/ 扩展
+```
+
+### 文件职责
+
+| 文件 | 服务端路径 | 内容 | 生成方式 |
+|------|-----------|------|---------|
+| `bundle.css` | `examples/public/css/bundle.css` | CSS module hashed class（`.container_4507...`） | `cd examples && cjpm build` |
+| `element-plus.css` | `examples/public/css/element-plus.css` | EP 全局 class（`.el-button`、`.el-menu-item`） | `./scripts/build-css.sh`（sass 编译） |
+
+### 构建顺序（关键！）
+
+```
+cd examples && cjpm build    # 生成 bundle.css（CSS module）
+cd .. && ./scripts/build-css.sh  # 生成 element-plus.css（EP 样式）
+```
+
+**为什么两个文件独立？**
+- `cjpm build` 会覆盖 `bundle.css`，但如果 EP 样式也在同一文件，会被冲掉
+- 独立文件后，`cjpm build` 只影响 CSS module，EP 样式不受影响
+- 构建顺序不再敏感，重新 build examples 也不会丢样式
+
+### EP SCSS 变量复用
+
+组件可通过 `public/scss/element-plus/custom/*.scss` 编写自定义样式，复用 EP 的 CSS 变量：
+
+```scss
+@use '../mixins/mixins' as *;
+@use '../common/var' as *;
+
+@include b(slider) {
+  input[type="range"] {
+    height: getCssVar('slider-height');        // → 6px
+    background: getCssVar('slider-main-bg-color'); // → #409eff
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    width: getCssVar('slider-button-size');     // → 20px
+    border: 2px solid getCssVar('slider-main-bg-color');
+  }
+}
+```
+
+在 `element-plus.scss` 中在原始 SCSS 之后 import 自定义文件：
+
+```scss
+@use 'slider.scss';
+@use 'custom/slider-range.scss';  // 覆盖 / 扩展
+```
+
+### 服务端配置
+
+```cangjie
+App()
+  .configure(AppConfig(
+    cssBundle: "/css/bundle.css?v=2",
+    componentsCss: "/css/element-plus.css?v=2"
+  ))
+  .serveStatic("/css", "public/css")  // CWD 为 examples/，解析到 examples/public/css/
+```
+
+HTML 渲染为：
+```html
+<link rel="stylesheet" href="/css/bundle.css?v=2">
+<link rel="stylesheet" href="/css/element-plus.css?v=2">
+```
+
+### 核心原则
+
+1. **CSS module → bundle.css**：组件级 hashed class，构建期生成，每次覆盖
+2. **EP 全局 → element-plus.css**：全局 class，独立编译，不被覆盖
+3. **自定义扩展 → custom/ 目录**：放在 `public/scss/element-plus/custom/`，在 `element-plus.scss` 中 import，编译进同一输出
+4. **不混用**：两个文件加载到不同 `<link>`，CSS module 的 hash 选择器不会误伤全局 class
+
 ## 实现路线
 
 每期迭代模式：

@@ -130,7 +130,9 @@ class CangjieUI {
         let composing = false;
         const send = () => {
             if (composing) return;
-            this.send({ type: 'bind', name: bid, value: el.value ?? el.textContent ?? '' });
+            const raw = el.value ?? el.textContent ?? '';
+            const value = el.type === 'range' ? parseFloat(raw) : raw;
+            this.send({ type: 'bind', name: bid, value });
         };
         el.addEventListener('compositionstart', () => { composing = true; });
         el.addEventListener('compositionend', () => {

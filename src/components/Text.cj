@@ -21,7 +21,7 @@ public class Text <: Component {
     public func render(): IComponent {
         var cls = "el-text"
         let kc = this._kind.asClass()
-        if (kc != "") { cls = "${cls} is-${kc}" }
+        if (kc != "") { cls = "${cls} el-text--${kc}" }
         let sc = this._size.asClass()
         if (sc != "") { cls = "${cls} el-text--${sc}" }
         if (this._truncated) { cls = "${cls} is-truncated" }

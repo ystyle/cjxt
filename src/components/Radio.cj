@@ -39,7 +39,8 @@ public class Radio <: Component {
             case Some(s) => inputEl.onClick({ ctx => s.set(v); PatchResult.ReRender })
             case None => inputEl
         }
-        let inputSpan2 = VNode("span", [clickableInput, innerSpan], attrs: Some(HashMap<String, String>([("class", "el-radio__input")])))
+        let inputCls = if (checked) { "el-radio__input is-checked" } else { "el-radio__input" }
+        let inputSpan2 = VNode("span", [clickableInput, innerSpan], attrs: Some(HashMap<String, String>([("class", inputCls)])))
         VNode("label", [inputSpan2, labelEl], attrs: Some(HashMap<String, String>([("class", cls)])))
     }
 }

@@ -20,6 +20,10 @@ class ShowcaseState <: AppState {
     var switchValue = Signal<Bool>(true)
     var inputNumberValue = Signal<Int64>(3)
     var selectValue = Signal<String>("")
+    var clearableValue = Signal<String>("")
+    var filterableValue = Signal<String>("")
+    var groupValue = Signal<String>("")
+    var multiSelectValue = Signal<ArrayList<String>>(ArrayList<String>(["a"]))
     var sliderValue = Signal<Int64>(30)
 }
 
@@ -148,18 +152,41 @@ class ShowcasePage <: Component {
     }
 
     func demoRowCol(): IComponent {
-        let gutter: Int64 = 12
+        let gutter: Int64 = 16
         let cell = { label: String =>
-            div([text(label)]).style("background:#f5f3ff;border:1px solid #4f46e5;border-radius:8px;padding:16px 0;text-align:center;color:#4f46e5;font-weight:600")
+            div([text(label)]).style("background:#f0f9ff;border:1px solid #0ea5e9;border-radius:6px;padding:12px 0;text-align:center;color:#0369a1;font-weight:600;font-size:13px")
         }
-        Row([
-            Col([cell("span: 24")], span: 24, gutter: gutter),
-            Col([cell("span: 12")], span: 12, gutter: gutter),
-            Col([cell("span: 12")], span: 12, gutter: gutter),
-            Col([cell("span: 8")], span: 8, gutter: gutter),
-            Col([cell("span: 8")], span: 8, gutter: gutter),
-            Col([cell("span: 8")], span: 8, gutter: gutter),
-        ], gutter: gutter)
+        let section = { title: String =>
+            div([text(title)]).style("font-size:12px;color:#606266;margin:8px 0 4px")
+        }
+        div([
+            section("基础栅格"),
+            Row([Col([cell("span: 24")], span: 24, gutter: gutter)], gutter: gutter),
+            Row([
+                Col([cell("span: 12")], span: 12, gutter: gutter),
+                Col([cell("span: 12")], span: 12, gutter: gutter),
+            ], gutter: gutter),
+            Row([
+                Col([cell("span: 8")], span: 8, gutter: gutter),
+                Col([cell("span: 8")], span: 8, gutter: gutter),
+                Col([cell("span: 8")], span: 8, gutter: gutter),
+            ], gutter: gutter),
+            section("Offset"),
+            Row([
+                Col([cell("offset: 0")], span: 6, gutter: gutter),
+                Col([cell("offset: 6")], span: 6, offset: 6, gutter: gutter),
+                Col([cell("offset: 4")], span: 4, offset: 4, gutter: gutter),
+            ], gutter: gutter),
+            section("Justify / Align"),
+            Row([
+                Col([cell("start")], span: 4, gutter: gutter),
+                Col([cell("center")], span: 4, gutter: gutter),
+            ], gutter: gutter, justify: RowJustify.Center),
+            Row([
+                Col([cell("end-1")], span: 4, gutter: gutter),
+                Col([cell("end-2")], span: 4, gutter: gutter),
+            ], gutter: gutter, justify: RowJustify.End),
+        ], attrs: Some(HashMap<String, String>([("style", "display:flex;flex-direction:column;gap:8px;padding:16px;align-self:stretch")])))
     }
 
     func demoDivider(): IComponent {
@@ -327,12 +354,39 @@ class ShowcasePage <: Component {
     }
 
     func demoSelect(): IComponent {
+        let section = { title: String =>
+            span([text(title)], attrs: Some(HashMap<String, String>([("class", "el-text el-text--small"), ("style", "margin-top:8px;color:#909399")])))
+        }
         div([
+            section("基础单选"),
             Select([
                 SelectOption([text("选项A")], "a"),
                 SelectOption([text("选项B")], "b"),
                 SelectOption([text("选项C")], "c").disabled(),
             ]).placeholder("请选择").bind(this.state.selectValue),
+            section("多选"),
+            Select([
+                SelectOption([text("选项A")], "a"),
+                SelectOption([text("选项B")], "b"),
+                SelectOption([text("选项C")], "c"),
+            ]).multiple().placeholder("请选择多个").bindMulti(this.state.multiSelectValue),
+            section("可清除"),
+            Select([
+                SelectOption([text("选项A")], "a"),
+                SelectOption([text("选项B")], "b"),
+            ]).clearable().placeholder("可清除").bind(this.state.clearableValue),
+            section("可搜索"),
+            Select([
+                SelectOption([text("选项A")], "a"),
+                SelectOption([text("选项B")], "b"),
+                SelectOption([text("选项C")], "c"),
+            ]).filterable().placeholder("输入搜索").bind(this.state.filterableValue),
+            section("选项分组"),
+            Select([
+                SelectOptionGroup([SelectOption([text("选项A")], "a"), SelectOption([text("选项B")], "b")], "水果"),
+                SelectOptionGroup([SelectOption([text("选项C")], "c"), SelectOption([text("选项D")], "d")], "蔬菜"),
+            ]).placeholder("请选择分组").bind(this.state.groupValue),
+            section("禁用"),
             Select([
                 SelectOption([text("苹果")], "apple"),
                 SelectOption([text("香蕉")], "banana"),

@@ -35,24 +35,20 @@ public class Switch <: Component {
         if (isChecked) { inputAttrs["checked"] = "checked" }
         let hiddenInput = VNode("input", [], attrs: Some(inputAttrs))
 
-        let inner = ArrayList<IComponent>()
-        if (isChecked && this._activeText != "") {
-            inner.add(span([text(this._activeText)], attrs: Some(HashMap<String, String>([("class", "is-text")]))))
-        }
-        if (!isChecked && this._inactiveText != "") {
-            inner.add(span([text(this._inactiveText)], attrs: Some(HashMap<String, String>([("class", "is-text")]))))
-        }
-        let coreInner = VNode("div", inner.toArray(), attrs: Some(HashMap<String, String>([("class", "el-switch__inner")])))
+        let coreInner = VNode("div", [], attrs: Some(HashMap<String, String>([("class", "el-switch__inner")])))
         let action = VNode("div", [], attrs: Some(HashMap<String, String>([("class", "el-switch__action")])))
         let coreEl = VNode("span", [coreInner, action], attrs: Some(HashMap<String, String>([("class", "el-switch__core")])))
 
         let children = ArrayList<IComponent>()
         children.add(hiddenInput)
+        if (this._inactiveText != "") {
+            let leftCls = if (isChecked) { "el-switch__label el-switch__label--left" } else { "el-switch__label el-switch__label--left is-active" }
+            children.add(span([text(this._inactiveText)], attrs: Some(HashMap<String, String>([("class", leftCls)]))))
+        }
         children.add(coreEl)
-        if (this._inactiveText != "" || this._activeText != "") {
-            let labelText = if (isChecked) { this._inactiveText } else { this._activeText }
-            let labelCls = "el-switch__label el-switch__label--left"
-            children.add(span([text(labelText)], attrs: Some(HashMap<String, String>([("class", labelCls)]))))
+        if (this._activeText != "") {
+            let rightCls = if (isChecked) { "el-switch__label el-switch__label--right is-active" } else { "el-switch__label el-switch__label--right" }
+            children.add(span([text(this._activeText)], attrs: Some(HashMap<String, String>([("class", rightCls)]))))
         }
 
         let switchEl = VNode("div", children.toArray(), attrs: Some(HashMap<String, String>([("class", cls)])))
