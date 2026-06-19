@@ -7,3 +7,9 @@ build-script-cache/
 public/css/bundle.css
 *.bak
 .worktrees/
+docs-site/node_nodules
+docs-site/.vitepress/cache
+docs-site/.vitepress/dist
+.arts
+.vscode
+.worktrees
