@@ -13,18 +13,58 @@ export default defineConfig({
     logo: '/cjxt/logo.svg',
     siteTitle: 'cjxt',
     nav: [
-      { text: '首页', link: '/' },
-      { text: '快速开始', link: '/guide/quick-start' },
-      { text: '指南', link: '/guide/architecture' },
-      { text: '组件库', link: '/components' },
+      { text: '文档', link: '/docs/quick-start' },
+      { text: '核心概念', link: '/essentials/architecture' },
+      { text: 'API', link: '/reference/api' },
     ],
     sidebar: {
-      '/guide/': [
+      '/docs/': [
         {
-          text: '指南',
+          text: '基础',
           items: [
-            { text: '快速开始', link: '/guide/quick-start' },
-            { text: '架构与核心概念', link: '/guide/architecture' },
+            { text: '快速开始', link: '/docs/quick-start' },
+            { text: '响应式：Signal', link: '/docs/basics/signal' },
+            { text: '组件系统', link: '/docs/basics/component' },
+            { text: '事件处理', link: '/docs/basics/events' },
+            { text: '表单与数据绑定', link: '/docs/basics/forms' },
+            { text: 'VNode 与 DSL', link: '/docs/basics/vnode-dsl' },
+            { text: 'CSS 体系', link: '/docs/basics/styling' },
+            { text: '路由系统', link: '/docs/basics/routing' },
+          ],
+        },
+        {
+          text: '组件库',
+          items: [
+            { text: '组件索引', link: '/docs/components/' },
+          ],
+        },
+        {
+          text: '应用规模化',
+          items: [
+            { text: '项目结构', link: '/docs/scaling-up/project-structure' },
+            { text: '会话与 WebSocket', link: '/docs/scaling-up/session' },
+            { text: '宏系统', link: '/docs/scaling-up/macros' },
+          ],
+        },
+      ],
+      '/essentials/': [
+        {
+          text: '核心概念',
+          items: [
+            { text: '架构总览', link: '/essentials/architecture' },
+            { text: '响应式：Signal', link: '/essentials/reactivity' },
+            { text: '组件系统', link: '/essentials/component' },
+            { text: 'VNode 与 DSL', link: '/essentials/vnode-dsl' },
+            { text: 'CSS 体系', link: '/essentials/styling' },
+            { text: '路由系统', link: '/essentials/routing' },
+          ],
+        },
+      ],
+      '/reference/': [
+        {
+          text: '参考',
+          items: [
+            { text: 'API 索引', link: '/reference/api' },
           ],
         },
       ],
