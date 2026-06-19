@@ -17,21 +17,45 @@ cjvs use 1.1.0
 cjc --version
 ```
 
-### 安装 Node.js
+### 安装 sass（编译 Element Plus 样式）
 
-文档站和样式编译依赖 Node.js（推荐 v18+），安装 pnpm：
+> cjxt 框架本身不依赖 Node.js 或 sass，编译 Element Plus 样式时需要 sass。如果不修改样式，可直接使用预编译的 `element-plus.css`。
+
+按平台选择安装方式：
 
 ```bash
+# Windows (Chocolatey)
+choco install sass
+
+# Windows (Scoop)
+scoop install sass
+
+# macOS (Homebrew)
+brew install sass/sass/sass
+
+# Arch Linux
+pacman -S dart-sass
+
+# 通用（通过 npm）
+npm install -g sass
+```
+
+验证安装：
+
+```bash
+sass --version
+```
+
+### （可选）安装 Node.js
+
+文档站点开发需要 Node.js（推荐 v18+）和 pnpm：
+
+```bash
+# 安装 pnpm
 npm install -g pnpm
 ```
 
-### 安装 sass
-
-Element Plus 样式编译需要 sass：
-
-```bash
-npm install -g sass
-```
+如果不修改文档，只需阅读在线文档即可，无需安装 Node.js。
 
 ## 下载项目
 
