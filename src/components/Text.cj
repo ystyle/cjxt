@@ -63,6 +63,10 @@ public class Link <: Component {
     public func target(v: String): Link { this._target = v; this }
     public func icon(name: String): Link { this._iconName = Some(name); this }
     public func onClick(h: ActionHandler): Link { this._onClick = Some(h); this }
+    public func onClick(h: (ActionContext) -> Unit): Link {
+        let wrapped: ActionHandler = { ctx => h(ctx); PatchResult.ReRender }
+        this.onClick(wrapped)
+    }
 
     public func render(): IComponent {
         var cls = "el-link"

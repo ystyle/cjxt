@@ -8,12 +8,15 @@ button([text("提交")]).onClick({ ctx =>
 })
 ```
 
-如果不需要显式返回 `PatchResult`，也可简写（组件类支持，如 `MenuItem`）：
+如果不需要显式返回 `PatchResult`，也可简写（Button、MenuItem、Tag、Link 均支持）：
 
 ```cangjie
+Button("提交").onClick({ ctx =>
+    // 框架自动走 ReRender
+})
+
 MenuItem("首页").onClick({ ctx =>
     ctx.navigate("/")
-    // 框架自动走 ReRender
 })
 ```
 

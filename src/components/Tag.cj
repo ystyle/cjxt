@@ -26,6 +26,10 @@ public class Tag <: Component {
     public func color(v: String): Tag { this._color = v; this }
     public func onClose(h: ActionHandler): Tag { this._onClose = Some(h); this }
     public func onClick(h: ActionHandler): Tag { this._onClick = Some(h); this }
+    public func onClick(h: (ActionContext) -> Unit): Tag {
+        let wrapped: ActionHandler = { ctx => h(ctx); PatchResult.ReRender }
+        this.onClick(wrapped)
+    }
 
     public func render(): IComponent {
         var cls = "el-tag"
