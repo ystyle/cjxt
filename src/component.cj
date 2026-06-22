@@ -92,16 +92,33 @@ public abstract class Component <: IComponent {
     }
 }
 
+public struct RouteContext {
+    public let params: HashMap<String, String>
+    let pushFn: Option<(String) -> Unit>
+
+    public init(params!: HashMap<String, String>, pushFn!: Option<(String) -> Unit> = None) {
+        this.params = params
+        this.pushFn = pushFn
+    }
+
+    public func push(path: String): Unit {
+        match (this.pushFn) {
+            case Some(fn) => fn(path)
+            case None => ()
+        }
+    }
+}
+
 public struct LifecycleContext {
     let sessionId: String
-    public let routeParams: HashMap<String, String>
+    public let route: RouteContext
     let componentKey: Option<String>
     let triggerAction: Option<String>
     let states: HashMap<String, AppState>
 
     public init(sessionId: String, routeParams: HashMap<String, String>, componentKey: Option<String>, triggerAction: Option<String>, states!: HashMap<String, AppState> = HashMap<String, AppState>()) {
         this.sessionId = sessionId
-        this.routeParams = routeParams
+        this.route = RouteContext(params: routeParams)
         this.componentKey = componentKey
         this.triggerAction = triggerAction
         this.states = states

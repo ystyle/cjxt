@@ -88,6 +88,7 @@ public struct ActionContext {
     let router: Router
     let pushFn: (Array<PatchEntryMsg>) -> Unit
     let sessionStates: HashMap<String, AppState>
+    public let route: RouteContext
 
     public init(sessionId: String, context: HashMap<String, String>, params: HashMap<String, String>, router: Router, pushFn!: (Array<PatchEntryMsg>) -> Unit = { _ => () }, sessionStates!: HashMap<String, AppState> = HashMap<String, AppState>()) {
         this.sessionId = sessionId
@@ -96,14 +97,11 @@ public struct ActionContext {
         this.router = router
         this.pushFn = pushFn
         this.sessionStates = sessionStates
+        this.route = RouteContext(params: HashMap<String, String>(), pushFn: Some({ p => router.push(p) }))
     }
 
     public func push(patches: Array<PatchEntryMsg>): Unit {
         (this.pushFn)(patches)
-    }
-
-    public func navigate(path: String): Unit {
-        this.router.push(path)
     }
 
     public func getState<T>(): T where T <: AppState {

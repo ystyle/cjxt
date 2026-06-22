@@ -8,7 +8,7 @@ class UserPage <: Component {
     var userId: String = ""
 
     public func onMount(ctx: LifecycleContext): Unit {
-        match (ctx.routeParams.get("id")) {
+        match (ctx.route.params.get("id")) {
             case Some(id) => this.userId = id
             case None => ()
         }

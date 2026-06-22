@@ -60,7 +60,7 @@ func navTab(path: String, title: String, isActive: Bool): IComponent {
         [text(title)],
         attrs: Some(HashMap<String, String>([("class", clsName)]))
     ).onClick({ ctx =>
-        ctx.navigate(path)
+        ctx.route.push(path)
         PatchResult.ReRender
     })
 }
