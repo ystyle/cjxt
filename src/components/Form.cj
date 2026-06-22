@@ -44,6 +44,7 @@ public struct FormRule {
 public class FormItem <: Component {
     var _children: Array<IComponent>
     var _label: String = ""
+    var _labelWidth: String = ""
     var _prop: String = ""
     var _required: Bool = false
     var _error: String = ""
@@ -108,7 +109,12 @@ public class FormItem <: Component {
         if (this._required) { cls = "${cls} is-required" }
         let children = ArrayList<IComponent>()
         if (this._label != "") {
-            children.add(VNode("label", [text(this._label)], attrs: Some(HashMap<String, String>([("class", "el-form-item__label")]))))
+            let labelAttrs = HashMap<String, String>([("class", "el-form-item__label")])
+            if (this._labelWidth != "") {
+                labelAttrs["style"] = "width:${this._labelWidth}"
+                labelAttrs["class"] = "el-form-item__label el-form-item__label--width"
+            }
+            children.add(VNode("label", [text(this._label)], attrs: Some(labelAttrs)))
         }
         let contentChildren = ArrayList<IComponent>()
         for (c in this._children) { contentChildren.add(c) }
@@ -123,6 +129,8 @@ public class FormItem <: Component {
 public class Form <: Component {
     var _children: Array<IComponent>
     var _items: ArrayList<FormItem>
+    var _labelPosition: String = ""
+    var _labelWidth: String = ""
 
     public init(children: Array<IComponent>) {
         this._children = children
@@ -136,6 +144,11 @@ public class Form <: Component {
             }
         }
     }
+
+    public func labelPosition(v: String): Form { this._labelPosition = v; this }
+    public func labelWidth(v: String): Form { this._labelWidth = v; this }
+    public func labelTop(): Form { this._labelPosition = "top"; this }
+    public func inline(): Form { this._labelPosition = "inline"; this }
 
     public func add(item: FormItem): Form {
         this._items.add(item)
@@ -161,6 +174,14 @@ public class Form <: Component {
     }
 
     public func render(): IComponent {
-        VNode("form", this._children, attrs: Some(HashMap<String, String>([("class", "el-form")])))
+        var cls = "el-form"
+        if (this._labelPosition == "top") { cls = "${cls} el-form--label-top" }
+        if (this._labelPosition == "inline") { cls = "${cls} el-form--inline" }
+        if (this._labelWidth != "") {
+            for (item in this._items) {
+                if (item._labelWidth == "") { item._labelWidth = this._labelWidth }
+            }
+        }
+        VNode("form", this._children, attrs: Some(HashMap<String, String>([("class", cls)])))
     }
 }
