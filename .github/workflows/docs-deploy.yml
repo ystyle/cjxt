@@ -35,3 +35,11 @@ jobs:
           publish_dir: docs-site/.vitepress/dist
           publish_branch: gh-pages
           force_orphan: true
+
+      - name: 6. Refresh Huawei Cloud CDN Cache
+        uses: ystyle/hwcdn-cache@master
+        env:
+          ACCESS_KEY_ID: ${{ secrets.ACCESS_KEY_ID }}
+          SECRET_ACCESS_KEY: ${{ secrets.SECRET_ACCESS_KEY }}
+          TYPE: directory
+          URLS: https://ystyle.top/
