@@ -32,6 +32,8 @@ class ShowcaseState <: AppState {
     var formEmailError = Signal<String>("")
     var formEmail = Signal<String>("")
     var formError = Signal<String>("")
+    var formSwitch = Signal<Bool>(true)
+    var formLayout = Signal<String>("")
 }
 
 @Page["/showcase"]
@@ -429,10 +431,12 @@ class ShowcasePage <: Component {
             .rule(FormRule(pattern: "^\\w+@\\w+\\.\\w+$", message: "邮箱格式不正确"))
             .errorSignal(this.state.formEmailError)
 
-        let form = Form([
+        let layout = this.state.formLayout.get()
+        let baseForm = Form([
             itemUser, itemPwd, itemEmail,
-            FormItem([Switch().activeText("启用").inactiveText("禁用")]).label("状态"),
+            FormItem([Switch().activeText("启用").inactiveText("禁用").bind(this.state.formSwitch)]).label("状态"),
         ])
+        let form = if (layout == "top") { baseForm.labelTop() } else if (layout == "inline") { baseForm.inline() } else { baseForm }
 
         let submitHandler: ActionHandler = { ctx: ActionContext =>
             if (form.validate()) {
@@ -442,8 +446,20 @@ class ShowcasePage <: Component {
             }
             PatchResult.ReRender
         }
+        let defaultHandler: ActionHandler = { ctx: ActionContext => this.state.formLayout.set(""); PatchResult.ReRender }
+        let topHandler: ActionHandler = { ctx: ActionContext => this.state.formLayout.set("top"); PatchResult.ReRender }
+        let inlineHandler: ActionHandler = { ctx: ActionContext => this.state.formLayout.set("inline"); PatchResult.ReRender }
 
-        div([form, PrimaryButton("提交").onClick(submitHandler)])
+        div([
+            div([
+                text("布局："),
+                button(text("默认")).onClick(defaultHandler),
+                button(text("标签顶部")).onClick(topHandler),
+                button(text("行内")).onClick(inlineHandler),
+            ], attrs: Some(HashMap<String, String>([("style", "display:flex;gap:8px;align-items:center;margin-bottom:12px")]))),
+            form,
+            PrimaryButton("提交").onClick(submitHandler),
+        ])
     }
 
     // ============ Props ============
