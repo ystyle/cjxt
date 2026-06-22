@@ -10,7 +10,7 @@
 class ShowcasePage <: Component { ... }
 
 // 完整参数
-@Page("/admin", "管理后台", adminGuard, sidebarLayout)
+@Page["/admin", "管理后台", adminGuard, sidebarLayout]
 class AdminPage <: Component { ... }
 ```
 

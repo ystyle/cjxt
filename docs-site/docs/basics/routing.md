@@ -13,7 +13,7 @@ class AboutPage <: Component { ... }
 ## 页面标题
 
 ```cangjie
-@Page("/about", "关于我们")
+@Page["/about", "关于我们"]
 class AboutPage <: Component { ... }
 ```
 
@@ -27,7 +27,7 @@ func adminGuard(ctx: HashMap<String, String>): Bool {
     }
 }
 
-@Page("/admin", "管理后台", adminGuard)
+@Page["/admin", "管理后台", adminGuard]
 class AdminPage <: Component { ... }
 ```
 
@@ -38,11 +38,11 @@ func sidebarLayout(page: IComponent): IComponent {
     div([sidebar(), page])
 }
 
-@Page("/dashboard", "仪表盘", null, sidebarLayout)
+@Page["/dashboard", "仪表盘", null, sidebarLayout]
 class Dashboard <: Component { ... }
 ```
 
-完整参数：`@Page(path, title?, guard?, layout?)`。
+完整参数：`@Page[path, title?, guard?, layout?]`。
 
 ## 路由导航
 

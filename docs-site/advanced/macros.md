@@ -3,7 +3,7 @@
 ## @Page — 页面路由注册
 
 ```cangjie
-@Page("/path", "标题", guard, layout)
+@Page["/path", "标题", guard, layout]
 class MyPage <: Component { ... }
 ```
 
