@@ -3,7 +3,7 @@ package examples
 import cjxt.*
 import cjxt.macros.*
 
-@Page["/user/[id]"]
+@Page["/user/[id]", "用户详情"]
 class UserPage <: Component {
     var userId: String = ""
 
