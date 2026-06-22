@@ -25,6 +25,13 @@ class ShowcaseState <: AppState {
     var groupValue = Signal<String>("")
     var multiSelectValue = Signal<ArrayList<String>>(ArrayList<String>(["a"]))
     var sliderValue = Signal<Int64>(30)
+    var formUsername = Signal<String>("")
+    var formPassword = Signal<String>("")
+    var formUserError = Signal<String>("")
+    var formPwdError = Signal<String>("")
+    var formEmailError = Signal<String>("")
+    var formEmail = Signal<String>("")
+    var formError = Signal<String>("")
 }
 
 @Page["/showcase"]
@@ -403,12 +410,40 @@ class ShowcasePage <: Component {
     }
 
     func demoForm(): IComponent {
-        Form([
-            FormItem([Input().placeholder("请输入用户名").prefixIcon("user")]).label("用户名").required(),
-            FormItem([Input().placeholder("请输入密码").password().prefixIcon("lock")]).label("密码").required(),
-            FormItem([Input().placeholder("请输入邮箱").prefixIcon("info-filled")]).label("邮箱"),
+        let itemUser = FormItem([Input().placeholder("请输入用户名").prefixIcon("user").bind(this.state.formUsername)])
+            .label("用户名")
+            .bind(this.state.formUsername)
+            .rule(FormRule(required: true, message: "用户名不能为空"))
+            .rule(FormRule(min: 3, message: "用户名至少3个字符"))
+            .errorSignal(this.state.formUserError)
+        let itemPwd = FormItem([Input().placeholder("请输入密码").password().prefixIcon("lock").bind(this.state.formPassword)])
+            .label("密码")
+            .bind(this.state.formPassword)
+            .rule(FormRule(required: true, message: "密码不能为空"))
+            .rule(FormRule(min: 6, message: "密码至少6个字符"))
+            .errorSignal(this.state.formPwdError)
+
+        let itemEmail = FormItem([Input().placeholder("请输入邮箱").prefixIcon("info-filled").bind(this.state.formEmail)])
+            .label("邮箱")
+            .bind(this.state.formEmail)
+            .rule(FormRule(pattern: "^\\w+@\\w+\\.\\w+$", message: "邮箱格式不正确"))
+            .errorSignal(this.state.formEmailError)
+
+        let form = Form([
+            itemUser, itemPwd, itemEmail,
             FormItem([Switch().activeText("启用").inactiveText("禁用")]).label("状态"),
         ])
+
+        let submitHandler: ActionHandler = { ctx: ActionContext =>
+            if (form.validate()) {
+                this.state.formError.set("")
+            } else {
+                this.state.formError.set("请填写必填字段")
+            }
+            PatchResult.ReRender
+        }
+
+        div([form, PrimaryButton("提交").onClick(submitHandler)])
     }
 
     // ============ Props ============
