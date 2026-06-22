@@ -10,6 +10,18 @@
 ## 要求
 - 每次需要失败的用例，需要添加到单元测试里，沉淀下来
 
+## Git 工作流
+- 新功能从 master 创建分支：`git checkout -b feat/功能名`
+- 开发中可随时提交，但**不推送**到远程
+- 完成开发后，使用 squash merge 合并回 master，提交记录压缩为一条：
+  ```bash
+  git checkout master
+  git merge --squash feat/功能名
+  git commit -m "feat: 功能名 — 简述"
+  git branch -D feat/功能名   # 删除本地分支
+  git push origin master       # 推送到远程
+  ```
+
 ## 组件实现流程
 
 参照 Element Plus(本地: ~/Projects/element-plus/) 的属性、样式和事件来设计和实现组件。
