@@ -84,7 +84,7 @@ public func onMount(ctx: LifecycleContext): Unit {
 ```cangjie
 public struct LifecycleContext {
     let sessionId: String
-    let routeParams: HashMap<String, String>
+    let route: RouteContext
     let componentKey: Option<String>
     let triggerAction: Option<String>
     let states: HashMap<String, AppState>

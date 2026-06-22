@@ -112,7 +112,7 @@ match (entry.doMatch("/user/123/post/456")) {
 ## 路由导航
 
 ```cangjie
-ctx.navigate("/about")
+ctx.route.push("/about")
 // 或
 Router.push("/about")
 ```

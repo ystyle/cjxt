@@ -16,7 +16,7 @@ Button("提交").onClick({ ctx =>
 })
 
 MenuItem("首页").onClick({ ctx =>
-    ctx.navigate("/")
+    ctx.route.push("/")
 })
 ```
 
@@ -37,7 +37,7 @@ div().on("mouseenter", { ctx => PatchResult.ReRender })
 ```cangjie
 button(text("跳转")).onClick({ ctx =>
     let st = ctx.getState<MyState>()
-    ctx.navigate("/other-page")
+    ctx.route.push("/other-page")
     PatchResult.ReRender
 })
 ```
