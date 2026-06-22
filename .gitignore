@@ -13,3 +13,4 @@ docs-site/.vitepress/dist
 .arts
 .vscode
 .worktrees
+*.css.map
