@@ -2,12 +2,6 @@
 
 基于 Element Plus 设计语言，使用 builder 模式链式调用。
 
-> 使用组件库需要 Element Plus 样式。可用以下命令下载编译好的样式文件到项目中：
-> ```bash
-> curl -sL https://raw.githubusercontent.com/ystyle/cjxt/master/examples/public/css/element-plus.css -o public/css/element-plus.css
-> ```
-> 也可使用 cjxt 仓库中的脚本：`scripts/download-ep-css.sh`。后续将通过包管理自动分发。
-
 ## 查看演示
 
 ```bash
@@ -21,6 +15,12 @@ cd examples && ./target/release/bin/main
 ```
 
 浏览器打开 `http://localhost:8080`，点击 "组件库" tab 查看全部交互演示。
+
+> 使用组件库需要 Element Plus 样式。可用以下命令下载编译好的样式文件到项目中：
+> ```bash
+> curl -sL https://raw.githubusercontent.com/ystyle/cjxt/master/examples/public/css/element-plus.css -o public/css/element-plus.css
+> ```
+> 也可使用 cjxt 仓库中的脚本：`scripts/download-ep-css.sh`。后续将通过包管理自动分发。
 
 ## 基础
 
