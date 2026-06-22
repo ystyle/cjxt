@@ -59,10 +59,24 @@ public class App {
         let bp = this.config.basePath
         for ((entry, _) in reg.entries) {
             let routePath = if (bp != "") { "${bp}${entry.path}" } else { entry.path }
-            this.tangApp.get(routePath, { ctx => this.renderHTTP(ctx) })
+            let tangPath = if (entry.path.contains("[")) { this.makeWildcard(routePath) } else { routePath }
+            this.tangApp.get(tangPath, { ctx => this.renderHTTP(ctx) })
         }
         this.tangApp.get("${bp}/ws", { ctx => this.upgradeWS(ctx) })
         this.tangApp.setHost(this.bindHost).setPort(this.bindPort).listen()
+    }
+
+    private func makeWildcard(path: String): String {
+        let parts = path.split("/")
+        let result = ArrayList<String>()
+        for (p in parts) {
+            if (p.startsWith("[") && p.endsWith("]")) {
+                result.add("*")
+            } else {
+                result.add(p)
+            }
+        }
+        String.join(result.toArray(), delimiter: "/")
     }
 
     private func initStates(session: Session): Unit {
@@ -73,27 +87,28 @@ public class App {
 
     private func renderHTTP(ctx: TangHttpContext): Unit {
         let requestPath = ctx.path()
-        match (RouteRegistry.global().create(requestPath)) {
-            case Some(p) => this.doRoute(ctx, p)
+        match (RouteRegistry.global().resolve(requestPath)) {
+            case Some(rm) => this.doRoute(ctx, rm.component, rm.params)
             case None => this.tryRootRoute(ctx)
         }
     }
 
-    private func doRoute(ctx: TangHttpContext, p: IComponent): Unit {
-        servePage(ctx, p)
+    private func doRoute(ctx: TangHttpContext, p: IComponent, routeParams: HashMap<String, String>): Unit {
+        servePage(ctx, p, routeParams)
     }
 
     private func tryRootRoute(ctx: TangHttpContext): Unit {
-        match (RouteRegistry.global().create("/")) {
-            case Some(p) => servePage(ctx, p)
+        match (RouteRegistry.global().resolve("/")) {
+            case Some(rm) => servePage(ctx, rm.component, rm.params)
             case None => ctx.status(404).writeString("Not Found")
         }
     }
 
-    private func servePage(ctx: TangHttpContext, p: IComponent): Unit {
+    private func servePage(ctx: TangHttpContext, p: IComponent, routeParams: HashMap<String, String>): Unit {
         let session = sessions.create(p, text(""))
+        session.path = ctx.path()
         this.initStates(session)
-        p.onMount(LifecycleContext(session.id, HashMap<String, String>(), None, None, states: session.states))
+        p.onMount(LifecycleContext(session.id, routeParams, None, None, states: session.states))
         let tree = RenderContext.expandTree(p.renderWithScope(), "")
         session.tree = tree
         ctx.contentType("text/html; charset=utf-8").writeString(generateHtmlShell(session.id, config: this.config))
