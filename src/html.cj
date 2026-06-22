@@ -14,7 +14,14 @@ class CangjieUI {
     init() {
         if (this.tree) this.renderTree(this.tree, this.container);
         this.attachClickDelegate();
+        this.attachHistoryHandler();
         this.connectWS();
+    }
+    attachHistoryHandler() {
+        window.addEventListener('popstate', () => {
+            const path = window.location.pathname;
+            this.send({ type: 'navigate', path, sessionId: this.sessionId });
+        });
     }
     attachClickDelegate() {
         this.container.addEventListener('click', (e) => {
@@ -79,6 +86,9 @@ class CangjieUI {
         this.tree = msg.tree;
         this.container.innerHTML = '';
         this.renderTree(this.tree, this.container);
+        if (msg.path) {
+            history.pushState(null, '', msg.path);
+        }
         this.send({ type: 'ack', event: 'mount', sessionId: this.sessionId });
     }
     renderTree(node, parentEl) {

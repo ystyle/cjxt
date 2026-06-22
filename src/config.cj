@@ -10,8 +10,9 @@ public struct AppConfig {
     let borderRadius: String
     let cssBundle: String
     let componentsCss: String
+    let basePath: String
 
-    public init(title!: String = "cjxt App", favicon!: String = "/favicon.ico", links!: Array<(String, String)> = [], scripts!: Array<String> = [], primaryColor!: String = "#1890ff", fontFamily!: String = "-apple-system, BlinkMacSystemFont, sans-serif", borderRadius!: String = "6px", cssBundle!: String = "", componentsCss!: String = "") {
+    public init(title!: String = "cjxt App", favicon!: String = "/favicon.ico", links!: Array<(String, String)> = [], scripts!: Array<String> = [], primaryColor!: String = "#1890ff", fontFamily!: String = "-apple-system, BlinkMacSystemFont, sans-serif", borderRadius!: String = "6px", cssBundle!: String = "", componentsCss!: String = "", basePath!: String = "") {
         this.title = title
         this.favicon = favicon
         this.links = links
@@ -21,5 +22,6 @@ public struct AppConfig {
         this.borderRadius = borderRadius
         this.cssBundle = cssBundle
         this.componentsCss = componentsCss
+        this.basePath = basePath
     }
 }

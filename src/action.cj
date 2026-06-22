@@ -179,9 +179,11 @@ public struct PatchMsg <: JsonSerializable {
 
 public struct FullTreeMsg <: JsonSerializable {
     let tree: IComponent
+    let path: String
 
-    public init(tree: IComponent) {
+    public init(tree: IComponent, path!: String = "") {
         this.tree = tree
+        this.path = path
     }
 
     public func toJson(w: JsonWriter): Unit {
@@ -189,6 +191,9 @@ public struct FullTreeMsg <: JsonSerializable {
         w.writeName("kind").writeValue("fullTree")
         w.writeName("tree")
         this.tree.toJson(w)
+        if (this.path != "") {
+            w.writeName("path").writeValue(this.path)
+        }
         w.endObject()
     }
 }

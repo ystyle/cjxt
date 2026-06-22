@@ -15,6 +15,7 @@ public struct RouteEntry {
         if (path == requestPath) {
             return Some(HashMap<String, String>())
         }
+        if (paramNames.size == 0) { return None }
         let parts = requestPath.split("/")
         let pattern = path.split("/")
         if (parts.size != pattern.size) {
@@ -46,8 +47,18 @@ private func extractParamNames(path: String): Array<String> {
 public type RouteFactory = () -> IComponent
 public type LayoutFn = (IComponent) -> IComponent
 
+public struct RouteMatch {
+    let component: IComponent
+    let params: HashMap<String, String>
+
+    public init(component: IComponent, params: HashMap<String, String>) {
+        this.component = component
+        this.params = params
+    }
+}
+
 public class RouteRegistry {
-    let entries = HashMap<String, RouteFactory>()
+    let entries = ArrayList<(RouteEntry, RouteFactory)>()
     let titles = HashMap<String, String>()
     let guards = HashMap<String, (HashMap<String, String>) -> Bool>()
     let layouts = HashMap<String, LayoutFn>()
@@ -68,46 +79,77 @@ public class RouteRegistry {
     }
 
     public func register(path: String, factory: RouteFactory): Unit {
-        entries.add(path, factory)
+        entries.add((RouteEntry(path), factory))
     }
 
     public func register(path: String, factory: RouteFactory, title: String): Unit {
-        entries.add(path, factory)
+        entries.add((RouteEntry(path), factory))
         titles.add(path, title)
     }
 
     public func register(path: String, factory: RouteFactory, title: String, guard: (HashMap<String, String>) -> Bool): Unit {
-        entries.add(path, factory)
+        entries.add((RouteEntry(path), factory))
         titles.add(path, title)
         guards.add(path, guard)
     }
 
     public func register(path: String, factory: RouteFactory, title: String, guard: (HashMap<String, String>) -> Bool, layout: LayoutFn): Unit {
-        entries.add(path, factory)
+        entries.add((RouteEntry(path), factory))
         titles.add(path, title)
         guards.add(path, guard)
         layouts.add(path, layout)
     }
 
+    public func resolve(path: String): Option<RouteMatch> {
+        for ((entry, factory) in entries) {
+            match (entry.doMatch(path)) {
+                case Some(params) => return Some(RouteMatch(factory(), params))
+                case None => ()
+            }
+        }
+        None
+    }
+
     public func create(path: String): Option<IComponent> {
-        match (entries.get(path)) {
-            case Some(f) => Some(f())
+        match (this.resolve(path)) {
+            case Some(m) => Some(m.component)
             case None => None
         }
     }
 
     public func getTitle(path: String): Option<String> {
-        titles.get(path)
+        for (p in titles.keys()) {
+            let entry = RouteEntry(p)
+            match (entry.doMatch(path)) {
+                case Some(_) => return titles.get(p)
+                case None => ()
+            }
+        }
+        None
     }
 
     public func checkGuard(path: String, ctx: HashMap<String, String>): Bool {
-        match (guards.get(path)) {
-            case Some(fn) => fn(ctx)
-            case None => true
+        for (p in guards.keys()) {
+            let entry = RouteEntry(p)
+            match (entry.doMatch(path)) {
+                case Some(_) => match (guards.get(p)) {
+                    case Some(fn) => return fn(ctx)
+                    case None => return true
+                }
+                case None => ()
+            }
         }
+        true
     }
 
     public func getLayout(path: String): Option<LayoutFn> {
-        layouts.get(path)
+        for (p in layouts.keys()) {
+            let entry = RouteEntry(p)
+            match (entry.doMatch(path)) {
+                case Some(_) => return layouts.get(p)
+                case None => ()
+            }
+        }
+        None
     }
 }

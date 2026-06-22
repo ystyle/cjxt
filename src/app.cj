@@ -55,9 +55,13 @@ public class App {
     }
 
     public func serve(): Unit {
-        this.tangApp.get("/", { ctx => this.renderHTTP(ctx) })
-        this.tangApp.get("/showcase", { ctx => this.renderHTTP(ctx) })
-        this.tangApp.get("/ws", { ctx => this.upgradeWS(ctx) })
+        let reg = RouteRegistry.global()
+        let bp = this.config.basePath
+        for ((entry, _) in reg.entries) {
+            let routePath = if (bp != "") { "${bp}${entry.path}" } else { entry.path }
+            this.tangApp.get(routePath, { ctx => this.renderHTTP(ctx) })
+        }
+        this.tangApp.get("${bp}/ws", { ctx => this.upgradeWS(ctx) })
         this.tangApp.setHost(this.bindHost).setPort(this.bindPort).listen()
     }
 
@@ -254,23 +258,23 @@ public class App {
             return
         }
         state.page.onUnmount(LifecycleContext("", HashMap<String, String>(), None, None))
-        match (RouteRegistry.global().create(path)) {
-            case Some(newPage) => applyNav(ws, state, session, newPage, path)
+        match (RouteRegistry.global().resolve(path)) {
+            case Some(rm) => this.applyNav(ws, state, session, rm.component, path, rm.params)
             case None => ()
         }
     }
 
-    private func applyNav(ws: WebSocket, state: SessionState, session: Session, newPage: IComponent, path: String): Unit {
+    private func applyNav(ws: WebSocket, state: SessionState, session: Session, newPage: IComponent, path: String, routeParams: HashMap<String, String>): Unit {
         state.page = newPage
         state.path = path
-        let mountCtx = LifecycleContext(session.id, HashMap<String, String>(), None, None, states: session.states)
+        let mountCtx = LifecycleContext(session.id, routeParams, None, None, states: session.states)
         newPage.onMount(mountCtx)
         let raw = newPage.renderWithScope()
         let tree = RenderContext.expandTree(applyLayout(path, raw), "")
         state.refreshFromTree(tree)
         session.updatePage(newPage, tree)
         session.path = path
-        wsSendJson(ws, FullTreeMsg(tree))
+        wsSendJson(ws, FullTreeMsg(tree, path: path))
         sendTitle(ws, path)
     }
 
