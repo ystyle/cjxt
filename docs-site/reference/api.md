@@ -117,8 +117,8 @@ struct ActionContext
     let router: Router
     let pushFn: (Array<PatchEntryMsg>) -> Unit
     let sessionStates: HashMap<String, AppState>
+    let route: RouteContext           // route.params / route.push(path)
     func push(patches): Unit
-    func navigate(path: String): Unit
     func getState<T>(): T where T <: AppState
 
 enum PatchResult { ReRender | Patch(Array<PatchEntry>) }
