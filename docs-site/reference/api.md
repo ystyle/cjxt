@@ -195,6 +195,31 @@ wsSendText(ws, text)
 wsClose(ws)
 ```
 
+## Form
+
+```cangjie
+// src/components/Form.cj
+struct FormRule
+    init(required?, message?, min?, max?, pattern?)
+    check(value): String        // 返回错误文本，空字符串=通过
+
+class FormItem <: Component
+    label(v): FormItem
+    required(): FormItem
+    error(v): FormItem          // 直接设错误文本
+    rule(r: FormRule): FormItem
+    bind(signal: Signal<String>): FormItem    // 校验用
+    errorSignal(signal): FormItem             // 错误跨 render 持久化
+    validate(): Bool                           // 返回是否通过
+    clearValidate()
+
+class Form <: Component
+    init(children)                             // 自动识别 FormItem 子项
+    add(item: FormItem): Form
+    validate(): Bool                           // 统一校验所有子项
+    clearValidate()
+```
+
 ## 组件枚举
 
 

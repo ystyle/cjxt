@@ -77,8 +77,48 @@ cd examples && ./target/release/bin/main
 
 | 组件 | API |
 |------|-----|
-| **Form** | children 为 FormItem |
-| **FormItem** | `label(s)` `setProp(s)` `required()` `error(s)` |
+| **Form** | `validate()` `clearValidate()` `add(FormItem)` |
+| **FormItem** | `label(s)` `setProp(s)` `required()` `error(s)` `rule(FormRule)` `bind(Signal<String>)` `errorSignal(Signal<String>)` `validate()` `clearValidate()` |
+
+### FormRule
+
+```cangjie
+FormRule(
+    required: Bool = false,   // 必填
+    message: String = "",     // 错误提示
+    min: Int64 = 0,           // 最小长度
+    max: Int64 = 0,           // 最大长度
+    pattern: String = "",     // 正则（std.regex）
+)
+```
+
+### FormItem 校验
+
+```cangjie
+let item = FormItem([Input().bind(this.state.email)])
+    .label("邮箱")
+    .bind(this.state.email)                    // 校验读取 Signal
+    .rule(FormRule(required: true, message: "必填"))
+    .rule(FormRule(min: 5, message: "至少5个字符"))
+    .rule(FormRule(pattern: "^\\w+@\\w+\\.\\w+$", message: "格式错误"))
+    .errorSignal(this.state.emailError)        // 错误状态持久化
+
+// 手动校验
+item.validate()
+
+// Form 统一校验（自动识别子 FormItem）
+let form = Form([itemUser, itemPwd, itemEmail])
+form.validate()
+form.clearValidate()
+```
+
+### 校验状态 class
+
+| class | 条件 |
+|-------|------|
+| `is-error` | `validate()` 返回 `false` |
+| `is-success` | `validate()` 返回 `true` |
+| `is-required` | `required()` 或 `FormRule(required: true)` |
 
 ## 枚举类型
 
