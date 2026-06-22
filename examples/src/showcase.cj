@@ -453,9 +453,9 @@ class ShowcasePage <: Component {
         div([
             div([
                 text("布局："),
-                Button("横").size(ButtonSize.Small).onClick(defaultHandler),
-                Button("竖").size(ButtonSize.Small).onClick(topHandler),
-                Button("行内").size(ButtonSize.Small).onClick(inlineHandler),
+                if (layout == "") { PrimaryButton("横").size(ButtonSize.Small).onClick(defaultHandler) } else { Button("横").size(ButtonSize.Small).onClick(defaultHandler) },
+                if (layout == "top") { PrimaryButton("竖").size(ButtonSize.Small).onClick(topHandler) } else { Button("竖").size(ButtonSize.Small).onClick(topHandler) },
+                if (layout == "inline") { PrimaryButton("行内").size(ButtonSize.Small).onClick(inlineHandler) } else { Button("行内").size(ButtonSize.Small).onClick(inlineHandler) },
             ], attrs: Some(HashMap<String, String>([("style", "display:flex;gap:8px;align-items:center;margin-bottom:12px")]))),
             form,
             PrimaryButton("提交").onClick(submitHandler),
