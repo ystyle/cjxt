@@ -45,6 +45,7 @@ public class FormItem <: Component {
     var _children: Array<IComponent>
     var _label: String = ""
     var _labelWidth: String = ""
+    var _labelPosition: String = ""
     var _prop: String = ""
     var _required: Bool = false
     var _error: String = ""
@@ -107,6 +108,7 @@ public class FormItem <: Component {
         var cls = "el-form-item"
         if (currentError != "") { cls = "${cls} is-error" } else if (this._valid) { cls = "${cls} is-success" }
         if (this._required) { cls = "${cls} is-required" }
+        if (this._labelPosition == "top") { cls = "${cls} el-form-item--label-top" }
         let children = ArrayList<IComponent>()
         if (this._label != "") {
             let labelAttrs = HashMap<String, String>([("class", "el-form-item__label")])
@@ -177,9 +179,12 @@ public class Form <: Component {
         var cls = "el-form"
         if (this._labelPosition == "top") { cls = "${cls} el-form--label-top" }
         if (this._labelPosition == "inline") { cls = "${cls} el-form--inline" }
-        if (this._labelWidth != "") {
-            for (item in this._items) {
-                if (item._labelWidth == "") { item._labelWidth = this._labelWidth }
+        for (item in this._items) {
+            if (this._labelWidth != "" && item._labelWidth == "") {
+                item._labelWidth = this._labelWidth
+            }
+            if (this._labelPosition != "" && item._labelPosition == "") {
+                item._labelPosition = this._labelPosition
             }
         }
         VNode("form", this._children, attrs: Some(HashMap<String, String>([("class", cls)])))
