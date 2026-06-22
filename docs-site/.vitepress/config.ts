@@ -36,6 +36,7 @@ export default defineConfig({
           text: '组件库',
           items: [
             { text: '组件索引', link: '/docs/components/' },
+            { text: '使用指南', link: '/docs/components/usage' },
           ],
         },
         {
