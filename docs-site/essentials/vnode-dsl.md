@@ -95,7 +95,7 @@ Select().multiple().bindMulti(this.state.list)  // Signal<ArrayList<String>>
 ### 前端 JS 实现
 
 ```javascript
- FRONTEND_JS
+// 详情见 public/js/cangjie-ui.js（编译时嵌入二进制）
 attachBind(el) {
     const bid = el.getAttribute('data-bind-id');
     // 300ms debounce

@@ -4,17 +4,28 @@
 
 ```
 bundle.css         ← CSS Module：@defineCSS / @importCSS 宏编译，hashed class
-element-plus.css   ← Element Plus 全局样式：SCSS 编译生成，独立文件
+element-plus.css   ← Element Plus 全局样式，编译时嵌入二进制
 ```
 
-HTML 加载两个 `<link>`：
+HTML 加载：
 
 ```html
 <link rel="stylesheet" href="/css/bundle.css?v=2">
-<link rel="stylesheet" href="/css/element-plus.css?v=2">
+<link rel="stylesheet" href="/_cjxt/css/{hash}.css">
 ```
 
-配置方式：
+### 推荐方式（嵌入 CSS）
+
+Element Plus 样式通过 `@EmbedString` 编译时嵌入二进制，无需依赖独立文件：
+
+```cangjie
+App()
+  .UseComponent()                          // 自动注册嵌入的 EP 样式
+  .configure(AppConfig(cssBundle: "/css/bundle.css?v=2"))
+  .serveStatic("/css", "public/css")
+```
+
+### 传统方式（磁盘文件）
 
 ```cangjie
 App()

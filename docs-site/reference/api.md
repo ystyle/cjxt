@@ -9,9 +9,32 @@ App()
     .port(8080)                          // 端口
     .configure(AppConfig(...))           // 应用配置
     .state<MyState>({ => MyState() })    // 注册共享状态
-    .serveStatic("/css", "public/css")    // 静态文件服务
+    .addCSS(css)                         // 嵌入 CSS（编译时嵌入的字符串）
+    .addJS(js)                           // 嵌入 JS（编译时嵌入的字符串）
+    .UseComponent()                      // 注册 cjxt 组件库的 EP 样式 + 前端 JS
+    .serveStatic("/css", "public/css")   // 静态文件服务
     .serve()                             // 启动 HTTP + WS
 ```
+
+## Embed（编译时资源嵌入）
+
+依赖 [embed-cj](https://atomgit.com/ystyle/embed-cj) 库，在编译时将文件内容嵌入为字符串或字节数组：
+
+```cangjie
+import embed.macros.*
+
+// 嵌入文本文件为 String
+let css = @EmbedString("public/css/element-plus.css")
+let js  = @EmbedString("public/js/cangjie-ui.js")
+
+// 嵌入二进制文件为 Array<Byte>
+let data = @EmbedBytes("assets/image.png")
+
+// 嵌入整个目录为 EmbedFS
+let assets = @EmbedDir("public/assets")
+```
+
+嵌入后的字符串可通过 `App.addCSS()` / `App.addJS()` 注册，框架自动生成 hash URL 并添加 `<link>` 或 `<script>` 标签。
 
 ## AppConfig
 
@@ -27,7 +50,7 @@ AppConfig(
     fontFamily: "-apple-system, ...",
     borderRadius: "6px",
     cssBundle: "/css/bundle.css?v=2",
-    componentsCss: "/css/element-plus.css?v=2",
+    componentsCss: "",                // 旧式 EP 样式路径（推荐改用 UseComponent()）
 )
 ```
 
@@ -245,7 +268,7 @@ LinkUnderline:    Always | Hover | Never
 
 ## CangjieUI（前端 JS）
 
-内联在 的 `FRONTEND_JS` 字符串中，无外部依赖：
+通过 `@EmbedString` 编译时嵌入二进制（`public/js/cangjie-ui.js`），由 `UseComponent()` 或 `addJS()` 注册。运行时由 `/_cjxt/js/{hash}.js` 提供服务，无外部依赖：
 
 ```javascript
 class CangjieUI {

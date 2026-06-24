@@ -31,6 +31,8 @@ public class App {
     var bindHost: String
     var bindPort: UInt16
     let stateRegs = ArrayList<StateReg>()
+    var cssBlobs = HashMap<String, String>()
+    var jsBlobs = HashMap<String, String>()
 
     public init() {
         this.tangApp = Tang()
@@ -49,6 +51,24 @@ public class App {
         this
     }
 
+    public func addCSS(css: String): App {
+        let hash = css.hashCode().toString().replace("-", "0")[0..8]
+        this.cssBlobs.add(hash, css)
+        this
+    }
+
+    public func addJS(js: String): App {
+        let hash = js.hashCode().toString().replace("-", "0")[0..8]
+        this.jsBlobs.add(hash, js)
+        this
+    }
+
+    public func UseComponent(): App {
+        this.addCSS(_componentCSS)
+        this.addJS(_frontendJS)
+        this
+    }
+
     public func serveStatic(prefix: String, dir: String): App {
         this.tangApp.get("${prefix}/*", staticFiles(dir, [withPrefix(prefix)]))
         this
@@ -63,6 +83,12 @@ public class App {
             this.tangApp.get(tangPath, { ctx => this.renderHTTP(ctx) })
         }
         this.tangApp.get("${bp}/ws", { ctx => this.upgradeWS(ctx) })
+        if (this.cssBlobs.size > 0) {
+            this.tangApp.get("${bp}/_cjxt/css/*", { ctx => this.serveEmbeddedCSS(ctx) })
+        }
+        if (this.jsBlobs.size > 0) {
+            this.tangApp.get("${bp}/_cjxt/js/*", { ctx => this.serveEmbeddedJS(ctx) })
+        }
         this.tangApp.setHost(this.bindHost).setPort(this.bindPort).listen()
     }
 
@@ -111,7 +137,48 @@ public class App {
         p.onMount(LifecycleContext(session.id, routeParams, None, None, states: session.states))
         let tree = RenderContext.expandTree(p.renderWithScope(), "")
         session.tree = tree
-        ctx.contentType("text/html; charset=utf-8").writeString(generateHtmlShell(session.id, config: this.config))
+        let cssLinks = ArrayList<String>()
+        for ((hash, _) in this.cssBlobs) {
+            cssLinks.add("${this.config.basePath}/_cjxt/css/${hash}.css")
+        }
+        let jsLinks = ArrayList<String>()
+        for ((hash, _) in this.jsBlobs) {
+            jsLinks.add("${this.config.basePath}/_cjxt/js/${hash}.js")
+        }
+        ctx.contentType("text/html; charset=utf-8").writeString(
+            generateHtmlShell(session.id, config: this.config, extraCSS: cssLinks.toArray(), extraJS: jsLinks.toArray()))
+    }
+
+    private func serveEmbeddedCSS(ctx: TangHttpContext): Unit {
+        let requestPath = ctx.path()
+        let bp = this.config.basePath
+        let prefix = if (bp != "") { "${bp}/_cjxt/css/" } else { "/_cjxt/css/" }
+        if (requestPath.startsWith(prefix)) {
+            let hashPart = requestPath[prefix.size..requestPath.size]
+            let hash = hashPart.replace(".css", "")
+            match (this.cssBlobs.get(hash)) {
+                case Some(css) => ctx.contentType("text/css").writeString(css)
+                case None => ctx.status(404).writeString("Not found")
+            }
+        } else {
+            ctx.status(404).writeString("Not found")
+        }
+    }
+
+    private func serveEmbeddedJS(ctx: TangHttpContext): Unit {
+        let requestPath = ctx.path()
+        let bp = this.config.basePath
+        let prefix = if (bp != "") { "${bp}/_cjxt/js/" } else { "/_cjxt/js/" }
+        if (requestPath.startsWith(prefix)) {
+            let hashPart = requestPath[prefix.size..requestPath.size]
+            let hash = hashPart.replace(".js", "")
+            match (this.jsBlobs.get(hash)) {
+                case Some(js) => ctx.contentType("application/javascript").writeString(js)
+                case None => ctx.status(404).writeString("Not found")
+            }
+        } else {
+            ctx.status(404).writeString("Not found")
+        }
     }
 
     private func upgradeWS(ctx: TangHttpContext): Unit {

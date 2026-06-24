@@ -2,25 +2,35 @@
 
 基于 Element Plus 设计语言，使用 builder 模式链式调用。
 
-## 查看演示
+## 搭建步骤
 
 ```bash
 git clone https://atomgit.com/ystyle/cjxt.git
-cd cjxt
+cd cjxt && cd examples
 eval "$(cjvs env zsh)" && eval "$(cjvs stdx env zsh)"
 cjpm build
-cd examples && cjpm build && cd ..
-./scripts/build-css.sh
+cd .. && ./scripts/build-css.sh
 cd examples && ./target/release/bin/main
 ```
 
 浏览器打开 `http://localhost:8080`，点击 "组件库" tab 查看全部交互演示。
 
-> 使用组件库需要 Element Plus 样式。可用以下命令下载编译好的样式文件到项目中：
-> ```bash
-> curl -sL https://raw.githubusercontent.com/ystyle/cjxt/master/examples/public/css/element-plus.css -o public/css/element-plus.css
-> ```
-> 也可使用 cjxt 仓库中的脚本：`scripts/download-ep-css.sh`。后续将通过包管理自动分发。
+### 在自己的项目中使用
+
+```cangjie
+import cjxt.*
+import cjxt.components.*
+
+main() {
+    App()
+        .UseComponent()                            // 自动加载 EP 样式 + 前端 JS
+        .configure(AppConfig(cssBundle: "/css/bundle.css?v=2"))
+        .serveStatic("/css", "public/css")
+        .serve()
+}
+```
+
+> Element Plus 样式通过 `@EmbedString` 编译时嵌入二进制，无需额外下载。
 
 ## 基础
 

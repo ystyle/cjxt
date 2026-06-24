@@ -82,5 +82,6 @@ routerPush(path) → 服务端创建新页面
 ## CSS 隔离策略
 
 - **CSS Module**：`@defineCSS`/`@importCSS` 宏在编译期 hash class 名，写入 `bundle.css`
-- **Element Plus 全局样式**：EP SCSS 编译到独立 `element-plus.css`，class 名不 hash
+- **Element Plus 全局样式**：EP SCSS 编译后通过 `@EmbedString` 嵌入二进制，运行时由 `/_cjxt/css/{hash}.css` 提供服务
+- **前端 JS**：`CangjieUI` 客户端类使用 `@EmbedString` 嵌入二进制，运行时由 `/_cjxt/js/{hash}.js` 提供服务
 - 两个文件独立加载，互不影响

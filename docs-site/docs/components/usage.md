@@ -102,7 +102,23 @@ Tag("标签")
 
 ## CSS 与样式
 
-组件样式基于 Element Plus SCSS 变量：
+组件样式基于 Element Plus SCSS 变量，通过 `@EmbedString` 编译时嵌入二进制：
+
+```cangjie
+import cjxt.*
+import cjxt.components.*
+
+main() {
+    App()
+        .UseComponent()          // 编译时嵌入 EP 样式 + 前端 JS
+        .configure(AppConfig(...))
+        .serve()
+}
+```
+
+> 使用 `UseComponent()` 后，组件样式自动可用，无需额外下载或配置。
+
+自定义样式放在 `public/scss/element-plus/custom/`：
 
 ```scss
 // element-plus.scss 中引用 EP 变量
@@ -123,7 +139,7 @@ Tag("标签")
 }
 ```
 
-编译后通过 `element-plus.css` 独立加载。
+编译后通过 `@EmbedString` 嵌入二进制，由 `/_cjxt/css/{hash}.css` 提供服务。
 
 ## Form 校验
 

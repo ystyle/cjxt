@@ -71,10 +71,17 @@ npm install -g sass
 
 cjxt 提供了对齐 Element Plus 的组件库（Button、Input、Select 等），这些组件依赖 Element Plus 的全局样式。
 
-下载编译好的样式文件：
+通过 `UseComponent()` 在编译时嵌入样式，无需额外下载：
 
-```bash
-curl -sL https://raw.githubusercontent.com/ystyle/cjxt/master/examples/public/css/element-plus.css -o public/css/element-plus.css
+```cangjie
+import cjxt.*
+import cjxt.components.*
+
+main() {
+    App()
+        .UseComponent()
+        .serve()
+}
 ```
 
 如需查看组件列表，请前往[组件库](/docs/components/)。
