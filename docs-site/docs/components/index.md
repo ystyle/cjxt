@@ -6,10 +6,9 @@
 
 ```bash
 git clone https://atomgit.com/ystyle/cjxt.git
-cd cjxt && cd examples
-eval "$(cjvs env zsh)" && eval "$(cjvs stdx env zsh)"
+cd cjxt
+./scripts/build-css.sh
 cjpm build
-cd .. && ./scripts/build-css.sh
 cd examples && ./target/release/bin/main
 ```
 
