@@ -32,9 +32,10 @@ select.input { appearance: auto; }
 .showcase-demo { background: #fff; border-radius: 12px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 16px; min-height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
 .showcase-props { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
 .showcase-props-title { font-size: 14px; font-weight: 600; color: #111; margin-bottom: 12px; }
-.showcase-prop-row { display: flex; padding: 8px 0; border-bottom: 1px solid #f9fafb; font-size: 13px; }
-.showcase-prop-name { width: 140px; color: #6b7280; font-weight: 500; }
-.showcase-prop-value { flex: 1; color: #111; }
+.showcase-prop-row { display: flex; padding: 8px 0; border-bottom: 1px solid #f9fafb; font-size: 13px; gap: 12px; }
+.showcase-prop-name { width: 160px; color: #6b7280; font-weight: 500; flex-shrink: 0; }
+.showcase-prop-type { width: 260px; color: #111; flex-shrink: 0; }
+.showcase-prop-desc { flex: 1; color: #6b7280; }
 
 .divider-demo { align-self: stretch; width: 100%; }
 .divider-section-title { font-size: 13px; color: #909399; margin-bottom: 8px; }

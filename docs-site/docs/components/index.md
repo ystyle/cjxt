@@ -75,6 +75,7 @@ main() {
 |------|-----|
 | **Tag** | `kind(ComponentKind)` `size(TagSize)` `effect(TagEffect)` `closable()` `hit()` `round()` `color(s)` `onClose(h)` `onClick(h)` |
 | **Badge** | `value(n|s)` `max(n)` `dot()` `hidden()` `showZero(Bool)` `kind(ComponentKind)` |
+| **Table** | `data(signal)` `add(TableColumn)` `stripe()` `border()` `height(v)` `maxHeight(v)` `size(s)` `highlight()` `showSummary()` `sortColumn(s)` `sortOrder(s)` `selectedRows(s)` `currentRow(s)` `rowClassName(fn)` `rowStyle(fn)` `cellClassName(fn)` `cellStyle(fn)` `headerRowClassName(fn)` `headerCellClassName(fn)` `headerRowStyle(fn)` `headerCellStyle(fn)` |
 
 ## 导航
 

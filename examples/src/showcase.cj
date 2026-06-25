@@ -9,7 +9,7 @@ let componentNames: Array<String> = [
     "Button", "ButtonGroup", "Card", "RowCol", "Divider",
     "Text", "Link", "Tag", "Badge", "Space", "Icon",
     "Input", "InputNumber", "Switch", "Radio", "Checkbox",
-    "Rate", "Select", "Slider", "Form"
+    "Rate", "Select", "Slider", "Form", "Table"
 ]
 
 class ShowcaseState <: AppState {
@@ -34,6 +34,16 @@ class ShowcaseState <: AppState {
     var formError = Signal<String>("")
     var formSwitch = Signal<Bool>(true)
     var formLayout = Signal<String>("")
+    var tableData = Signal<ArrayList<HashMap<String, String>>>(ArrayList<HashMap<String, String>>())
+    var tableSortColumn = Signal<String>("")
+    var tableSortOrder = Signal<SortOrder>(SortOrder.None)
+    var tableSelectedRows = Signal<ArrayList<HashMap<String, String>>>(ArrayList<HashMap<String, String>>())
+    var tableCurrentRow: Signal<Option<HashMap<String, String>>>
+
+    public init() {
+        let noneRow: Option<HashMap<String, String>> = None
+        this.tableCurrentRow = Signal<Option<HashMap<String, String>>>(noneRow)
+    }
 }
 
 @Page["/showcase"]
@@ -110,6 +120,7 @@ class ShowcasePage <: Component {
             case "Select" => this.demoSelect()
             case "Slider" => this.demoSlider()
             case "Form" => this.demoForm()
+            case "Table" => this.demoTable()
             case _ => text("选择左侧组件查看示例")
         }
     }
@@ -462,142 +473,225 @@ class ShowcasePage <: Component {
         ])
     }
 
+    // ============ Table ============
+
+    func demoTable(): IComponent {
+        let d = this.state.tableData
+        if (d.get().size == 0) {
+            d.set(initTableData())
+        }
+        let columns = ArrayList<TableColumn>()
+        columns.add(TableColumn().colType(TableColumnType.Selection).width(50))
+        columns.add(TableColumn().colType(TableColumnType.Index).label("#").width(60))
+        columns.add(TableColumn().colProp("date").label("Date").width(120).sortable())
+        columns.add(TableColumn().colProp("name").label("Name").width(120).sortable())
+        columns.add(TableColumn().colProp("state").label("State").width(120))
+        columns.add(TableColumn().colProp("city").label("City").width(120))
+        columns.add(TableColumn().colProp("address").label("Address").width(200).showOverflowTooltip())
+        let tbl = Table()
+            .data(d)
+            .border()
+            .stripe()
+            .highlight()
+            .height("300px")
+            .sortColumn(this.state.tableSortColumn)
+            .sortOrder(this.state.tableSortOrder)
+            .selectedRows(this.state.tableSelectedRows)
+            .currentRow(this.state.tableCurrentRow)
+        for (c in columns) { tbl.add(c) }
+        div([
+            div([
+                text("带边框/斑马纹/高亮当前行/排序/多选"),
+            ], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
+            tbl.render(),
+            div([
+                text("空数据表格："),
+            ], attrs: Some(HashMap<String, String>([("style", "margin-top:24px;margin-bottom:8px")]))),
+            Table()
+                .data(Signal<ArrayList<HashMap<String, String>>>(ArrayList<HashMap<String, String>>()))
+                .add(TableColumn().colProp("name").label("Name").width(120))
+                .add(TableColumn().colProp("email").label("Email").width(200))
+                .render(),
+        ])
+    }
+
     // ============ Props ============
 
     func renderProps(sel: String): IComponent {
         match (sel) {
             case "Button" => div([
-                this.propRow("kind", "Default | Primary | Success | Warning | Danger | Info"),
-                this.propRow("size", "Large | Default | Small"),
-                this.propRow("plain / round / circle", "false"),
-                this.propRow("loading / disabled", "false"),
-                this.propRow("text / link / bg", "false"),
-                this.propRow("icon(name)", "String"),
-                this.propRow("onClick", "(ActionContext) -> PatchResult"),
+                this.propRow("kind", "Default | Primary | Success | Warning | Danger | Info", "按钮类型/主题色"),
+                this.propRow("size", "Large | Default | Small", "按钮尺寸"),
+                this.propRow("plain / round / circle", "false", "朴素样式 / 圆角 / 圆形"),
+                this.propRow("loading / disabled", "false", "加载中 / 禁用状态"),
+                this.propRow("text / link / bg", "false", "文字按钮 / 链接按钮 / 背景色模式"),
+                this.propRow("icon(name)", "String", "图标名称"),
+                this.propRow("onClick", "(ActionContext) -> PatchResult", "点击事件"),
             ])
             case "ButtonGroup" => div([
-                this.propRow("children", "Array<IComponent>"),
-                this.propRow("direction", "Horizontal | Vertical"),
-                this.propRow("size / kind", "apply to children"),
+                this.propRow("children", "Array<IComponent>", "子按钮集合"),
+                this.propRow("direction", "Horizontal | Vertical", "排列方向"),
+                this.propRow("size / kind", "apply to children", "统一应用到子按钮的尺寸和类型"),
             ])
             case "Card" => div([
-                this.propRow("header", "String | Array<IComponent>"),
-                this.propRow("footer", "String | Array<IComponent>"),
-                this.propRow("shadow", "Always | Hover | Never"),
-                this.propRow("bodyStyle / bodyClass", "String"),
+                this.propRow("header", "String | Array<IComponent>", "卡片顶部内容"),
+                this.propRow("footer", "String | Array<IComponent>", "卡片底部内容"),
+                this.propRow("shadow", "Always | Hover | Never", "阴影显示时机"),
+                this.propRow("bodyStyle / bodyClass", "String", "内容区自定义样式/类名"),
             ])
             case "RowCol" => div([
-                this.propRow("Row.gutter", "Int64"),
-                this.propRow("Row.justify", "Start | End | Center | SpaceAround | SpaceBetween | SpaceEvenly"),
-                this.propRow("Row.align", "Top | Middle | Bottom"),
-                this.propRow("Col.span", "Int64 (默认 24)"),
-                this.propRow("Col.offset / push / pull", "Int64"),
+                this.propRow("Row.gutter", "Int64", "栅格间隔"),
+                this.propRow("Row.justify", "Start | End | Center | SpaceAround | SpaceBetween | SpaceEvenly", "水平对齐方式"),
+                this.propRow("Row.align", "Top | Middle | Bottom", "垂直对齐方式"),
+                this.propRow("Col.span", "Int64 (默认 24)", "占据的栅格数，总栅格数为 24"),
+                this.propRow("Col.offset / push / pull", "Int64", "偏移 / 右推 / 左拉"),
             ])
             case "Divider" => div([
-                this.propRow("direction", "Horizontal | Vertical"),
-                this.propRow("contentPosition", "Left | Center | Right"),
+                this.propRow("direction", "Horizontal | Vertical", "分割线方向"),
+                this.propRow("contentPosition", "Left | Center | Right", "内容文本位置"),
             ])
             case "Text" => div([
-                this.propRow("kind", "Default | Primary | Success | Warning | Danger | Info | Plain"),
-                this.propRow("size", "Default | Large | Small"),
-                this.propRow("truncated", "false"),
-                this.propRow("lineClamp", "Int64"),
-                this.propRow("tag", "String (默认 span)"),
+                this.propRow("kind", "Default | Primary | Success | Warning | Danger | Info | Plain", "文本颜色类型"),
+                this.propRow("size", "Default | Large | Small", "文本尺寸"),
+                this.propRow("truncated", "false", "是否省略溢出文本"),
+                this.propRow("lineClamp", "Int64", "最大显示行数"),
+                this.propRow("tag", "String (默认 span)", "渲染的标签名"),
             ])
             case "Link" => div([
-                this.propRow("kind", "Default | Primary | Success | Warning | Danger | Info"),
-                this.propRow("underline", "Always | Hover | Never"),
-                this.propRow("href / target", "String"),
-                this.propRow("disabled", "false"),
-                this.propRow("icon(name)", "String"),
-                this.propRow("onClick", "(ActionContext) -> PatchResult"),
+                this.propRow("kind", "Default | Primary | Success | Warning | Danger | Info", "链接颜色类型"),
+                this.propRow("underline", "Always | Hover | Never", "下划线显示时机"),
+                this.propRow("href / target", "String", "跳转链接 / 打开方式"),
+                this.propRow("disabled", "false", "禁用状态"),
+                this.propRow("icon(name)", "String", "图标名称"),
+                this.propRow("onClick", "(ActionContext) -> PatchResult", "点击事件"),
             ])
             case "Tag" => div([
-                this.propRow("kind", "Default | Primary | Success | Warning | Danger | Info"),
-                this.propRow("size", "Default | Large | Medium | Small | Mini"),
-                this.propRow("effect", "Dark | Light | Plain"),
-                this.propRow("closable / hit / round", "false"),
-                this.propRow("color", "String"),
+                this.propRow("kind", "Default | Primary | Success | Warning | Danger | Info", "标签颜色类型"),
+                this.propRow("size", "Default | Large | Medium | Small | Mini", "标签尺寸"),
+                this.propRow("effect", "Dark | Light | Plain", "标签效果"),
+                this.propRow("closable / hit / round", "false", "可关闭 / 边框高亮 / 圆角"),
+                this.propRow("color", "String", "自定义颜色"),
             ])
             case "Badge" => div([
-                this.propRow("value", "Int64 | String"),
-                this.propRow("max", "Int64 (默认 99)"),
-                this.propRow("dot / hidden", "false"),
-                this.propRow("showZero", "true"),
-                this.propRow("kind", "Default | Primary | Success | Warning | Danger | Info"),
+                this.propRow("value", "Int64 | String", "徽标数值或内容"),
+                this.propRow("max", "Int64 (默认 99)", "数值最大值，超出显示 99+"),
+                this.propRow("dot / hidden", "false", "小圆点模式 / 隐藏"),
+                this.propRow("showZero", "true", "数值为 0 时是否显示"),
+                this.propRow("kind", "Default | Primary | Success | Warning | Danger | Info", "徽标颜色类型"),
             ])
             case "Space" => div([
-                this.propRow("size", "Int64 (默认 8)"),
-                this.propRow("direction", "Horizontal | Vertical"),
-                this.propRow("wrap", "false"),
+                this.propRow("size", "Int64 (默认 8)", "间距大小"),
+                this.propRow("direction", "Horizontal | Vertical", "排列方向"),
+                this.propRow("wrap", "false", "是否自动换行"),
             ])
             case "Icon" => div([
-                this.propRow("name", "String (EP 图标名)"),
+                this.propRow("name", "String", "Element Plus 图标名称"),
             ])
             case "Input" => div([
-                this.propRow("placeholder", "String"),
-                this.propRow("size", "Large | Default | Small"),
-                this.propRow("clearable / disabled / password", "false"),
-                this.propRow("prefixIcon / suffixIcon", "String"),
-                this.propRow("bind(signal)", "Signal<String>"),
+                this.propRow("placeholder", "String", "占位提示文本"),
+                this.propRow("size", "Large | Default | Small", "输入框尺寸"),
+                this.propRow("clearable / disabled / password", "false", "可清空 / 禁用 / 密码类型"),
+                this.propRow("prefixIcon / suffixIcon", "String", "前缀 / 后缀图标"),
+                this.propRow("bind(signal)", "Signal<String>", "双向绑定的信号"),
             ])
             case "InputNumber" => div([
-                this.propRow("min / max / step", "Int64"),
-                this.propRow("size", "Large | Default | Small"),
-                this.propRow("noControls", "隐藏 +/- 按钮"),
-                this.propRow("bind(signal)", "Signal<Int64>"),
+                this.propRow("min / max / step", "Int64", "最小值 / 最大值 / 步长"),
+                this.propRow("size", "Large | Default | Small", "计数器尺寸"),
+                this.propRow("noControls", "false", "隐藏 +/- 按钮"),
+                this.propRow("bind(signal)", "Signal<Int64>", "双向绑定的信号"),
             ])
             case "Switch" => div([
-                this.propRow("activeText / inactiveText", "String"),
-                this.propRow("activeValue / inactiveValue", "Bool"),
-                this.propRow("size", "Large | Default | Small"),
-                this.propRow("disabled", "false"),
-                this.propRow("bind(signal)", "Signal<Bool>"),
+                this.propRow("activeText / inactiveText", "String", "开启 / 关闭时的文本"),
+                this.propRow("activeValue / inactiveValue", "Bool", "开启 / 关闭时的值"),
+                this.propRow("size", "Large | Default | Small", "开关尺寸"),
+                this.propRow("disabled", "false", "禁用状态"),
+                this.propRow("bind(signal)", "Signal<Bool>", "双向绑定的信号"),
             ])
             case "Radio" => div([
-                this.propRow("Radio(value)", "String"),
-                this.propRow("Radio.disabled", "false"),
-                this.propRow("RadioGroup.bind(signal)", "Signal<String>"),
+                this.propRow("Radio(value)", "String", "单选框的值"),
+                this.propRow("Radio.disabled", "false", "单选框禁用状态"),
+                this.propRow("RadioGroup.bind(signal)", "Signal<String>", "单选组绑定的信号"),
             ])
             case "Checkbox" => div([
-                this.propRow("Checkbox(value)", "String"),
-                this.propRow("Checkbox.disabled", "false"),
-                this.propRow("CheckboxGroup.bind(signal)", "Signal<ArrayList<String>>"),
+                this.propRow("Checkbox(value)", "String", "复选框的值"),
+                this.propRow("Checkbox.disabled", "false", "复选框禁用状态"),
+                this.propRow("CheckboxGroup.bind(signal)", "Signal<ArrayList<String>>", "复选框组绑定的信号"),
             ])
             case "Rate" => div([
-                this.propRow("max", "Int64 (默认 5)"),
-                this.propRow("allowHalf", "false"),
-                this.propRow("showText", "false"),
-                this.propRow("texts", "Array<String>"),
-                this.propRow("disabled", "false"),
-                this.propRow("bind(signal)", "Signal<Int64>"),
+                this.propRow("max", "Int64 (默认 5)", "最大评分值"),
+                this.propRow("allowHalf", "false", "是否允许半选"),
+                this.propRow("showText", "false", "是否显示辅助文字"),
+                this.propRow("texts", "Array<String>", "自定义辅助文字数组"),
+                this.propRow("disabled", "false", "禁用状态"),
+                this.propRow("bind(signal)", "Signal<Int64>", "双向绑定的信号"),
             ])
             case "Select" => div([
-                this.propRow("SelectOption(value)", "String"),
-                this.propRow("SelectOption.disabled", "false"),
-                this.propRow("Select.placeholder", "String"),
-                this.propRow("Select.disabled", "false"),
-                this.propRow("Select.bind(signal)", "Signal<String>"),
+                this.propRow("SelectOption(value)", "String", "选项的值"),
+                this.propRow("SelectOption.disabled", "false", "选项禁用状态"),
+                this.propRow("Select.placeholder", "String", "占位提示文本"),
+                this.propRow("Select.disabled", "false", "选择器禁用状态"),
+                this.propRow("Select.bind(signal)", "Signal<String>", "双向绑定的信号"),
             ])
             case "Slider" => div([
-                this.propRow("min / max / step", "Int64"),
-                this.propRow("showStops", "false"),
-                this.propRow("disabled", "false"),
-                this.propRow("bind(signal)", "Signal<Int64>"),
+                this.propRow("min / max / step", "Int64", "最小值 / 最大值 / 步长"),
+                this.propRow("showStops", "false", "是否显示间断点"),
+                this.propRow("disabled", "false", "禁用状态"),
+                this.propRow("bind(signal)", "Signal<Int64>", "双向绑定的信号"),
             ])
             case "Form" => div([
-                this.propRow("FormItem.label", "String"),
-                this.propRow("FormItem.required", "false"),
-                this.propRow("FormItem.error", "String"),
+                this.propRow("FormItem.label", "String", "表单项标签文本"),
+                this.propRow("FormItem.required", "false", "是否必填"),
+                this.propRow("FormItem.error", "String", "错误提示文本"),
+            ])
+            case "Table" => div([
+                this.propRow("Table.data(signal)", "Signal<ArrayList<HashMap<String, String>>>", "表格数据源"),
+                this.propRow("Table.add(TableColumn)", "Chain", "添加列配置"),
+                this.propRow("stripe / border / highlight", "false", "斑马纹 / 边框 / 高亮当前行"),
+                this.propRow("height / maxHeight", "String", "表格高度 / 最大高度"),
+                this.propRow("size", "Large | Default | Small", "表格尺寸"),
+                this.propRow("showSummary", "false", "是否在表尾显示汇总行"),
+                this.propRow("Table.sortColumn(signal)", "Signal<String>", "当前排序列，外置信号可持久化"),
+                this.propRow("Table.sortOrder(signal)", "Signal<SortOrder>", "当前排序方向，外置信号可持久化"),
+                this.propRow("Table.selectedRows(signal)", "Signal<ArrayList<HashMap<String, String>>>", "选中的行集合，外置信号可持久化"),
+                this.propRow("Table.currentRow(signal)", "Signal<Option<HashMap<String, String>>>", "当前高亮行，外置信号可持久化"),
+                this.propRow("Table.rowClassName(fn)", "(HashMap<String,String>, Int64) -> String", "自定义行 class 回调"),
+                this.propRow("Table.rowStyle(fn)", "(HashMap<String,String>, Int64) -> String", "自定义行 style 回调"),
+                this.propRow("Table.cellClassName(fn)", "(HashMap<String,String>, TableColumn, Int64, Int64) -> String", "自定义单元格 class 回调"),
+                this.propRow("Table.cellStyle(fn)", "(HashMap<String,String>, TableColumn, Int64, Int64) -> String", "自定义单元格 style 回调"),
+                this.propRow("Table.headerCellClassName(fn)", "(TableColumn, Int64) -> String", "自定义表头 cell class 回调"),
+                this.propRow("Table.headerRowStyle(fn)", "(Int64) -> String", "自定义表头行 style 回调"),
+                this.propRow("Table.headerCellStyle(fn)", "(TableColumn, Int64) -> String", "自定义表头 cell style 回调"),
+                this.propRow("Table.headerRowClassName(fn)", "(Int64) -> String", "自定义表头行 class 回调"),
+                this.propRow("TableColumn.colProp", "String", "列对应数据字段名"),
+                this.propRow("TableColumn.label", "String", "列标题"),
+                this.propRow("TableColumn.width / minWidth", "Int64", "列宽 / 最小列宽"),
+                this.propRow("TableColumn.fixed", "Left | Right", "固定列位置"),
+                this.propRow("TableColumn.sortable", "false", "该列是否可排序"),
+                this.propRow("TableColumn.align", "Left | Center | Right", "单元格对齐方式"),
+                this.propRow("TableColumn.colType", "Default | Selection | Index", "列类型：默认 / 多选 / 序号"),
+                this.propRow("TableColumn.showOverflowTooltip", "false", "内容溢出时显示 tooltip"),
+                this.propRow("TableColumn.formatter", "(String) -> String", "单元格内容格式化函数"),
             ])
             case _ => text("选择左侧组件查看属性")
         }
     }
 
-    func propRow(name: String, value: String): IComponent {
+// --- 辅助数据 ---
+
+func initTableData(): ArrayList<HashMap<String, String>> {
+    let data = ArrayList<HashMap<String, String>>()
+    data.add(HashMap<String, String>([("date", "2016-05-03"), ("name", "Tom"), ("state", "California"), ("city", "Los Angeles"), ("address", "No. 189, Grove St, Los Angeles")]))
+    data.add(HashMap<String, String>([("date", "2016-05-02"), ("name", "Jerry"), ("state", "California"), ("city", "San Francisco"), ("address", "742 Evergreen Terrace, San Francisco")]))
+    data.add(HashMap<String, String>([("date", "2016-05-04"), ("name", "Alice"), ("state", "New York"), ("city", "New York City"), ("address", "350 Fifth Avenue, New York City, NY 10118")]))
+    data.add(HashMap<String, String>([("date", "2016-05-01"), ("name", "Bob"), ("state", "Texas"), ("city", "Austin"), ("address", "1100 Congress Ave, Austin, TX 78701")]))
+    data
+}
+
+func propRow(name: String, typ: String, desc: String): IComponent {
         div([
             div([text(name)], attrs: Some(HashMap<String, String>([("class", cls("showcase-prop-name"))]))),
-            div([text(value)], attrs: Some(HashMap<String, String>([("class", cls("showcase-prop-value"))]))),
+            div([text(typ)], attrs: Some(HashMap<String, String>([("class", cls("showcase-prop-type"))]))),
+            div([text(desc)], attrs: Some(HashMap<String, String>([("class", cls("showcase-prop-desc"))]))),
         ], attrs: Some(HashMap<String, String>([("class", cls("showcase-prop-row"))])))
     }
 }

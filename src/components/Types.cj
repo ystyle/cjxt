@@ -204,3 +204,70 @@ public enum MenuMode {
     }
 }
 
+public enum ComponentSize2 {
+    | Large | Default | Small
+
+    public func asClass(): String {
+        match (this) {
+            case Large => "large"
+            case Default => ""
+            case Small => "small"
+        }
+    }
+}
+
+public enum TableColumnType {
+    | Default | Selection | Index
+
+    public func asClass(): String {
+        match (this) {
+            case Default => ""
+            case Selection => "selection"
+            case Index => "index"
+        }
+    }
+}
+
+public enum TableAlign {
+    | Left | Center | Right
+
+    public func asClass(): String {
+        match (this) {
+            case Left => "left"
+            case Center => "center"
+            case Right => "right"
+        }
+    }
+}
+
+public enum TableFixed {
+    | Left | Right
+
+    public func asFixedAttr(): String {
+        match (this) {
+            case Left => "left"
+            case Right => "right"
+        }
+    }
+}
+
+public enum SortOrder {
+    | Ascending | Descending | None
+
+    public func asClass(): String {
+        match (this) {
+            case Ascending => "ascending"
+            case Descending => "descending"
+            case None => ""
+        }
+    }
+
+    public func next(): SortOrder {
+        match (this) {
+            case None => SortOrder.Ascending
+            case Ascending => SortOrder.Descending
+            case Descending => SortOrder.None
+        }
+    }
+}
+

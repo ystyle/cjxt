@@ -19,8 +19,8 @@
   path-option = ["${CANGJIE_STDX_PATH}"]
 
 [dependencies]
-tang = { path = "../tang" }
-embed = { path = "../embed-cj" }
+tang = "1.0.2" 
+embed = "1.0.4"
 "opencj::ulid" = "0.1.1"
 
 [test-dependencies]

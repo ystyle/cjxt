@@ -29,6 +29,8 @@
 @use 'form.scss';
 @use 'form-item.scss';
 @use 'menu.scss';
+@use 'table.scss';
+@use 'table-column.scss';
 
 .el-button:not(.is-circle) {
   min-width: 68px;

@@ -218,6 +218,53 @@ wsSendText(ws, text)
 wsClose(ws)
 ```
 
+## Table
+
+```cangjie
+// src/components/Table.cj
+class TableColumn
+    colProp(v): TableColumn
+    label(v): TableColumn
+    width(v: Int64): TableColumn
+    minWidth(v: Int64): TableColumn
+    fixed(v: TableFixed): TableColumn     // Left | Right
+    sortable(): TableColumn
+    align(v: TableAlign): TableColumn      // Left | Center | Right
+    colType(v: TableColumnType): TableColumn // Default | Selection | Index
+    showOverflowTooltip(): TableColumn
+    className(v): TableColumn
+    formatter(f: (String) -> String): TableColumn
+    sortBy(v): TableColumn
+    reserveSelection(): TableColumn
+    selectable(f: (HashMap<String, String>) -> Bool): TableColumn
+
+class Table <: Component
+    data(signal): Table
+    add(col: TableColumn): Table
+    stripe(): Table
+    border(): Table
+    height(v): Table
+    maxHeight(v): Table
+    size(v: ComponentSize2): Table
+    fit(v: Bool): Table
+    showHeader(v: Bool): Table
+    highlight(): Table
+    emptyText(v): Table
+    showSummary(): Table
+    sumText(v): Table
+    sortColumn(signal: Signal<String>): Table
+    sortOrder(signal: Signal<SortOrder>): Table
+    selectedRows(signal): Table
+    currentRow(signal): Table
+    rowClassName(fn: (HashMap<String,String>, Int64) -> String): Table
+    rowStyle(fn: (HashMap<String,String>, Int64) -> String): Table
+    cellClassName(fn: (HashMap<String,String>, TableColumn, Int64, Int64) -> String): Table
+    cellStyle(fn: (HashMap<String,String>, TableColumn, Int64, Int64) -> String): Table
+    headerRowClassName(fn: (Int64) -> String): Table
+    headerCellClassName(fn: (TableColumn, Int64) -> String): Table
+    headerRowStyle(fn: (Int64) -> String): Table
+    headerCellStyle(fn: (TableColumn, Int64) -> String): Table
+```
 ## Form
 
 ```cangjie
@@ -264,6 +311,11 @@ ContentPosition:  Left | Center | Right
 SpaceDirection:   Horizontal | Vertical
 MenuMode:         Horizontal | Vertical
 LinkUnderline:    Always | Hover | Never
+SortOrder:        None | Ascending | Descending
+TableColumnType:  Default | Selection | Index
+TableAlign:       Left | Center | Right
+TableFixed:       Left | Right
+ComponentSize2:   Large | Default | Small
 ```
 
 ## CangjieUI（前端 JS）
