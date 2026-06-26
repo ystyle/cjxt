@@ -9,7 +9,8 @@ git clone https://atomgit.com/ystyle/cjxt.git
 cd cjxt
 ./scripts/build-css.sh
 cjpm build
-cd examples && ./target/release/bin/main
+cd examples && cjpm build
+./target/release/bin/main
 ```
 
 浏览器打开 `http://localhost:8080`，点击 "组件库" tab 查看全部交互演示。

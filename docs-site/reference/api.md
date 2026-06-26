@@ -287,6 +287,28 @@ class Dialog <: Component
     header(v: Array<IComponent>): Dialog
     footer(v: Array<IComponent>): Dialog
 ```
+## Drawer
+
+```cangjie
+// src/components/Drawer.cj
+enum DrawerDirection: LTR | RTL | TTB | BTT
+
+class Drawer <: Component
+    init(children: Array<IComponent>)
+    visible(signal: Signal<Bool>): Drawer
+    title(v: String): Drawer
+    direction(v: DrawerDirection): Drawer
+    size(v: String): Drawer
+    showClose(v: Bool): Drawer
+    closeOnClickModal(v: Bool): Drawer
+    closeOnPressEscape(v: Bool): Drawer
+    modal(v: Bool): Drawer
+    withHeader(v: Bool): Drawer
+    destroyOnClose(): Drawer
+    beforeClose(h: ActionHandler): Drawer
+    header(v: Array<IComponent>): Drawer
+    footer(v: Array<IComponent>): Drawer
+```
 ## Form
 
 ```cangjie
@@ -338,6 +360,7 @@ TableColumnType:  Default | Selection | Index
 TableAlign:       Left | Center | Right
 TableFixed:       Left | Right
 ComponentSize2:   Large | Default | Small
+DrawerDirection:  LTR | RTL | TTB | BTT
 ```
 
 ## CangjieUI（前端 JS）

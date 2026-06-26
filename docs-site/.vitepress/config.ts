@@ -39,6 +39,7 @@ export default defineConfig({
             { text: '使用指南', link: '/docs/components/usage' },
             { text: 'Table 表格', link: '/docs/components/table' },
             { text: 'Dialog 对话框', link: '/docs/components/dialog' },
+            { text: 'Drawer 抽屉', link: '/docs/components/drawer' },
             { text: 'Form 表单', link: '/docs/components/form' },
           ],
         },
