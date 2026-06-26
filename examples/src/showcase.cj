@@ -9,7 +9,7 @@ let componentNames: Array<String> = [
     "Button", "ButtonGroup", "Card", "RowCol", "Divider",
     "Text", "Link", "Tag", "Badge", "Space", "Icon",
     "Input", "InputNumber", "Switch", "Radio", "Checkbox",
-    "Rate", "Select", "Slider", "Form", "Table", "Dialog"
+    "Rate", "Select", "Slider", "Form", "Table", "Dialog", "Drawer"
 ]
 
 class ShowcaseState <: AppState {
@@ -35,6 +35,8 @@ class ShowcaseState <: AppState {
     var formSwitch = Signal<Bool>(true)
     var dialogVisible = Signal<Bool>(false)
     var dialogNestedVisible = Signal<Bool>(false)
+    var drawerVisible = Signal<Bool>(false)
+    var drawerDirection = Signal<String>("rtl")
     var formLayout = Signal<String>("")
     var tableData = Signal<ArrayList<HashMap<String, String>>>(ArrayList<HashMap<String, String>>())
     var tableSortColumn = Signal<String>("")
@@ -124,6 +126,7 @@ class ShowcasePage <: Component {
             case "Form" => this.demoForm()
             case "Table" => this.demoTable()
             case "Dialog" => this.demoDialog()
+            case "Drawer" => this.demoDrawer()
             case _ => text("选择左侧组件查看示例")
         }
     }
@@ -550,6 +553,56 @@ class ShowcasePage <: Component {
         ])
     }
 
+    func demoDrawer(): IComponent {
+        let dirOptions = ArrayList<MenuItem>()
+        for (d in ["rtl", "ltr", "ttb", "btt"]) {
+            let active = d == this.state.drawerDirection.get()
+            let dirHandler: ActionHandler = { ctx =>
+                this.state.drawerDirection.set(d)
+                PatchResult.ReRender
+            }
+            dirOptions.add(MenuItem(d, [text(d)]).active(active).onClick(dirHandler))
+        }
+        let dirMenu = Menu().mode(MenuMode.Vertical)
+        for (opt in dirOptions) { dirMenu.add(opt) }
+
+        let openHandler: ActionHandler = { ctx =>
+            this.state.drawerVisible.set(true)
+            PatchResult.ReRender
+        }
+        let closeHandler: ActionHandler = { ctx =>
+            this.state.drawerVisible.set(false)
+            PatchResult.ReRender
+        }
+        let dir = this.state.drawerDirection.get()
+        let direction = match (dir) {
+            case "ltr" => DrawerDirection.LTR
+            case "rtl" => DrawerDirection.RTL
+            case "ttb" => DrawerDirection.TTB
+            case "btt" => DrawerDirection.BTT
+            case _ => DrawerDirection.RTL
+        }
+        let d = Drawer([text("这是一个抽屉内容。")])
+            .visible(this.state.drawerVisible)
+            .title("抽屉标题")
+            .direction(direction)
+            .footer([
+                Button("取消").onClick(closeHandler),
+                Button("确认").kind(ButtonKind.Primary).onClick(closeHandler),
+            ])
+        div([
+            div([
+                text("基础抽屉"),
+            ], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
+            div([
+                div([text("方向：")], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
+                dirMenu.render(),
+            ]),
+            Button("打开抽屉").kind(ButtonKind.Primary).onClick(openHandler),
+            d.render(),
+        ])
+    }
+
     // ============ Props ============
 
     func renderProps(sel: String): IComponent {
@@ -721,6 +774,20 @@ class ShowcasePage <: Component {
                 this.propRow("Dialog.destroyOnClose", "Bool", "关闭时销毁内容"),
                 this.propRow("Dialog.beforeClose(fn)", "ActionHandler", "关闭前回调"),
                 this.propRow("Dialog.header / footer", "Array<IComponent>", "自定义头部/底部内容"),
+            ])
+            case "Drawer" => div([
+                this.propRow("Drawer(children)", "Array<IComponent>", "抽屉主体内容"),
+                this.propRow("Drawer.visible(signal)", "Signal<Bool>", "控制抽屉显示/隐藏"),
+                this.propRow("Drawer.title", "String", "抽屉标题"),
+                this.propRow("Drawer.direction", "LTR | RTL | TTB | BTT", "弹出方向（默认 RTL）"),
+                this.propRow("Drawer.size", "String (默认 30%)", "抽屉尺寸（宽/高）"),
+                this.propRow("Drawer.showClose", "Bool (默认 true)", "是否显示关闭按钮"),
+                this.propRow("Drawer.closeOnClickModal", "Bool (默认 true)", "点击遮罩层是否关闭"),
+                this.propRow("Drawer.modal", "Bool (默认 true)", "是否显示遮罩层"),
+                this.propRow("Drawer.withHeader", "Bool (默认 true)", "是否显示头部区域"),
+                this.propRow("Drawer.destroyOnClose", "Bool", "关闭时销毁内容"),
+                this.propRow("Drawer.beforeClose(fn)", "ActionHandler", "关闭前回调"),
+                this.propRow("Drawer.header / footer", "Array<IComponent>", "自定义头部/底部内容"),
             ])
             case _ => text("选择左侧组件查看属性")
         }
