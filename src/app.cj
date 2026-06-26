@@ -33,6 +33,14 @@ public class App {
     let stateRegs = ArrayList<StateReg>()
     var cssBlobs = HashMap<String, String>()
     var jsBlobs = HashMap<String, String>()
+    static var _instance: ?App = None
+
+    public static func global(): App {
+        match (App._instance) {
+            case Some(inst) => inst
+            case None => throw Exception("App not initialized. Call App.serve() first.")
+        }
+    }
 
     public init() {
         this.tangApp = Tang()
@@ -75,6 +83,7 @@ public class App {
     }
 
     public func serve(): Unit {
+        App._instance = Some(this)
         let reg = RouteRegistry.global()
         let bp = this.config.basePath
         for ((entry, _) in reg.entries) {
@@ -137,6 +146,12 @@ public class App {
         p.onMount(LifecycleContext(session.id, routeParams, None, None, states: session.states))
         let tree = RenderContext.expandTree(p.renderWithScope(), "")
         session.tree = tree
+
+        // 收集客户端组件注册的 JS（在 render 之后，确保 JSRegistry 已填充）
+        for ((_, js) in JSRegistry.all()) {
+            this.addJS(js)
+        }
+
         let cssLinks = ArrayList<String>()
         for ((hash, _) in this.cssBlobs) {
             cssLinks.add("${this.config.basePath}/_cjxt/css/${hash}.css")
@@ -267,6 +282,12 @@ public class App {
                 } else if (t == "navigate") {
                     let path = readField(raw, "path")
                     if (path != "") { this.handleNavigate(ws, state, session, path) }
+                } else if (t == "client_event") {
+                    let componentId = readField(raw, "componentId")
+                    let event = readField(raw, "event")
+                    if (componentId != "" && event != "") {
+                        this.dispatchClientEvent(ws, state, session, componentId, event)
+                    }
                 }
             } else if (frame.frameType == WebSocketFrameType.CloseWebFrame) {
                 ws.writeCloseFrame()
@@ -332,6 +353,28 @@ public class App {
     private func execNavAction(ws: WebSocket, state: SessionState, session: Session, flag: NavFlag, path: String): Unit {
         this.handleNavigate(ws, state, session, path)
         flag.done = true
+    }
+
+    private func dispatchClientEvent(ws: WebSocket, state: SessionState, session: Session, componentId: String, event: String): Unit {
+        match (state.handlers.get(componentId)) {
+            case Some(fn) =>
+                SignalTracker.execMutex.lock()
+                let flag = NavFlag()
+                let router = Router("", { path => this.execNavAction(ws, state, session, flag, path) })
+                let ctx = ActionContext("", session.context, HashMap<String, String>(), router, pushFn: { patches =>
+                    wsSendJson(ws, PushMsg(patches))
+                }, sessionStates: session.states)
+                try {
+                    match (fn(ctx)) {
+                        case PatchResult.ReRender => if (!flag.done) { this.sendPatch(ws, state, session) }
+                        case _ => ()
+                    }
+                } catch (e: Error) {
+                    state.page.onError(ErrorContext("", event, e))
+                }
+                SignalTracker.execMutex.unlock()
+            case None => ()
+        }
     }
 
     private func handleNavigate(ws: WebSocket, state: SessionState, session: Session, path: String): Unit {
