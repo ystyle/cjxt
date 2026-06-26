@@ -265,6 +265,28 @@ class Table <: Component
     headerRowStyle(fn: (Int64) -> String): Table
     headerCellStyle(fn: (TableColumn, Int64) -> String): Table
 ```
+## Dialog
+
+```cangjie
+// src/components/Dialog.cj
+class Dialog <: Component
+    init(children: Array<IComponent>)
+    visible(signal: Signal<Bool>): Dialog
+    title(v: String): Dialog
+    width(v: String): Dialog
+    top(v: String): Dialog
+    showClose(v: Bool): Dialog
+    closeOnClickModal(v: Bool): Dialog
+    closeOnPressEscape(v: Bool): Dialog
+    modal(v: Bool): Dialog
+    center(): Dialog
+    alignCenter(): Dialog
+    fullscreen(): Dialog
+    destroyOnClose(): Dialog
+    beforeClose(h: ActionHandler): Dialog
+    header(v: Array<IComponent>): Dialog
+    footer(v: Array<IComponent>): Dialog
+```
 ## Form
 
 ```cangjie

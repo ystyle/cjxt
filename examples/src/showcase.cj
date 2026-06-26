@@ -9,7 +9,7 @@ let componentNames: Array<String> = [
     "Button", "ButtonGroup", "Card", "RowCol", "Divider",
     "Text", "Link", "Tag", "Badge", "Space", "Icon",
     "Input", "InputNumber", "Switch", "Radio", "Checkbox",
-    "Rate", "Select", "Slider", "Form", "Table"
+    "Rate", "Select", "Slider", "Form", "Table", "Dialog"
 ]
 
 class ShowcaseState <: AppState {
@@ -33,6 +33,8 @@ class ShowcaseState <: AppState {
     var formEmail = Signal<String>("")
     var formError = Signal<String>("")
     var formSwitch = Signal<Bool>(true)
+    var dialogVisible = Signal<Bool>(false)
+    var dialogNestedVisible = Signal<Bool>(false)
     var formLayout = Signal<String>("")
     var tableData = Signal<ArrayList<HashMap<String, String>>>(ArrayList<HashMap<String, String>>())
     var tableSortColumn = Signal<String>("")
@@ -121,6 +123,7 @@ class ShowcasePage <: Component {
             case "Slider" => this.demoSlider()
             case "Form" => this.demoForm()
             case "Table" => this.demoTable()
+            case "Dialog" => this.demoDialog()
             case _ => text("选择左侧组件查看示例")
         }
     }
@@ -515,6 +518,38 @@ class ShowcasePage <: Component {
         ])
     }
 
+    // ============ Dialog ============
+
+    func demoDialog(): IComponent {
+        let openHandler: ActionHandler = { ctx =>
+            this.state.dialogVisible.set(true)
+            PatchResult.ReRender
+        }
+        let btn = Button("打开对话框")
+            .kind(ButtonKind.Primary)
+            .onClick(openHandler)
+        let closeHandler: ActionHandler = { ctx =>
+            this.state.dialogVisible.set(false)
+            PatchResult.ReRender
+        }
+        let dlg = Dialog([text("这是一个对话框内容。")])
+            .visible(this.state.dialogVisible)
+            .title("提示")
+            .width("420px")
+            .closeOnClickModal(false)
+            .footer([
+                Button("取消").onClick(closeHandler),
+                Button("确认").kind(ButtonKind.Primary).onClick(closeHandler),
+            ])
+        div([
+            div([
+                text("基础对话框"),
+            ], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
+            btn.render(),
+            dlg.render(),
+        ])
+    }
+
     // ============ Props ============
 
     func renderProps(sel: String): IComponent {
@@ -671,6 +706,21 @@ class ShowcasePage <: Component {
                 this.propRow("TableColumn.colType", "Default | Selection | Index", "列类型：默认 / 多选 / 序号"),
                 this.propRow("TableColumn.showOverflowTooltip", "false", "内容溢出时显示 tooltip"),
                 this.propRow("TableColumn.formatter", "(String) -> String", "单元格内容格式化函数"),
+            ])
+            case "Dialog" => div([
+                this.propRow("Dialog(children)", "Array<IComponent>", "对话框主体内容"),
+                this.propRow("Dialog.visible(signal)", "Signal<Bool>", "控制对话框显示/隐藏"),
+                this.propRow("Dialog.title", "String", "对话框标题"),
+                this.propRow("Dialog.width", "String (默认 50%)", "对话框宽度"),
+                this.propRow("Dialog.top", "String (默认 15vh)", "对话框距顶部距离"),
+                this.propRow("Dialog.showClose", "Bool (默认 true)", "是否显示关闭按钮"),
+                this.propRow("Dialog.closeOnClickModal", "Bool (默认 true)", "点击遮罩层是否关闭"),
+                this.propRow("Dialog.modal", "Bool (默认 true)", "是否显示遮罩层"),
+                this.propRow("Dialog.center / alignCenter", "Bool", "居中标题/垂直居中"),
+                this.propRow("Dialog.fullscreen", "Bool", "全屏模式"),
+                this.propRow("Dialog.destroyOnClose", "Bool", "关闭时销毁内容"),
+                this.propRow("Dialog.beforeClose(fn)", "ActionHandler", "关闭前回调"),
+                this.propRow("Dialog.header / footer", "Array<IComponent>", "自定义头部/底部内容"),
             ])
             case _ => text("选择左侧组件查看属性")
         }

@@ -38,6 +38,7 @@ export default defineConfig({
             { text: '组件索引', link: '/docs/components/' },
             { text: '使用指南', link: '/docs/components/usage' },
             { text: 'Table 表格', link: '/docs/components/table' },
+            { text: 'Dialog 对话框', link: '/docs/components/dialog' },
             { text: 'Form 表单', link: '/docs/components/form' },
           ],
         },
