@@ -50,6 +50,7 @@ public interface IComponent <: JsonSerializable {
             case t: TextNode => t.toJson(w)
             case f: FragmentNode => f.toJson(w)
             case e: EmptyNode => e.toJson(w)
+            case cc: ClientComponentNode => cc.toJson(w)
             case _ => throw Exception("toJson on non-expanded component")
         }
     }

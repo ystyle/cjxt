@@ -290,6 +290,73 @@ public func cssStyle(content: String): VNode {
     VNode("style", [], attrs: Some(a))
 }
 
+// ============ ClientComponentNode — 客户端组件节点 ============
+
+public class ClientComponentNode <: IComponent {
+    let _componentName: String
+    let _props: HashMap<String, String>
+    let _events: ArrayList<String>
+    let _methods: ArrayList<String>
+    var _handlers: HashMap<String, ActionHandler>
+    var _componentId: String
+
+    public init(componentName: String, props: HashMap<String, String>,
+                events: ArrayList<String>, methods: ArrayList<String>) {
+        this._componentName = componentName
+        this._props = props
+        this._events = events
+        this._methods = methods
+        this._handlers = HashMap<String, ActionHandler>()
+        this._componentId = nextHid()
+    }
+
+    public func on(eventName: String, h: ActionHandler): ClientComponentNode {
+        this._handlers[eventName] = h
+        this
+    }
+
+    public func getComponentId(): String { this._componentId }
+    public func getComponentName(): String { this._componentName }
+
+    public func render(): IComponent { this }
+
+    public func toJson(w: JsonWriter): Unit {
+        w.startObject()
+        w.writeName("type").writeValue("client:${this._componentName}")
+        w.writeName("componentId").writeValue(this._componentId)
+        w.writeName("props").writeValue(this._props)
+        w.writeName("events")
+        w.startArray()
+        for (e in this._events) { w.writeValue(e) }
+        w.endArray()
+        w.writeName("methods")
+        w.startArray()
+        for (m in this._methods) { w.writeValue(m) }
+        w.endArray()
+        w.endObject()
+    }
+
+    public func collectHandlers(out: HashMap<String, ActionHandler>): Unit {
+        for ((k, v) in this._handlers) { out[k] = v }
+    }
+}
+
+// ============ JSRegistry — 前端 JS 注册 ============
+
+public class JSRegistry {
+    static var _blobs: HashMap<String, String> = HashMap<String, String>()
+
+    public static func register(name: String, js: String): Unit {
+        _blobs[name] = js
+    }
+
+    public static func getJS(name: String): ?String {
+        _blobs.get(name)
+    }
+
+    public static func all(): HashMap<String, String> { _blobs }
+}
+
 func doCloneActionMap(m: HashMap<String, String>): HashMap<String, String> {
     let c = HashMap<String, String>()
     for ((k, v) in m) { c[k] = v }
