@@ -13,7 +13,8 @@ cd examples && cjpm build
 ./target/release/bin/main
 ```
 
-浏览器打开 `http://localhost:8080`，点击 "组件库" tab 查看全部交互演示。
+浏览器打开 `http://localhost:8080`，点击 "组件库" tab 查看全部交互演示。[**IPV6演示站：https://cjxt.mini.ystyle.top:2024/**](https://cjxt.mini.ystyle.top:2024)
+
 
 ### 在自己的项目中使用
 

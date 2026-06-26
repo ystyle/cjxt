@@ -1,0 +1,9 @@
+services:
+  cjxt-demo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: demo
+    ports:
+      - "8062:8080"
+    restart: unless-stopped
