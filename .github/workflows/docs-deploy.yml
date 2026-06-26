@@ -9,11 +9,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pages: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -33,23 +32,26 @@ jobs:
           pnpm install --frozen-lockfile
           DOCS_BASE=/cjxt/ pnpm build
 
-      - name: 部署到 GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
+      - name: 上传构建产物
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: docs-site/.vitepress/dist
-          publish_branch: gh-pages
-          user_name: 'github-actions[bot]'
-          user_email: 'github-actions[bot]@users.noreply.github.com'
+          path: docs-site/.vitepress/dist
 
-      - name: 触发 Pages 构建
-        run: |
-          curl -s -X POST \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/repos/${{ github.repository }}/pages/builds"
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: 部署到 GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
 
-      - name: 6. Refresh Huawei Cloud CDN Cache
+      - name: 刷新华为云 CDN 缓存
         uses: ystyle/hwcdn-cache@master
         env:
           ACCESS_KEY_ID: ${{ secrets.ACCESS_KEY_ID }}
