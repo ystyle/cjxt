@@ -4,7 +4,13 @@ class CangjieUI {
         this.sessionId = sessionId;
         this.tree = initialTree;
         this.ws = null;
+        this.clientInstances = new Map();
         this.init();
+        window.CJXT = {
+            triggerEvent: (componentId, event, data) => {
+                this.send({ kind: 'client_event', componentId, event, data, sessionId: this.sessionId });
+            },
+        };
     }
     init() {
         if (this.tree) this.renderTree(this.tree, this.container);
@@ -64,6 +70,18 @@ class CangjieUI {
             case 'fullTree':
                 this.loadNewPage(msg);
                 break;
+            case 'call_method':
+                const entry = this.clientInstances?.get(msg.componentId);
+                if (entry && entry.methods?.[msg.method]) {
+                    entry.methods[msg.method](...(msg.args || []));
+                }
+                break;
+            case 'update_props':
+                const entry2 = this.clientInstances?.get(msg.componentId);
+                if (entry2 && entry2.update) {
+                    entry2.update(msg.props);
+                }
+                break;
         }
     }
     send(data) {
@@ -101,6 +119,10 @@ class CangjieUI {
             const el = document.createElement('style');
             el.textContent = node.attrs ? (node.attrs.text || '') : '';
             parentEl.appendChild(el);
+            return;
+        }
+        if (type.startsWith('client:')) {
+            this.renderClientComponent(node, parentEl);
             return;
         }
         const el = this.createElement(type);
@@ -159,6 +181,18 @@ class CangjieUI {
             if (e.key === 'Enter') { clearTimeout(timer); send(); }
         });
     }
+    renderClientComponent(node, parentEl) {
+        const compName = node.type.slice(7);
+        const comp = (window.__CJXT_COMPONENTS__ || {})[compName];
+        if (!comp) {
+            console.warn('Client component not registered:', compName);
+            return;
+        }
+        const el = comp.create(node.props || {}, parentEl);
+        el.__componentId = node.componentId;
+        el.__compName = compName;
+        this.clientInstances.set(node.componentId, { instance: el, comp, update: comp.update, methods: comp.methods });
+    }
     applyTreePatches(trees) {
         const activeEl = document.activeElement;
         const allInputs = Array.from(document.querySelectorAll('input,textarea'));
@@ -191,6 +225,12 @@ class CangjieUI {
                             old.value = newVal;
                         }
                     } else {
+                        // 替换前销毁旧的 client 组件
+                        if (old.__componentId && this.clientInstances?.has(old.__componentId)) {
+                            const entry = this.clientInstances.get(old.__componentId);
+                            entry.comp.destroy?.(entry.instance);
+                            this.clientInstances.delete(old.__componentId);
+                        }
                         const newEl = this.renderSubtree(p.tree);
                         if (newEl) parentEl.replaceChild(newEl, old);
                     }
@@ -239,6 +279,11 @@ class CangjieUI {
             const el = document.createElement('style');
             el.textContent = node.attrs ? (node.attrs.text || '') : '';
             return el;
+        }
+        if (type.startsWith('client:')) {
+            const wrapper = document.createElement('div');
+            this.renderClientComponent(node, wrapper);
+            return wrapper;
         }
         const el = this.createElement(type);
         for (const k in node.attrs || {}) {
