@@ -185,7 +185,20 @@ class CangjieUI {
         const compName = node.type.slice(7);
         const comp = (window.__CJXT_COMPONENTS__ || {})[compName];
         if (!comp) {
-            console.warn('Client component not registered:', compName);
+            // 组件未加载，动态获取 JS
+            const jsUrl = node.jsHash ? `/_cjxt/js/\${node.jsHash}.js` : null;
+            if (jsUrl) {
+                const script = document.createElement('script');
+                script.src = jsUrl;
+                script.onload = () => {
+                    // JS 注册完成后重新渲染
+                    this.renderClientComponent(node, parentEl);
+                };
+                script.onerror = () => console.error('Failed to load client component JS:', jsUrl);
+                document.head.appendChild(script);
+            } else {
+                console.warn('Client component not registered:', compName);
+            }
             return;
         }
         const el = comp.create(node.props || {}, parentEl);
