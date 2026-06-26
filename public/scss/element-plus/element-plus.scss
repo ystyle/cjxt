@@ -33,6 +33,7 @@
 @use 'table-column.scss';
 @use 'overlay.scss';
 @use 'dialog.scss';
+@use 'drawer.scss';
 
 .el-button:not(.is-circle) {
   min-width: 68px;
