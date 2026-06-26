@@ -299,6 +299,7 @@ public class ClientComponentNode <: IComponent {
     let _methods: ArrayList<String>
     var _handlers: HashMap<String, ActionHandler>
     var _componentId: String
+    var _jsHash: String
 
     public init(componentName: String, props: HashMap<String, String>,
                 events: ArrayList<String>, methods: ArrayList<String>) {
@@ -308,6 +309,12 @@ public class ClientComponentNode <: IComponent {
         this._methods = methods
         this._handlers = HashMap<String, ActionHandler>()
         this._componentId = nextHid()
+        this._jsHash = ""
+    }
+
+    public func jsHash(h: String): ClientComponentNode {
+        this._jsHash = h
+        this
     }
 
     public func on(eventName: String, h: ActionHandler): ClientComponentNode {
@@ -324,6 +331,7 @@ public class ClientComponentNode <: IComponent {
         w.startObject()
         w.writeName("type").writeValue("client:${this._componentName}")
         w.writeName("componentId").writeValue(this._componentId)
+        w.writeName("jsHash").writeValue(this._jsHash)
         w.writeName("props").writeValue(this._props)
         w.writeName("events")
         w.startArray()
