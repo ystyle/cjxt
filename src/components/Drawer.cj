@@ -79,7 +79,12 @@ public class Drawer <: Component {
         let dirClass = this._direction.toClass()
         let isHorizontal = this._direction.isHorizontal()
         let drawerCls = "el-drawer ${dirClass}"
-        let drawerStyle = "--el-drawer-size: ${this._size}"
+        var drawerStyle = "--el-drawer-size: ${this._size}"
+        if (isHorizontal) {
+            drawerStyle = "${drawerStyle}; width: ${this._size}"
+        } else {
+            drawerStyle = "${drawerStyle}; height: ${this._size}"
+        }
         let drawerAttrs = HashMap<String, String>([("class", drawerCls), ("role", "dialog"), ("style", drawerStyle)])
 
         let headerParts = ArrayList<IComponent>()
