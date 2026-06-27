@@ -27,7 +27,7 @@ class MyComponent {
 | `@Event` | 方法 | 声明可由前端触发的事件 |
 | `@Method` | 方法 | 声明可由服务端调用的方法 |
 
-组件定义文件必须在宏包可见的包中（如 `examples` 包），编译时 `@ClientComponent` 宏会：
+组件定义文件使用 `@ClientComponent` 宏，需导入 `cjxt.macros.*`。编译时宏会：
 
 1. 收集 `@Prop` / `@Event` / `@Method` 标注的信息
 2. 读取 JS 文件内容，通过 `App.global().addJS()` 注册
@@ -59,7 +59,7 @@ div([
 (function() {
     window.__CJXT_COMPONENTS__ = window.__CJXT_COMPONENTS__ || {};
     window.__CJXT_COMPONENTS__['MyComponent'] = {
-        create(props, container) {
+        create(props, container, componentId) {
             // 创建组件 DOM，返回根元素
             const el = document.createElement('div');
             el.textContent = props.content || '';
@@ -84,7 +84,7 @@ div([
 
 | 方法 | 时机 | 说明 |
 |------|------|------|
-| `create(props, container)` | 组件首次渲染 | 构建 DOM，返回根元素。`container` 是框架提供的容器 |
+| `create(props, container, componentId)` | 组件首次渲染 | 构建 DOM，返回根元素。`componentId` 是框架分配的实例 ID |
 | `update(props)` | Props 更新时 | 根据新 props 更新 DOM |
 | `methods.*` | 服务端调用时 | 通过 WS `call_method` 消息触发 |
 | `destroy()` | 组件销毁时 | 清理定时器/事件监听 |
@@ -94,11 +94,11 @@ div([
 组件内通过 `window.CJXT.triggerEvent(componentId, eventName, data)` 发送事件到服务端：
 
 ```javascript
-create(props, container) {
+create(props, container, componentId) {
     const btn = document.createElement('button');
     btn.textContent = '提交';
     btn.addEventListener('click', () => {
-        window.CJXT.triggerEvent(this.componentId, 'onChange', { newContent: '...' });
+        window.CJXT.triggerEvent(componentId, 'onChange', { newContent: '...' });
     });
     container.appendChild(btn);
     return container;

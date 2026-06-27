@@ -201,7 +201,7 @@ class CangjieUI {
             }
             return;
         }
-        const el = comp.create(node.props || {}, parentEl);
+        const el = comp.create(node.props || {}, parentEl, node.componentId);
         el.__componentId = node.componentId;
         el.__compName = compName;
         this.clientInstances.set(node.componentId, { instance: el, comp, update: comp.update, methods: comp.methods });
