@@ -9,7 +9,7 @@ let componentNames: Array<String> = [
     "Button", "ButtonGroup", "Card", "RowCol", "Divider",
     "Text", "Link", "Tag", "Badge", "Space", "Icon",
     "Input", "InputNumber", "Switch", "Radio", "Checkbox",
-    "Rate", "Select", "Slider", "Form", "Table", "Dialog", "Drawer", "Tooltip"
+    "Rate", "Select", "Slider", "Form", "Table", "Dialog", "Drawer", "Tooltip", "Popover"
 ]
 
 class ShowcaseState <: AppState {
@@ -128,6 +128,7 @@ class ShowcasePage <: Component {
             case "Dialog" => this.demoDialog()
             case "Drawer" => this.demoDrawer()
             case "Tooltip" => this.demoTooltip()
+            case "Popover" => this.demoPopover()
             case _ => text("选择左侧组件查看示例")
         }
     }
@@ -616,6 +617,19 @@ class ShowcasePage <: Component {
         ])
     }
 
+    func demoPopover(): IComponent {
+        let props = HashMap<String, String>()
+        props["content"] = "这是一个弹出内容"
+        props["triggerText"] = "点击弹出"
+        props["title"] = "标题"
+        div([
+            div([
+                text("基础 Popover"),
+            ], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
+            Popover.render(props),
+        ])
+    }
+
     // ============ Props ============
 
     func renderProps(sel: String): IComponent {
@@ -805,6 +819,12 @@ class ShowcasePage <: Component {
             case "Tooltip" => div([
                 this.propRow("content", "String", "提示文本"),
                 this.propRow("triggerText", "String", "触发元素文本"),
+                this.propRow("onShow / onHide", "Event", "显示/隐藏事件"),
+            ])
+            case "Popover" => div([
+                this.propRow("content", "String", "弹出内容文本"),
+                this.propRow("triggerText", "String", "触发元素文本"),
+                this.propRow("title", "String", "弹窗标题"),
                 this.propRow("onShow / onHide", "Event", "显示/隐藏事件"),
             ])
             case _ => text("选择左侧组件查看属性")
