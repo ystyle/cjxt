@@ -66,6 +66,8 @@ public class App {
     public func UseComponent(): App {
         this.addCSS(_componentCSS)
         this.addJS(_frontendJS)
+        this.addJS(_tooltipJS)
+        this.addJS(_popoverJS)
         this
     }
 
@@ -137,6 +139,7 @@ public class App {
         p.onMount(LifecycleContext(session.id, routeParams, None, None, states: session.states))
         let tree = RenderContext.expandTree(p.renderWithScope(), "")
         session.tree = tree
+
         let cssLinks = ArrayList<String>()
         for ((hash, _) in this.cssBlobs) {
             cssLinks.add("${this.config.basePath}/_cjxt/css/${hash}.css")

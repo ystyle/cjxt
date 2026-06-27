@@ -4,6 +4,6 @@ version = 0
   cjpminfo = {version = "1.2.0"}
   sonyflake = {version = "1.0.9"}
   "opencj::multipart" = {version = "0.1.3"}
-  "opencj::ulid" = {version = "0.1.1"}
+  embed = {version = "1.0.6"}
   tang = {version = "1.0.2"}
-  embed = {version = "1.0.4"}
+  "opencj::ulid" = {version = "0.1.1"}

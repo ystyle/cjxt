@@ -1,6 +1,6 @@
 package cjxt
 
-import std.collection.{HashMap, ArrayList}
+import std.collection.HashMap
 import std.io.{ByteBuffer, SeekPosition}
 import stdx.encoding.json.stream.{JsonWriter, JsonSerializable, JsonReader, JsonDeserializable}
 
@@ -288,6 +288,45 @@ public func cssStyle(content: String): VNode {
     let a = HashMap<String, String>()
     a["text"] = content
     VNode("style", [], attrs: Some(a))
+}
+
+// ============ ClientComponentNode — 客户端组件节点 ============
+
+public class ClientComponentNode <: IComponent {
+    let _componentName: String
+    var _props: HashMap<String, JsonSerializable>
+    var _actions: HashMap<String, String>
+    var _handlers: HashMap<String, ActionHandler>
+
+    public init(componentName: String, props: HashMap<String, JsonSerializable>) {
+        this._componentName = componentName
+        this._props = props
+        this._actions = HashMap<String, String>()
+        this._handlers = HashMap<String, ActionHandler>()
+    }
+
+    public func getComponentName(): String { this._componentName }
+
+    public func on(eventName: String, h: ActionHandler): ClientComponentNode {
+        let id = nextHid()
+        this._actions[eventName] = id
+        this._handlers[id] = h
+        this
+    }
+
+    public func render(): IComponent { this }
+
+    public func toJson(w: JsonWriter): Unit {
+        w.startObject()
+        w.writeName("type").writeValue("client:${this._componentName}")
+        w.writeName("props").writeValue(this._props)
+        w.writeName("actions").writeValue(this._actions)
+        w.endObject()
+    }
+
+    public func collectHandlers(out: HashMap<String, ActionHandler>): Unit {
+        for ((id, h) in this._handlers) { out[id] = h }
+    }
 }
 
 func doCloneActionMap(m: HashMap<String, String>): HashMap<String, String> {

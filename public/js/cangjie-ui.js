@@ -5,6 +5,7 @@ class CangjieUI {
         this.tree = initialTree;
         this.ws = null;
         this.init();
+        window.CJXT = { registerComponent: this.registerComponent.bind(this) };
     }
     init() {
         if (this.tree) this.renderTree(this.tree, this.container);
@@ -103,6 +104,10 @@ class CangjieUI {
             parentEl.appendChild(el);
             return;
         }
+        if (type.startsWith('client:')) {
+            this.renderClientComponent(node, parentEl);
+            return;
+        }
         const el = this.createElement(type);
         for (const k in node.attrs || {}) {
             if (k === 'text') continue;
@@ -111,10 +116,10 @@ class CangjieUI {
         }
         for (const ev in node.actions || {}) {
             const action = node.actions[ev];
-            el.setAttribute(`data-action-\${ev}`, action);
+            el.setAttribute('data-action-' + ev, action);
             if (ev !== 'click') {
                 el.addEventListener(ev, (e) => {
-                    const name = el.getAttribute(`data-action-\${ev}`);
+                    const name = el.getAttribute('data-action-' + ev);
                     if (!name) return;
                     const params = {};
                     for (const a of el.attributes) {
@@ -159,6 +164,37 @@ class CangjieUI {
             if (e.key === 'Enter') { clearTimeout(timer); send(); }
         });
     }
+    registerComponent(name, compClass) {
+        window.__CJXT_COMPONENTS__ = window.__CJXT_COMPONENTS__ || {};
+        window.__CJXT_COMPONENTS__[name] = compClass;
+    }
+    getComponent(name) {
+        return (window.__CJXT_COMPONENTS__ || {})[name];
+    }
+    renderClientComponent(node, parentEl) {
+        const compName = node.type.slice(7);
+        const CompClass = (window.__CJXT_COMPONENTS__ || {})[compName];
+        if (!CompClass) {
+            node._retries = (node._retries || 0) + 1;
+            if (node._retries > 3) {
+                console.error('cjxt: Client component "' + compName + '" not registered after 3 attempts. Props:', node.props, 'Actions:', node.actions);
+                const el = document.createElement('div');
+                el.style.cssText = 'color:#999;font-size:12px;padding:4px;border:1px dashed #ddd;';
+                el.textContent = '组件 [' + compName + '] 加载失败';
+                parentEl.appendChild(el);
+                return;
+            }
+            console.warn('cjxt: Client component not registered:', compName, '(attempt ' + node._retries + '/3)');
+            return;
+        }
+        const comp = new CompClass();
+        const el = comp.create(node.props || {}, parentEl);
+        el.__cjxtComp = comp;
+        // 将 actions（事件名 → handler ID）设到 DOM 上，通过标准 action 派发
+        for (const ev in node.actions || {}) {
+            el.setAttribute('data-action-' + ev, node.actions[ev]);
+        }
+    }
     applyTreePatches(trees) {
         const activeEl = document.activeElement;
         const allInputs = Array.from(document.querySelectorAll('input,textarea'));
@@ -191,6 +227,9 @@ class CangjieUI {
                             old.value = newVal;
                         }
                     } else {
+                        // 替换前销毁旧的 client 组件
+                        const oldComp = old.__cjxtComp;
+                        if (oldComp && typeof oldComp.destroy === 'function') oldComp.destroy(old);
                         const newEl = this.renderSubtree(p.tree);
                         if (newEl) parentEl.replaceChild(newEl, old);
                     }
@@ -240,6 +279,12 @@ class CangjieUI {
             el.textContent = node.attrs ? (node.attrs.text || '') : '';
             return el;
         }
+        if (type.startsWith('client:')) {
+            const wrapper = document.createElement('div');
+            this.renderClientComponent(node, wrapper);
+            return wrapper;
+        }
+        const el = this.createElement(type);
         const el = this.createElement(type);
         for (const k in node.attrs || {}) {
             if (k === 'text') continue;
@@ -248,10 +293,10 @@ class CangjieUI {
         }
         for (const ev in node.actions || {}) {
             const action = node.actions[ev];
-            el.setAttribute(`data-action-\${ev}`, action);
+            el.setAttribute('data-action-' + ev, action);
             if (ev !== 'click') {
                 el.addEventListener(ev, (e) => {
-                    const name = el.getAttribute(`data-action-\${ev}`);
+                    const name = el.getAttribute('data-action-' + ev);
                     if (!name) return;
                     const params = {};
                     for (const a of el.attributes) {

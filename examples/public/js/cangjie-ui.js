@@ -1,1 +1,0 @@
-../../../public/js/cangjie-ui.js

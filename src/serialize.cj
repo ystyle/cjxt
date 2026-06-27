@@ -63,6 +63,10 @@ func serializeNode(c: IComponent, w: JsonWriter, handlerMap: HashMap<String, Act
             w.writeName("type").writeValue("empty")
             w.endObject()
 
+        case cc: ClientComponentNode =>
+            cc.toJson(w)
+            cc.collectHandlers(handlerMap)
+
         case other =>
             serializeNode(other.render(), w, handlerMap)
     }

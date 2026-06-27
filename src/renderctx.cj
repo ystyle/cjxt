@@ -71,6 +71,7 @@ public class RenderContext {
                 expandTree(rendered, path)
             case t: TextNode => t
             case e: EmptyNode => e
+            case cc: ClientComponentNode => cc
             case other =>
                 expandTree(other.render(), path)
         }
@@ -99,6 +100,8 @@ public class RenderContext {
                 for (child in f._children) {
                     collectHandlersFromTree(child, out)
                 }
+            case cc: ClientComponentNode =>
+                cc.collectHandlers(out)
             case _ => ()
         }
     }
