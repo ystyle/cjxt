@@ -40,6 +40,7 @@ export default defineConfig({
             { text: 'Table 表格', link: '/docs/components/table' },
             { text: 'Dialog 对话框', link: '/docs/components/dialog' },
             { text: 'Drawer 抽屉', link: '/docs/components/drawer' },
+            { text: '客户端组件', link: '/docs/components/client-components' },
             { text: 'Form 表单', link: '/docs/components/form' },
           ],
         },
