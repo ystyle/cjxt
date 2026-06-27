@@ -4,10 +4,6 @@ import std.ast.*
 import std.collection.{HashMap, ArrayList}
 import std.fs.{File, exists}
 
-let _ccProps = ArrayList<(String, String)>()
-let _ccEvents = ArrayList<String>()
-let _ccMethods = ArrayList<String>()
-
 func parseJSPath(attr: Tokens): String {
     for (i in 0..attr.size) {
         if (attr[i].kind == TokenKind.IDENTIFIER && attr[i].value == "js") {
@@ -57,17 +53,22 @@ public macro ClientComponent(attr: Tokens, input: Tokens): Tokens {
     let className = classDecl.identifier.value
 
     let propNames = ArrayList<String>()
-    for ((name, _) in _ccProps) { propNames.add(name) }
-    _ccProps.clear()
-    if (propNames.size == 0) { throw Exception("cc: no props found - @Prop might not be expanding before @ClientComponent") }
+    let propMsgs = getChildMessages("Prop")
+    for (m in propMsgs) {
+        propNames.add(m.getString("prop_name"))
+    }
 
     let events = ArrayList<String>()
-    for (e in _ccEvents) { events.add(e) }
-    _ccEvents.clear()
+    let evMsgs = getChildMessages("Event")
+    for (m in evMsgs) {
+        events.add(m.getString("event_name"))
+    }
 
     let methods = ArrayList<String>()
-    for (m in _ccMethods) { methods.add(m) }
-    _ccMethods.clear()
+    let mdMsgs = getChildMessages("Method")
+    for (m in mdMsgs) {
+        methods.add(m.getString("method_name"))
+    }
 
     let compNameToken = Token(TokenKind.STRING_LITERAL, className)
     let evTokens = buildArrayList(events)
@@ -95,22 +96,4 @@ public macro ClientComponent(attr: Tokens, input: Tokens): Tokens {
     ))
     classDecl.body.decls.add(proxyFunc)
     classDecl.toTokens()
-}
-
-public macro Prop(input: Tokens): Tokens {
-    let varDecl = VarDecl(input)
-    _ccProps.add((varDecl.identifier.value, ""))
-    input
-}
-
-public macro Event(input: Tokens): Tokens {
-    let funcDecl = FuncDecl(input)
-    _ccEvents.add(funcDecl.identifier.value)
-    input
-}
-
-public macro Method(input: Tokens): Tokens {
-    let funcDecl = FuncDecl(input)
-    _ccMethods.add(funcDecl.identifier.value)
-    input
 }

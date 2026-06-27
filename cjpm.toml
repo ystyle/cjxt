@@ -5,7 +5,7 @@
   version = "0.1.0"
   output-type = "static"
   compile-option = "-Woff unused"
-  link-option = "-L${CANGJIE_STDX_PATH} -lcangjie-dynamicLoader-opensslFFI"
+  link-option = ""
 
 [target.x86_64-unknown-linux-gnu.bin-dependencies]
   path-option = ["${CANGJIE_STDX_PATH}"]
@@ -20,7 +20,7 @@
 
 [dependencies]
 tang = "1.0.2" 
-embed = "1.0.4"
+embed = "1.0.5"
 "opencj::ulid" = "0.1.1"
 
 [test-dependencies]

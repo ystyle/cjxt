@@ -133,10 +133,10 @@ class CangjieUI {
         }
         for (const ev in node.actions || {}) {
             const action = node.actions[ev];
-            el.setAttribute(`data-action-\${ev}`, action);
+            el.setAttribute('data-action-' + ev, action);
             if (ev !== 'click') {
                 el.addEventListener(ev, (e) => {
-                    const name = el.getAttribute(`data-action-\${ev}`);
+                    const name = el.getAttribute('data-action-' + ev);
                     if (!name) return;
                     const params = {};
                     for (const a of el.attributes) {
@@ -186,7 +186,7 @@ class CangjieUI {
         const comp = (window.__CJXT_COMPONENTS__ || {})[compName];
         if (!comp) {
             // 组件未加载，动态获取 JS
-            const jsUrl = node.jsHash ? `/_cjxt/js/\${node.jsHash}.js` : null;
+            const jsUrl = node.jsHash ? '/_cjxt/js/' + node.jsHash + '.js' : null;
             if (jsUrl) {
                 const script = document.createElement('script');
                 script.src = jsUrl;
@@ -306,10 +306,10 @@ class CangjieUI {
         }
         for (const ev in node.actions || {}) {
             const action = node.actions[ev];
-            el.setAttribute(`data-action-\${ev}`, action);
+            el.setAttribute('data-action-' + ev, action);
             if (ev !== 'click') {
                 el.addEventListener(ev, (e) => {
-                    const name = el.getAttribute(`data-action-\${ev}`);
+                    const name = el.getAttribute('data-action-' + ev);
                     if (!name) return;
                     const params = {};
                     for (const a of el.attributes) {
