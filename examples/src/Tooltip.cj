@@ -8,7 +8,4 @@ import std.collection.{HashMap, ArrayList}
 class Tooltip {
     @Prop let content: String = ""
     @Prop let triggerText: String = ""
-
-    @Event func onShow(): Unit {}
-    @Event func onHide(): Unit {}
 }

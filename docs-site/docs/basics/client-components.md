@@ -116,9 +116,31 @@ create(props, container, componentId) {
 class Tooltip {
     @Prop let content: String = ""
     @Prop let triggerText: String = ""
-    @Event func onShow(): Unit {}
-    @Event func onHide(): Unit {}
 }
+
+// 使用
+let props = HashMap<String, String>()
+props["content"] = "提示文本"
+props["triggerText"] = "悬停我"
+Tooltip.render(props)
+```
+
+### Popover
+
+```cangjie
+@ClientComponent[js: "../public/js/components/popover.js"]
+class Popover {
+    @Prop let content: String = ""
+    @Prop let triggerText: String = ""
+    @Prop let title: String = ""
+}
+
+// 使用
+let props = HashMap<String, String>()
+props["content"] = "这是一个弹出内容"
+props["triggerText"] = "点击弹出"
+props["title"] = "标题"
+Popover.render(props)
 ```
 
 ### Popover

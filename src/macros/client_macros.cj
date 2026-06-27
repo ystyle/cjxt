@@ -4,6 +4,10 @@ import std.ast.*
 import std.collection.{HashMap, ArrayList}
 import std.fs.{File, exists}
 
+let _ccProps = ArrayList<(String, String)>()
+let _ccEvents = ArrayList<String>()
+let _ccMethods = ArrayList<String>()
+
 func parseJSPath(attr: Tokens): String {
     for (i in 0..attr.size) {
         if (attr[i].kind == TokenKind.IDENTIFIER && attr[i].value == "js") {
@@ -28,25 +32,7 @@ func readFileContent(path: String): String {
     ""
 }
 
-func collectNames(key: String): ArrayList<String> {
-    let result = ArrayList<String>()
-    let msgs = getChildMessages(key)
-    for (m in msgs) {
-        result.add(m.getString(key))
-    }
-    result
-}
-
-func joinStrings(items: ArrayList<String>): String {
-    if (items.size == 0) { return "" }
-    var result = items[0]
-    for (i in 1..items.size) {
-        result = "${result}, ${items[i]}"
-    }
-    result
-}
-
-func buildArrayList(compName: String, items: ArrayList<String>): Tokens {
+func buildArrayList(items: ArrayList<String>): Tokens {
     var t = Tokens()
     t = t + Token(TokenKind.IDENTIFIER, "ArrayList")
     t = t + Token(TokenKind.LT)
@@ -70,13 +56,22 @@ public macro ClientComponent(attr: Tokens, input: Tokens): Tokens {
     let classDecl = ClassDecl(input)
     let className = classDecl.identifier.value
 
-    let props = collectNames("prop_name")
-    let events = collectNames("event_name")
-    let methods = collectNames("method_name")
+    let propNames = ArrayList<String>()
+    for ((name, _) in _ccProps) { propNames.add(name) }
+    _ccProps.clear()
+    if (propNames.size == 0) { throw Exception("cc: no props found - @Prop might not be expanding before @ClientComponent") }
+
+    let events = ArrayList<String>()
+    for (e in _ccEvents) { events.add(e) }
+    _ccEvents.clear()
+
+    let methods = ArrayList<String>()
+    for (m in _ccMethods) { methods.add(m) }
+    _ccMethods.clear()
 
     let compNameToken = Token(TokenKind.STRING_LITERAL, className)
-    let evTokens = buildArrayList(className, events)
-    let mdTokens = buildArrayList(className, methods)
+    let evTokens = buildArrayList(events)
+    let mdTokens = buildArrayList(methods)
 
     var bodyTokens = Tokens()
     if (jsContent != "") {
@@ -98,30 +93,24 @@ public macro ClientComponent(attr: Tokens, input: Tokens): Tokens {
             $(bodyTokens)
         }
     ))
-
     classDecl.body.decls.add(proxyFunc)
     classDecl.toTokens()
 }
 
 public macro Prop(input: Tokens): Tokens {
     let varDecl = VarDecl(input)
-    let fieldName = varDecl.identifier.value
-    let fieldType = varDecl.declType.toTokens().toString().trimAscii()
-    setItem("prop_name", fieldName)
-    setItem("prop_type", fieldType)
+    _ccProps.add((varDecl.identifier.value, ""))
     input
 }
 
 public macro Event(input: Tokens): Tokens {
     let funcDecl = FuncDecl(input)
-    let funcName = funcDecl.identifier.value
-    setItem("event_name", funcName)
+    _ccEvents.add(funcDecl.identifier.value)
     input
 }
 
 public macro Method(input: Tokens): Tokens {
     let funcDecl = FuncDecl(input)
-    let funcName = funcDecl.identifier.value
-    setItem("method_name", funcName)
+    _ccMethods.add(funcDecl.identifier.value)
     input
 }

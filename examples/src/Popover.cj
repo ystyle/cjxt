@@ -9,7 +9,4 @@ class Popover {
     @Prop let content: String = ""
     @Prop let triggerText: String = ""
     @Prop let title: String = ""
-
-    @Event func onShow(): Unit {}
-    @Event func onHide(): Unit {}
 }
