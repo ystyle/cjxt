@@ -271,3 +271,51 @@ public enum SortOrder {
     }
 }
 
+public enum Placement {
+    | Top | TopStart | TopEnd
+    | Bottom | BottomStart | BottomEnd
+    | Left | LeftStart | LeftEnd
+    | Right | RightStart | RightEnd
+
+    public func asPopper(): String {
+        match (this) {
+            case Top => "top"
+            case TopStart => "top-start"
+            case TopEnd => "top-end"
+            case Bottom => "bottom"
+            case BottomStart => "bottom-start"
+            case BottomEnd => "bottom-end"
+            case Left => "left"
+            case LeftStart => "left-start"
+            case LeftEnd => "left-end"
+            case Right => "right"
+            case RightStart => "right-start"
+            case RightEnd => "right-end"
+        }
+    }
+}
+
+public enum TooltipTrigger {
+    | Hover | Click | Focus | ContextMenu
+
+    public func asString(): String {
+        match (this) {
+            case Hover => "hover"
+            case Click => "click"
+            case Focus => "focus"
+            case ContextMenu => "contextmenu"
+        }
+    }
+}
+
+public enum TooltipEffect {
+    | Dark | Light
+
+    public func asClass(): String {
+        match (this) {
+            case Dark => "dark"
+            case Light => "light"
+        }
+    }
+}
+

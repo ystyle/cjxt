@@ -66,6 +66,7 @@ public class App {
     public func UseComponent(): App {
         this.addCSS(_componentCSS)
         this.addJS(_frontendJS)
+        this.addJS(_floatingUIJS)
         this.addJS(_tooltipJS)
         this.addJS(_popoverJS)
         this

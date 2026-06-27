@@ -610,7 +610,10 @@ class ShowcasePage <: Component {
             div([
                 text("基础 Tooltip"),
             ], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
-            Tooltip("这是一个提示信息", "悬停查看提示"),
+            Tooltip("这是一个提示信息", "悬停查看提示")
+                .placement(Placement.Top)
+                .effect(TooltipEffect.Dark)
+                .trigger(TooltipTrigger.Hover),
         ])
     }
 
@@ -619,7 +622,10 @@ class ShowcasePage <: Component {
             div([
                 text("基础 Popover"),
             ], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
-            Popover("这是一个弹出内容", "点击弹出", "标题"),
+            Popover("这是一个弹出内容", "点击弹出", "标题")
+                .placement(Placement.Bottom)
+                .trigger(TooltipTrigger.Click)
+                .width(200),
         ])
     }
 
@@ -812,12 +818,25 @@ class ShowcasePage <: Component {
             case "Tooltip" => div([
                 this.propRow("content", "String", "提示文本"),
                 this.propRow("triggerText", "String", "触发元素文本"),
+                this.propRow("placement", "Placement", "弹出方向（Top/Bottom/Left/Right 等）"),
+                this.propRow("effect", "TooltipEffect", "主题（Dark/Light）"),
+                this.propRow("trigger", "TooltipTrigger", "触发方式（Hover/Click/Focus）"),
+                this.propRow("showAfter", "Int64", "显示延迟（ms）"),
+                this.propRow("hideAfter", "Int64", "隐藏延迟（ms）"),
+                this.propRow("disabled", "Bool", "是否禁用"),
                 this.propRow("onShow / onHide", "Event", "显示/隐藏事件"),
             ])
             case "Popover" => div([
                 this.propRow("content", "String", "弹出内容文本"),
                 this.propRow("triggerText", "String", "触发元素文本"),
                 this.propRow("title", "String", "弹窗标题"),
+                this.propRow("placement", "Placement", "弹出方向"),
+                this.propRow("effect", "TooltipEffect", "主题（Dark/Light）"),
+                this.propRow("trigger", "TooltipTrigger", "触发方式（Hover/Click/Focus）"),
+                this.propRow("width", "Int64", "弹窗宽度（px）"),
+                this.propRow("showAfter", "Int64", "显示延迟（ms）"),
+                this.propRow("hideAfter", "Int64", "隐藏延迟（ms）"),
+                this.propRow("disabled", "Bool", "是否禁用"),
                 this.propRow("onShow / onHide", "Event", "显示/隐藏事件"),
             ])
             case _ => text("选择左侧组件查看属性")
