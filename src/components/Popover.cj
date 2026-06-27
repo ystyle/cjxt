@@ -1,11 +1,12 @@
-package examples
+package cjxt.components
 
 import cjxt.*
 import cjxt.macros.*
 import std.collection.{HashMap, ArrayList}
 
-@ClientComponent[js: "../public/js/components/tooltip.js"]
-class Tooltip {
+@ClientComponent[js: "../public/js/components/popover.js"]
+public class Popover {
     @Prop let content: String = ""
     @Prop let triggerText: String = ""
+    @Prop let title: String = ""
 }

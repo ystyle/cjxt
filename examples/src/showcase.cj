@@ -606,27 +606,20 @@ class ShowcasePage <: Component {
     }
 
     func demoTooltip(): IComponent {
-        let props = HashMap<String, String>()
-        props["content"] = "这是一个提示信息"
-        props["triggerText"] = "悬停查看提示"
         div([
             div([
                 text("基础 Tooltip"),
             ], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
-            Tooltip.render(props),
+            Tooltip("这是一个提示信息", "悬停查看提示"),
         ])
     }
 
     func demoPopover(): IComponent {
-        let props = HashMap<String, String>()
-        props["content"] = "这是一个弹出内容"
-        props["triggerText"] = "点击弹出"
-        props["title"] = "标题"
         div([
             div([
                 text("基础 Popover"),
             ], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
-            Popover.render(props),
+            Popover("这是一个弹出内容", "点击弹出", "标题"),
         ])
     }
 

@@ -52,6 +52,10 @@ public macro ClientComponent(attr: Tokens, input: Tokens): Tokens {
     let classDecl = ClassDecl(input)
     let className = classDecl.identifier.value
 
+    // 添加 <: Component 使类可被当作 IComponent 使用
+    let compType = parseType(quote(Component))
+    classDecl.superTypes.add(compType)
+
     let propNames = ArrayList<String>()
     let propMsgs = getChildMessages("Prop")
     for (m in propMsgs) {
@@ -74,26 +78,51 @@ public macro ClientComponent(attr: Tokens, input: Tokens): Tokens {
     let evTokens = buildArrayList(events)
     let mdTokens = buildArrayList(methods)
 
-    var bodyTokens = Tokens()
+    // 生成 _props 字段
+    let propsField = parseDecl(quote(
+        var _props: HashMap<String, String> = HashMap<String, String>()
+    ))
+    classDecl.body.decls.add(propsField)
+
+    // 生成 init 构造器: init(content: String, triggerText: String) { ... }
+    var initTokens = Tokens()
+    initTokens = initTokens + quote(public init)
+    initTokens = initTokens + Token(TokenKind.LPAREN)
+    for (i in 0..propNames.size) {
+        if (i > 0) { initTokens = initTokens + Token(TokenKind.COMMA) }
+        initTokens = initTokens + Token(TokenKind.IDENTIFIER, propNames[i])
+        initTokens = initTokens + Token(TokenKind.COLON)
+        initTokens = initTokens + Token(TokenKind.IDENTIFIER, "String")
+    }
+    initTokens = initTokens + Token(TokenKind.RPAREN)
+    initTokens = initTokens + Token(TokenKind.LCURL)
+    initTokens = initTokens + Token(TokenKind.NL)
+    for (name in propNames) {
+        initTokens = initTokens + quote(_props[$(Token(TokenKind.STRING_LITERAL, name))] = $(Token(TokenKind.IDENTIFIER, name)))
+        initTokens = initTokens + Token(TokenKind.NL)
+    }
+    initTokens = initTokens + Token(TokenKind.RCURL)
+
+    let initFn = parseDecl(initTokens)
+    classDecl.body.decls.add(initFn)
+
+    // 生成 render 方法: 使用 this._props 构建 ClientComponentNode
+    var renderBody = Tokens()
     if (jsContent != "") {
         let hash = jsContent.hashCode().toString().replace("-", "0")[0..8]
         let hashToken = Token(TokenKind.STRING_LITERAL, hash)
-        bodyTokens = bodyTokens + quote(App.global().addJS($(jsContent)))
-        bodyTokens = bodyTokens + Token(TokenKind.NL)
-        bodyTokens = bodyTokens + quote(
-            ClientComponentNode($(compNameToken), props, $(evTokens), $(mdTokens)).jsHash($(hashToken))
-        )
+        renderBody = renderBody + quote(App.global().addJS($(jsContent)))
+        renderBody = renderBody + Token(TokenKind.NL)
+        renderBody = renderBody + quote(ClientComponentNode($(compNameToken), this._props, $(evTokens), $(mdTokens)).jsHash($(hashToken)))
     } else {
-        bodyTokens = bodyTokens + quote(
-            ClientComponentNode($(compNameToken), props, $(evTokens), $(mdTokens))
-        )
+        renderBody = renderBody + quote(ClientComponentNode($(compNameToken), this._props, $(evTokens), $(mdTokens)))
     }
 
-    let proxyFunc = parseDecl(quote(
-        public static func render(props: HashMap<String, String>): ClientComponentNode {
-            $(bodyTokens)
+    let renderFn = parseDecl(quote(
+        public func render(): IComponent {
+            $(renderBody)
         }
     ))
-    classDecl.body.decls.add(proxyFunc)
+    classDecl.body.decls.add(renderFn)
     classDecl.toTokens()
 }
