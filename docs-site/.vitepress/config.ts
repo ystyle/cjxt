@@ -30,6 +30,7 @@ export default defineConfig({
             { text: 'VNode 与 DSL', link: '/docs/basics/vnode-dsl' },
             { text: 'CSS 体系', link: '/docs/basics/styling' },
             { text: '路由系统', link: '/docs/basics/routing' },
+            { text: '客户端组件', link: '/docs/basics/client-components' },
           ],
         },
         {
@@ -40,7 +41,6 @@ export default defineConfig({
             { text: 'Table 表格', link: '/docs/components/table' },
             { text: 'Dialog 对话框', link: '/docs/components/dialog' },
             { text: 'Drawer 抽屉', link: '/docs/components/drawer' },
-            { text: '客户端组件', link: '/docs/components/client-components' },
             { text: 'Form 表单', link: '/docs/components/form' },
           ],
         },
