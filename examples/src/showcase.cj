@@ -639,15 +639,19 @@ class ShowcasePage <: Component {
     func demoProgress(): IComponent {
         div([
             div([text("线形进度条")], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
-            Progress().percentage(50),
-            Progress().percentage(75).status(ProgressStatus.Success),
-            Progress().percentage(100).status(ProgressStatus.Success).striped(),
-            Progress().percentage(80).strokeWidth(12).textInside(),
-            Progress().percentage(30).color("#f56c6c"),
+            div([
+                Progress().percentage(50),
+                Progress().percentage(75).status(ProgressStatus.Success),
+                Progress().percentage(100).status(ProgressStatus.Success).striped(),
+                Progress().percentage(80).strokeWidth(12).textInside(),
+                Progress().percentage(30).color("#f56c6c"),
+            ], attrs: Some(HashMap<String, String>([("class", cls("progress-line-group"))]))),
             div([text("环形进度条")], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
-            Progress().percentage(75).kind(ProgressKind.Circle).width(100),
-            Progress().percentage(65).kind(ProgressKind.Circle).width(100).status(ProgressStatus.Exception),
-            Progress().percentage(80).kind(ProgressKind.Dashboard).width(100).status(ProgressStatus.Warning),
+            div([
+                Progress().percentage(75).kind(ProgressKind.Circle).width(100),
+                Progress().percentage(65).kind(ProgressKind.Circle).width(100).status(ProgressStatus.Exception),
+                Progress().percentage(80).kind(ProgressKind.Dashboard).width(100).status(ProgressStatus.Warning),
+            ], attrs: Some(HashMap<String, String>([("class", cls("progress-circle-group"))]))),
         ], attrs: Some(HashMap<String, String>([("class", cls("progress-demo"))])))
     }
 

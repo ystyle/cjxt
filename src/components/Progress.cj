@@ -47,10 +47,10 @@ public class Progress <: Component {
     func getStatusColor(): String {
         if (this._color != "") { return this._color }
         match (this._status) {
-            case ProgressStatus.Success => return "#13ce66"
-            case ProgressStatus.Exception => return "#ff4949"
-            case ProgressStatus.Warning => return "#e6a23c"
-            case _ => return "#20a0ff"
+            case ProgressStatus.Success => return "var(--el-color-success)"
+            case ProgressStatus.Exception => return "var(--el-color-danger)"
+            case ProgressStatus.Warning => return "var(--el-color-warning)"
+            case _ => return "var(--el-color-primary)"
         }
     }
 
@@ -128,8 +128,7 @@ public class Progress <: Component {
         let pathDash = "${dashLen}px, ${perimeter}px"
         let offsetStr = "${offset}px"
 
-        let rStr = rVal.toString()
-        let pathD = this.buildCirclePath(rStr, this._kind)
+        let pathD = this.buildCirclePath(rVal, this._kind)
 
         let strokeColor = this.getStatusColor()
         let trackColor = "var(--el-fill-color-light, #e5e9f2)"
@@ -183,10 +182,12 @@ public class Progress <: Component {
         div(parts.toArray(), attrs: Some(HashMap<String, String>([("class", wrapCls), ("style", wrapStyle)])))
     }
 
-    func buildCirclePath(r: String, k: ProgressKind): String {
+    func buildCirclePath(r: Float64, k: ProgressKind): String {
+        let r2 = (r * 2.0).toString()
+        let rStr = r.toString()
         match (k) {
-            case ProgressKind.Dashboard => "M 50 50 m 0 ${r} a ${r} ${r} 0 1 1 0 -${r * 2} a ${r} ${r} 0 1 1 0 ${r * 2}"
-            case _ => "M 50 50 m 0 -${r} a ${r} ${r} 0 1 1 0 ${r * 2} a ${r} ${r} 0 1 1 0 -${r * 2}"
+            case ProgressKind.Dashboard => "M 50 50 m 0 ${rStr} a ${rStr} ${rStr} 0 1 1 0 -${r2} a ${rStr} ${rStr} 0 1 1 0 ${r2}"
+            case _ => "M 50 50 m 0 -${rStr} a ${rStr} ${rStr} 0 1 1 0 ${r2} a ${rStr} ${rStr} 0 1 1 0 -${r2}"
         }
     }
 }

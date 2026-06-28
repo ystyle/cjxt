@@ -112,6 +112,7 @@ class CangjieUI {
         for (const k in node.attrs || {}) {
             if (k === 'text') continue;
             if (k === 'value') { el.value = node.attrs[k]; continue; }
+            if (k.toLowerCase() === 'innerhtml') { el.innerHTML = node.attrs[k]; continue; }
             el.setAttribute(k, node.attrs[k]);
         }
         for (const ev in node.actions || {}) {
@@ -288,6 +289,7 @@ class CangjieUI {
         for (const k in node.attrs || {}) {
             if (k === 'text') continue;
             if (k === 'value') { el.value = node.attrs[k]; continue; }
+            if (k.toLowerCase() === 'innerhtml') { el.innerHTML = node.attrs[k]; continue; }
             el.setAttribute(k, node.attrs[k]);
         }
         for (const ev in node.actions || {}) {
