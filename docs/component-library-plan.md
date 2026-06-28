@@ -105,13 +105,13 @@
 
 ## 进度
 
-| Stage | 组件数 | 状态 |
-|-------|--------|------|
-| Stage 1 布局与基础 | 12 | ❌ |
-| Stage 2 表单控件 | 10 + Form | ❌ |
-| Stage 3 数据展示 | 8 | ❌ |
-| Stage 4 交互组件 | 12 | ❌ |
-| Stage 5 复杂组件 | ~20 | ❌ |
+| Stage | 组件数 | 已实现 | 状态 |
+|-------|--------|--------|------|
+| Stage 1 布局与基础 | 12 | Button / ButtonGroup / Card / Col / Divider / Link / Row / Tag | ✅ 8/12 |
+| Stage 2 表单控件 | 10 + Form | Form / FormItem（校验体系） | 🔄 2/11 |
+| Stage 3 数据展示 | 8 | Table / TableColumn（排序、多选、高亮、斑马纹、汇总） | ✅ 1/8 |
+| Stage 4 交互组件 | 12 | Dialog / Drawer / Tooltip / Popover / Popover | ✅ 4/12 |
+| Stage 5 复杂组件 | ~20 | — | ❌ 0/20 |
 
 ## CSS 加载流程
 
