@@ -387,3 +387,29 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 **验证**
 - `cjpm test`：42 个单元测试全部通过。
 - `agent-browser`：Progress 线形/环形/仪表盘、Avatar、Empty、Descriptions、Statistic、Result 均正常渲染，Result 图标前景清晰可见。
+
+### 2026-06-28 Descriptions / Statistic DOM 结构对齐 EP
+
+**问题 1：Descriptions 标题未加粗、带边框版本不显示边框**
+- 根因 1：header 直接把 title/extra 文本作为子节点，缺少 `el-descriptions__title` / `el-descriptions__extra` 包裹 div，EP 的 flex + space-between 标题样式未生效。
+- 根因 2：边框表格类名写错成 `is-border`，EP SCSS 实际使用 `is-bordered`。
+- 修复：header 内 title/extra 分别包进对应 class 的 div；边框表格使用 `is-bordered`。
+
+**问题 2：Descriptions 列宽（colspan）计算错误**
+- 根因：border 模式下 content cell 用了 `colspan="span"`，非 border 水平模式下用了 `colspan="span*2"`，与 EP 规则不符。
+- EP 规则：
+  - border 水平：label colspan=1，content colspan=`span*2-1`；
+  - 非 border 水平：合并 cell colspan=`span`；
+  - vertical：label/content colspan=`span`。
+- 修复：按上述规则重新计算 colspan。
+
+**问题 3：Statistic 数值样式未生效**
+- 根因：数值 span 使用了 `el-statistic__number`，而 EP SCSS 只定义了 `el-statistic__value`。
+- 修复：数值元素类名改为 `el-statistic__value`。
+
+**问题 4：Showcase 中 Statistic 间距不足、Descriptions 属性面板文字重叠**
+- 修复：新增 `statistic-row`（gap: 48px）替代通用 `row`；缩短 `Descriptions.add(DescriptionsItem)` 属性名为 `add(item)`，避免超出列宽。
+
+**验证**
+- `cjpm test`：42 个单元测试全部通过。
+- `agent-browser`：Descriptions 标题加粗、边框表格正常；Statistic 标题/数值垂直排列、间距合理。
