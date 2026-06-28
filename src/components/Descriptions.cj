@@ -57,22 +57,32 @@ public class Descriptions <: Component {
 
     public func render(): IComponent {
         var cls = "el-descriptions"
-        if (this._border) { cls = "${cls} is-border" }
         if (this._size != "") { cls = "${cls} el-descriptions--${this._size}" }
 
         let headerParts = ArrayList<IComponent>()
-        if (this._titleSlot.size > 0) { headerParts.add(Fragment(this._titleSlot))
-        } else if (this._title != "") { headerParts.add(text(this._title)) }
-        if (this._extraSlot.size > 0) { headerParts.add(Fragment(this._extraSlot))
-        } else if (this._extra != "") { headerParts.add(text(this._extra)) }
+        let titleParts = ArrayList<IComponent>()
+        let extraParts = ArrayList<IComponent>()
+        if (this._titleSlot.size > 0) { titleParts.add(Fragment(this._titleSlot))
+        } else if (this._title != "") { titleParts.add(text(this._title)) }
+        if (this._extraSlot.size > 0) { extraParts.add(Fragment(this._extraSlot))
+        } else if (this._extra != "") { extraParts.add(text(this._extra)) }
+
+        if (titleParts.size > 0) {
+            headerParts.add(VNode("div", titleParts.toArray(), attrs: Some(HashMap<String, String>([("class", "el-descriptions__title")]))))
+        }
+        if (extraParts.size > 0) {
+            headerParts.add(VNode("div", extraParts.toArray(), attrs: Some(HashMap<String, String>([("class", "el-descriptions__extra")]))))
+        }
 
         let rowsLayout = this.buildRows()
         let tbodyParts = ArrayList<IComponent>()
 
         this.buildTbody(rowsLayout, tbodyParts, this._direction)
 
+        var tableCls = "el-descriptions__table"
+        if (this._border) { tableCls = "${tableCls} is-bordered" }
         let tableAttrs = HashMap<String, String>([
-            ("class", "el-descriptions__table"),
+            ("class", tableCls),
             ("border", "0"),
             ("cellpadding", "0"),
             ("cellspacing", "0"),
@@ -160,13 +170,13 @@ public class Descriptions <: Component {
                 cells.add(VNode("td", [text(item._label)], attrs: Some(HashMap<String, String>([("class", labelCls), ("style", style)]))))
                 cells.add(VNode("td", [
                     if (item._children.size > 0) { Fragment(item._children) } else { text("--") }
-                ], attrs: Some(HashMap<String, String>([("class", contentCls), ("colspan", item._span.toString()), ("style", style)]))))
+                ], attrs: Some(HashMap<String, String>([("class", contentCls), ("colspan", (item._span * 2 - 1).toString()), ("style", style)]))))
             } else {
                 let bothCls = "el-descriptions__cell"
                 cells.add(VNode("td", [
                     span([text(item._label)], attrs: Some(HashMap<String, String>([("class", "el-descriptions__label")]))),
                     span([if (item._children.size > 0) { Fragment(item._children) } else { text("--") }], attrs: Some(HashMap<String, String>([("class", "el-descriptions__content")])))
-                ], attrs: Some(HashMap<String, String>([("class", bothCls), ("colspan", (item._span * 2).toString()), ("style", style)]))))
+                ], attrs: Some(HashMap<String, String>([("class", bothCls), ("colspan", item._span.toString()), ("style", style)]))))
             }
         }
         VNode("tr", cells.toArray())

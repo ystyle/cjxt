@@ -710,7 +710,7 @@ class ShowcasePage <: Component {
                 Statistic().title("日活跃用户").value("128,000").suffix("人"),
                 Statistic().title("今日订单").value("3,256").suffix("单"),
                 Statistic().title("总销售额").value(128000).prefix("¥"),
-            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            ], attrs: Some(HashMap<String, String>([("class", cls("statistic-row"))]))),
         ], attrs: Some(HashMap<String, String>([("class", cls("statistic-demo"))])))
     }
 
@@ -973,7 +973,7 @@ class ShowcasePage <: Component {
                 this.propRow("slotImage / slotDescription", "Array<IComponent>", "自定义图片 / 描述区域"),
             ])
             case "Descriptions" => div([
-                this.propRow("Descriptions.add(DescriptionsItem)", "Chain", "添加描述项"),
+                this.propRow("add(item)", "Chain", "添加描述项"),
                 this.propRow("Descriptions.border", "false", "是否带边框"),
                 this.propRow("Descriptions.column", "Int64 (默认 3)", "列数"),
                 this.propRow("Descriptions.direction", "Horizontal | Vertical", "排列方向"),

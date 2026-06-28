@@ -42,7 +42,7 @@ public class Statistic <: Component {
         } else if (this._prefix != "") {
             valueParts.add(VNode("span", [text(this._prefix)], attrs: Some(HashMap<String, String>([("class", "el-statistic__prefix")]))))
         }
-        valueParts.add(VNode("span", [text(this._value)], attrs: Some(HashMap<String, String>([("class", "el-statistic__number")]))))
+        valueParts.add(VNode("span", [text(this._value)], attrs: Some(HashMap<String, String>([("class", "el-statistic__value")]))))
         if (this._suffixSlot.size > 0) {
             valueParts.add(VNode("span", this._suffixSlot, attrs: Some(HashMap<String, String>([("class", "el-statistic__suffix")]))))
         } else if (this._suffix != "") {
