@@ -285,7 +285,6 @@ class CangjieUI {
             return wrapper;
         }
         const el = this.createElement(type);
-        const el = this.createElement(type);
         for (const k in node.attrs || {}) {
             if (k === 'text') continue;
             if (k === 'value') { el.value = node.attrs[k]; continue; }
