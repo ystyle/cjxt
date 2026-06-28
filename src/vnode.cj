@@ -276,7 +276,7 @@ public func Fragment(children: Array<IComponent>): FragmentNode {
     FragmentNode(children)
 }
 
-public func Empty(): EmptyNode {
+public func EmptyVNode(): EmptyNode {
     EmptyNode()
 }
 

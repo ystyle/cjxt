@@ -56,7 +56,7 @@ public class Dialog <: Component {
     }
 
     public func render(): IComponent {
-        if (!this._visible.get()) { return Empty() }
+        if (!this._visible.get()) { return EmptyVNode() }
 
         var dialogCls = "el-dialog"
         if (this._center) { dialogCls = "${dialogCls} is-center" }

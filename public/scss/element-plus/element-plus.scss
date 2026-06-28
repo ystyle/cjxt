@@ -34,6 +34,13 @@
 @use 'overlay.scss';
 @use 'dialog.scss';
 @use 'drawer.scss';
+@use 'progress.scss';
+@use 'avatar.scss';
+@use 'empty.scss';
+@use 'descriptions.scss';
+@use 'descriptions-item.scss';
+@use 'statistic.scss';
+@use 'result.scss';
 
 .el-button:not(.is-circle) {
   min-width: 68px;

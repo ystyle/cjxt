@@ -319,3 +319,90 @@ public enum TooltipEffect {
     }
 }
 
+public enum ProgressKind {
+    | Line | Circle | Dashboard
+
+    public func asClass(): String {
+        match (this) {
+            case Line => "line"
+            case Circle => "circle"
+            case Dashboard => "dashboard"
+        }
+    }
+}
+
+public enum ProgressStatus {
+    | None | Success | Exception | Warning
+
+    public func asClass(): String {
+        match (this) {
+            case None => ""
+            case Success => "success"
+            case Exception => "exception"
+            case Warning => "warning"
+        }
+    }
+}
+
+public enum AvatarShape {
+    | Circle | Square
+
+    public func asClass(): String {
+        match (this) {
+            case Circle => "circle"
+            case Square => "square"
+        }
+    }
+}
+
+public enum AvatarFit {
+    | Fill | Contain | Cover | None | ScaleDown
+
+    public func asAttr(): String {
+        match (this) {
+            case Fill => "fill"
+            case Contain => "contain"
+            case Cover => "cover"
+            case None => "none"
+            case ScaleDown => "scale-down"
+        }
+    }
+}
+
+public enum DescriptionsDirection {
+    | Horizontal | Vertical
+
+    public func asClass(): String {
+        match (this) {
+            case Horizontal => "horizontal"
+            case Vertical => "vertical"
+        }
+    }
+}
+
+public enum DescriptionsAlign {
+    | Left | Center | Right
+
+    public func asClass(): String {
+        match (this) {
+            case Left => "left"
+            case Center => "center"
+            case Right => "right"
+        }
+    }
+}
+
+public enum ResultIcon {
+    | Primary | Success | Warning | Info | Error
+
+    public func asClass(): String {
+        match (this) {
+            case Primary => "icon-primary"
+            case Success => "icon-success"
+            case Warning => "icon-warning"
+            case Info => "icon-info"
+            case Error => "icon-error"
+        }
+    }
+}
+

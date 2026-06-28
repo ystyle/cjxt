@@ -20,7 +20,7 @@ public class Radio <: Component {
         this._value = value
     }
     public func disabled(): Radio { this._disabled = true; this }
-    public func render(): IComponent { this.renderRadio(false, None, "") }
+    public func render(): IComponent { this.renderRadio(false, Option<Signal<String>>.None, "") }
 
     func renderRadio(checked: Bool, signal: Option<Signal<String>>, name: String): IComponent {
         var cls = "el-radio"

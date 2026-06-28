@@ -74,7 +74,7 @@ public class Drawer <: Component {
     }
 
     public func render(): IComponent {
-        if (!this._visible.get()) { return Empty() }
+        if (!this._visible.get()) { return EmptyVNode() }
 
         let dirClass = this._direction.toClass()
         let isHorizontal = this._direction.isHorizontal()
