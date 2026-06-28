@@ -42,6 +42,7 @@ export default defineConfig({
             { text: 'Dialog 对话框', link: '/docs/components/dialog' },
             { text: 'Drawer 抽屉', link: '/docs/components/drawer' },
             { text: 'Form 表单', link: '/docs/components/form' },
+            { text: '数据展示', link: '/docs/components/data-display' },
           ],
         },
         {
