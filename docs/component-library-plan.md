@@ -109,8 +109,8 @@
 |-------|--------|--------|------|
 | Stage 1 布局与基础 | 12 | Button / ButtonGroup / Card / Col / Divider / Icon / Link / Row / Space / Tag / Text / Badge | ✅ 12/12 |
 | Stage 2 表单控件 | 10 + Form | Checkbox / CheckboxGroup / Form / FormItem / Input / InputNumber / Radio / RadioGroup / Rate / Select / Slider / Switch | ✅ 12/12 |
-| Stage 3 数据展示 | 8 | Table / TableColumn（排序、多选、高亮、斑马纹、汇总） | ✅ 1/8 |
-| Stage 4 交互组件 | 12 | Dialog / Drawer / Tooltip / Popover / Popover | ✅ 4/12 |
+| Stage 3 数据展示 | 8 | Table / TableColumn | ✅ 2/8 |
+| Stage 4 交互组件 | 12 | Dialog / Drawer / Tooltip / Popover | ✅ 4/12 |
 | Stage 5 复杂组件 | ~20 | — | ❌ 0/20 |
 
 ## CSS 加载流程
