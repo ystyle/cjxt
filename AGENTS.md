@@ -355,3 +355,35 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 - `agent-browser`：Tooltip 渲染正确，hover 显示/隐藏正常。服务端注册 JS blob，前端动态加载后渲染。
 - `cjpm test`：42 个单元测试全部通过。
 - `agent-browser`：Tooltip 渲染正确，hover 显示/隐藏正常。服务端注册 JS blob，前端动态加载后渲染。
+
+### 2026-06-28 Stage 3 数据展示组件与视觉修复
+
+**实现功能**
+- 新增 6 个数据展示组件：Progress、Avatar、Empty、Descriptions、Statistic、Result。
+- 从 Element Plus theme-chalk 复制对应 SCSS 并引入 `element-plus.scss`。
+- 在 `Types.cj` 定义相关枚举：`ProgressKind`、`ProgressStatus`、`AvatarShape`、`AvatarFit`、`DescriptionsDirection`、`DescriptionsAlign`、`ResultIcon`。
+- Showcase 添加对应演示与 Props 面板。
+
+**问题 1：Progress 环形/仪表盘进度条碎成小段**
+- 根因：`buildCirclePath` 接受 `String r`，模板字符串中 `${r * 2}` 被 Cangjie 解释为字符串重复（`"47.000000" * 2 = "47.00000047.000000"`），导致 SVG path 数据错误。
+- 修复：将 `buildCirclePath` 改为 `Float64` 参数，先计算 `r * 2.0` 再 `toString()`。
+
+**问题 2：Progress 状态颜色与 Element Plus 不一致**
+- 根因：`getStatusColor` 返回旧版 Element UI 的硬编码 hex（`#13ce66`、`#ff4949` 等），与 EP 的 CSS 变量主题色不同。
+- 修复：无自定义 `color` 时返回 `var(--el-color-success)` / `var(--el-color-danger)` / `var(--el-color-warning)` / `var(--el-color-primary)`。
+
+**问题 3：Progress 演示项紧贴**
+- 根因：线形与环形进度条直接堆叠在 flex 容器内，间距不足。
+- 修复：showcase 中把线形、环形分别放入 `progress-line-group` / `progress-circle-group`，并新增对应 CSS 控制 `gap` 与对齐。
+
+**问题 4：Empty / Result 的 SVG 图标不显示**
+- 根因：组件把 SVG 字符串放在 `innerHTML` 属性上，但 `cangjie-ui.js` 渲染器对所有属性统一调用 `setAttribute`，导致 SVG 被当作普通字符串属性写到 DOM 上，无法解析为 SVG 元素。
+- 修复：在渲染器的属性处理循环中检测 `innerhtml`（不区分大小写），改为设置 `el.innerHTML`。
+
+**问题 5：Result 图标前景与背景同色导致不可见**
+- 根因：自定义 SVG 把背景圆/三角和前景图标都填成 `currentColor`，同颜色叠加后前景消失。
+- 修复：背景路径用 `currentColor`，前景路径（对勾、叉、感叹号、信息号）用 `#fff` 白色。
+
+**验证**
+- `cjpm test`：42 个单元测试全部通过。
+- `agent-browser`：Progress 线形/环形/仪表盘、Avatar、Empty、Descriptions、Statistic、Result 均正常渲染，Result 图标前景清晰可见。
