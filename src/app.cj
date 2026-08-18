@@ -203,6 +203,7 @@ public class App {
 
     private func resumeSession(ws: WebSocket, session: Session): Unit {
         session.wsState = WsState.Connected
+        session.ws = Some(ws)
         session.touch()
         let state = SessionState(session.page, session.path)
         let tree = RenderContext.expandTree(applyLayout(session.path, session.tree), "")
@@ -229,6 +230,7 @@ public class App {
 
     private func startSession(ws: WebSocket, sid: String, page: IComponent): Unit {
         let session = sessions.save(sid, page, div([text("")]))
+        session.ws = Some(ws)
         if (session.states.size == 0) { this.initStates(session) }
         let mountCtx = LifecycleContext(sid, HashMap<String, String>(), None, None, states: session.states)
         page.onMount(mountCtx)
@@ -278,6 +280,7 @@ public class App {
             }
         }
         session.wsState = WsState.Disconnected
+        session.ws = None
         session.tree = RenderContext.expandTree(state.page.renderWithScope(), "")
     }
 
@@ -304,6 +307,51 @@ public class App {
             state.page.onError(ErrorContext("", name, e))
         }
         SignalTracker.execMutex.unlock()
+    }
+
+    /**
+     * 服务端推送：向指定会话推送状态更新（跨线程安全）
+     *
+     * 供宿主进程内的外部线程（如 agent 事件桥）使用：在 SignalTracker
+     * 锁内执行 update 回调（更新 Signal / 组件状态），返回 ReRender 时
+     * 计算脏组件并推送增量补丁——与 runAction 完全同构，因此页面更新
+     * 逻辑与用户操作触发的渲染共用同一套脏追踪/补丁机制。
+     *
+     * @param sid 会话 id（SessionManager 中的 session id）
+     * @param update 更新回调，返回 PatchResult.ReRender 触发补丁推送
+     * @return 是否找到在线会话并执行了更新（会话不存在或已断开返回 false）
+     */
+    public func pushUpdate(sid: String, update: (ActionContext) -> PatchResult): Bool {
+        let session: Session = match (this.sessions.get(sid)) {
+            case Some(s) => s
+            case None => return false
+        }
+        match (session.wsState) {
+            case WsState.Connected => ()
+            case _ => return false
+        }
+        let ws: WebSocket = match (session.ws) {
+            case Some(w) => w
+            case None => return false
+        }
+        let state = SessionState(session.page, session.path)
+        state.refreshFromTree(session.tree)
+        SignalTracker.execMutex.lock()
+        let flag = NavFlag()
+        let router = Router("", { path => this.execNavAction(ws, state, session, flag, path) })
+        let ctx = ActionContext(sid, session.context, HashMap<String, String>(), router, pushFn: { patches =>
+            wsSendJson(ws, PushMsg(patches))
+        }, sessionStates: session.states)
+        try {
+            match (update(ctx)) {
+                case PatchResult.ReRender => if (!flag.done) { this.sendPatch(ws, state, session) }
+                case _ => ()
+            }
+        } catch (e: Error) {
+            state.page.onError(ErrorContext("", "push", e))
+        }
+        SignalTracker.execMutex.unlock()
+        true
     }
 
     private func dispatchBind(ws: WebSocket, state: SessionState, session: Session, name: String, value: String): Unit {

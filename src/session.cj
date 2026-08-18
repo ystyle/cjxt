@@ -2,6 +2,7 @@ package cjxt
 
 import std.collection.HashMap
 import std.time.{DateTime, TimeZone}
+import stdx.net.http.WebSocket
 import opencj::ulid.*
 
 public enum WsState {
@@ -14,6 +15,9 @@ public class Session {
     var tree: IComponent
     var path: String
     var wsState: WsState
+    // 当前连接（服务端推送用：外部线程通过 App.pushUpdate 推补丁）
+    // 连接建立时设置，断开时清空
+    var ws: ?WebSocket
     var createdAt: Int64
     var lastActiveAt: Int64
     let context: HashMap<String, String>
@@ -25,6 +29,7 @@ public class Session {
         this.tree = tree
         this.path = "/"
         this.wsState = WsState.Connecting
+        this.ws = None
         this.createdAt = nowMillis()
         this.lastActiveAt = nowMillis()
         this.context = HashMap<String, String>()
