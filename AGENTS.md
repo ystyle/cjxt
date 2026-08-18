@@ -413,3 +413,30 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 **验证**
 - `cjpm test`：42 个单元测试全部通过。
 - `agent-browser`：Descriptions 标题加粗、边框表格正常；Statistic 标题/数值垂直排列、间距合理。
+
+### 2026-08-18 App.pushUpdate 服务端推送（harness 融合接缝）
+
+**实现功能**
+- `App.pushUpdate(sid, update)`：跨线程服务端推送。在 SignalTracker.execMutex 锁内执行 update 回调（更新 Signal），返回 ReRender 时走与 runAction 完全同构的脏追踪/补丁链路。
+- `Session.ws: ?WebSocket`：会话持有当前连接引用（startSession/resumeSession 设置，listenLoop 断开清空），作为推送目标。
+
+**问题 1：仓颉枚举不支持 `!=`**
+- `session.wsState != WsState.Connected` 编译报错，改用 match。
+
+**问题 2：stdx.net.http 的 WS 握手需要 stdx.crypto.digest，但全局 link-option 传染宏包**
+- 测试代码引用 `WebSocket.upgradeFromClient`（客户端升级 → SHA1 accept key）后，测试二进制链接报 `DYN_SHA1/MallocDynMsg/FreeDynMsg` 未定义。
+- `[package] link-option` 会透传给所有动态库/可执行产物（含宏包 .so），而宏包链接命令没有 stdx 的 `-L` 路径 → `cannot find -lstdx.crypto.digest`。
+- `package-configuration` 只支持 output-type/compile-option，不支持 link-option。
+- 修复：link-option 移到 `[target.x86_64-unknown-linux-gnu]` 级，`-L${CANGJIE_STDX_PATH} -lstdx.crypto.digest`（对齐 mcp-cj/atelier；cangjie_stdx 也用 target 级）。target 级不传染宏包链接。
+
+**问题 3：真实 WS 端到端测试需要 digest 链接，与宏包冲突**
+- 客户端升级（upgradeFromClient）测试留在 harness-cj 的 harness_tests（无宏包，可自由配链接）；cjxt 主包只保留守卫路径单测（会话不存在/未连接/无 ws 引用）。
+
+**问题 4：Thread 不在 std.thread**
+- `import std.thread` 报"not added as a dependency"；Thread 类在 std.core，但无法构造（仅 Future.thread / currentThread）。创建线程用 `spawn {}` 表达式（std.core 自动可用）。
+
+**问题 5：RouteFactory 是 `() -> IComponent`**
+- 零参 lambda 必须写 `{ => PushTestPage() }`（带 `=>`）。
+
+**验证**
+- `cjpm test`：46 个单元测试全部通过（42 原有 + 4 新增 pushUpdate 守卫路径）。

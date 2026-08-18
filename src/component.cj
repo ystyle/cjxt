@@ -132,6 +132,13 @@ public struct LifecycleContext {
             case None => throw Exception("AppState not registered: ${key}")
         }
     }
+
+    /**
+     * 会话 id（外部模块访问用，如 harness 聊天页以 UI 会话 id 作为 agent 会话 id）
+     */
+    public func getSessionId(): String {
+        this.sessionId
+    }
 }
 
 public struct ErrorContext {

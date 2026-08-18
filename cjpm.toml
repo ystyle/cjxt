@@ -11,6 +11,9 @@
 [package.package-configuration."cjxt.components"]
 compile-option = "--debug-macro"
 
+[target.x86_64-unknown-linux-gnu]
+  # stdx.net.http 的 WebSocket 握手（SHA1）需要 digest 库（对齐 mcp-cj/atelier）
+  link-option = "-L${CANGJIE_STDX_PATH} -lstdx.crypto.digest"
 [target.x86_64-unknown-linux-gnu.bin-dependencies]
   path-option = ["${CANGJIE_STDX_PATH}"]
 [target.x86_64-apple-darwin.bin-dependencies]
