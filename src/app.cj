@@ -77,6 +77,13 @@ public class App {
         this
     }
 
+    /**
+     * 按会话 id 获取会话（外部模块访问用，如 harness 事件桥）
+     */
+    public func getSession(sid: String): Option<Session> {
+        this.sessions.get(sid)
+    }
+
     public func serve(): Unit {
         let reg = RouteRegistry.global()
         let bp = this.config.basePath

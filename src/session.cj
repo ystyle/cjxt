@@ -46,6 +46,20 @@ public class Session {
         this.touch()
     }
 
+    /**
+     * 会话页面组件实例（外部模块访问用，如 harness 事件桥）
+     */
+    public func getPage(): IComponent {
+        this.page
+    }
+
+    /**
+     * 会话当前连接（外部模块访问用，如 harness 服务端推送）
+     */
+    public func getWs(): ?WebSocket {
+        this.ws
+    }
+
     public func isExpired(ttlMillis: Int64): Bool {
         nowMillis() - this.lastActiveAt > ttlMillis
     }
