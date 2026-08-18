@@ -237,6 +237,7 @@ public class App {
 
     private func startSession(ws: WebSocket, sid: String, page: IComponent): Unit {
         let session = sessions.save(sid, page, div([text("")]))
+        session.wsState = WsState.Connected
         session.ws = Some(ws)
         if (session.states.size == 0) { this.initStates(session) }
         let mountCtx = LifecycleContext(sid, HashMap<String, String>(), None, None, states: session.states)
