@@ -10,8 +10,21 @@ class CangjieUI {
     init() {
         if (this.tree) this.renderTree(this.tree, this.container);
         this.attachClickDelegate();
+        this.attachKeyDelegate();
         this.attachHistoryHandler();
         this.connectWS();
+    }
+    attachKeyDelegate() {
+        this.container.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const el = e.target.closest('[data-action-keydown_enter]');
+                if (el) {
+                    e.preventDefault();
+                    const name = el.getAttribute('data-action-keydown_enter');
+                    this.send({ type: 'action', name, params: {}, sessionId: this.sessionId });
+                }
+            }
+        });
     }
     attachHistoryHandler() {
         window.addEventListener('popstate', () => {
