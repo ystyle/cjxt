@@ -78,26 +78,52 @@ public class RouteRegistry {
         r
     }
 
+    /**
+     * 注册路由。同路径重复注册时**替换**旧条目（后注册者生效）——
+     * 保持与 `titles/guards/layouts` 的覆盖语义一致，避免全局单例
+     * 在多处注册同一路径时残留陈旧工厂（如测试间复用 / 路由）。
+     */
     public func register(path: String, factory: RouteFactory): Unit {
+        this.removeEntry(path)
         entries.add((RouteEntry(path), factory))
     }
 
     public func register(path: String, factory: RouteFactory, title: String): Unit {
+        this.removeEntry(path)
         entries.add((RouteEntry(path), factory))
         titles.add(path, title)
     }
 
     public func register(path: String, factory: RouteFactory, title: String, guard: (HashMap<String, String>) -> Bool): Unit {
+        this.removeEntry(path)
         entries.add((RouteEntry(path), factory))
         titles.add(path, title)
         guards.add(path, guard)
     }
 
     public func register(path: String, factory: RouteFactory, title: String, guard: (HashMap<String, String>) -> Bool, layout: LayoutFn): Unit {
+        this.removeEntry(path)
         entries.add((RouteEntry(path), factory))
         titles.add(path, title)
         guards.add(path, guard)
         layouts.add(path, layout)
+    }
+
+    /** 移除已注册的同路径条目（entries 是 ArrayList，倒序删除避免索引失效） */
+    private func removeEntry(path: String): Unit {
+        var i = entries.size - 1
+        while (i >= 0) {
+            let (entry, _) = entries[i]
+            if (entry.path == path) {
+                entries.remove(at: i)
+            }
+            i = i - 1
+        }
+    }
+
+    /** 已注册路由条目数（含同路径去重后的结果） */
+    public func entriesSize(): Int64 {
+        entries.size
     }
 
     public func resolve(path: String): Option<RouteMatch> {

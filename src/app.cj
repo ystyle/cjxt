@@ -84,6 +84,12 @@ public class App {
         this.sessions.get(sid)
     }
 
+    /// 停止服务器（测试清理 / 生命周期管理用；未启动时是安全空操作）
+    public func stop(): Unit {
+        this.tangApp.stop()
+        this.sessions.clearAll()
+    }
+
     public func serve(): Unit {
         let reg = RouteRegistry.global()
         let bp = this.config.basePath
@@ -317,8 +323,11 @@ public class App {
             }
         } catch (e: Error) {
             state.page.onError(ErrorContext("", name, e))
+        } finally {
+            // 必须保证释放 execMutex：handler 抛非 Error 异常时
+            // 若跳过 unlock，静态锁永久泄漏 → 后续所有会话/测试死锁
+            SignalTracker.execMutex.unlock()
         }
-        SignalTracker.execMutex.unlock()
     }
 
     /**
@@ -361,18 +370,22 @@ public class App {
             }
         } catch (e: Error) {
             state.page.onError(ErrorContext("", "push", e))
+        } finally {
+            SignalTracker.execMutex.unlock()
         }
-        SignalTracker.execMutex.unlock()
         true
     }
 
     private func dispatchBind(ws: WebSocket, state: SessionState, session: Session, name: String, value: String): Unit {
         SignalTracker.execMutex.lock()
-        match (state.handlers.get(name)) {
-            case Some(fn) => this.doBind(ws, state, session, fn, value, name)
-            case None => ()
+        try {
+            match (state.handlers.get(name)) {
+                case Some(fn) => this.doBind(ws, state, session, fn, value, name)
+                case None => ()
+            }
+        } finally {
+            SignalTracker.execMutex.unlock()
         }
-        SignalTracker.execMutex.unlock()
     }
 
     private func doBind(ws: WebSocket, state: SessionState, session: Session, fn: ActionHandler, value: String, aname: String): Unit {

@@ -1,6 +1,6 @@
 package cjxt
 
-import std.collection.HashMap
+import std.collection.{HashMap, ArrayList}
 import std.time.{DateTime, TimeZone}
 import stdx.net.http.WebSocket
 import opencj::ulid.*
@@ -92,6 +92,13 @@ public class SessionManager {
 
     public func remove(id: String): Unit {
         sessions.remove(id)
+    }
+
+    /// 清空全部会话（服务器停止 / 测试清理用）
+    public func clearAll(): Unit {
+        let ids = ArrayList<String>()
+        for ((id, _) in sessions) { ids.add(id) }
+        for (id in ids) { sessions.remove(id) }
     }
 
     public func cleanup(): Unit {
