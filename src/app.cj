@@ -9,18 +9,11 @@ import tang.middleware.staticfile.{staticFiles, withPrefix, staticMiddleware}
 
 class SessionState {
     var page: IComponent
-    var handlers: HashMap<String, ActionHandler>
     var path: String
 
     public init(page: IComponent, path: String) {
         this.page = page
         this.path = path
-        this.handlers = HashMap<String, ActionHandler>()
-    }
-
-    public func refreshFromTree(tree: IComponent): Unit {
-        this.handlers.clear()
-        RenderContext.collectHandlersFromTree(tree, this.handlers)
     }
 }
 
@@ -220,7 +213,7 @@ public class App {
         session.touch()
         let state = SessionState(session.page, session.path)
         let tree = RenderContext.expandTree(applyLayout(session.path, session.tree), "")
-        state.refreshFromTree(tree)
+        session.refreshHandlers(tree)
         wsSendJson(ws, ConnectedMsg())
         wsSendJson(ws, CombinedPatchMsg([], [TreePatchEntry("replace", "", Some(tree))]))
         sendTitle(ws, session.path)
@@ -260,7 +253,7 @@ public class App {
     private func initSignals(ws: WebSocket, state: SessionState, session: Session): Unit {
         let raw = state.page.renderWithScope()
         let tree = RenderContext.expandTree(applyLayout(state.path, raw), "")
-        state.refreshFromTree(tree)
+        session.refreshHandlers(tree)
         session.tree = tree
     }
 
@@ -302,7 +295,7 @@ public class App {
     }
 
     private func dispatchAction(ws: WebSocket, state: SessionState, session: Session, name: String, params: HashMap<String, String>): Unit {
-        match (state.handlers.get(name)) {
+        match (session.handlers.get(name)) {
             case Some(fn) => this.runAction(ws, state, session, name, fn, params)
             case None => ()
         }
@@ -356,7 +349,7 @@ public class App {
             case None => return false
         }
         let state = SessionState(session.page, session.path)
-        state.refreshFromTree(session.tree)
+        session.refreshHandlers(session.tree)
         SignalTracker.execMutex.lock()
         let flag = NavFlag()
         let router = Router("", { path => this.execNavAction(ws, state, session, flag, path) })
@@ -379,7 +372,7 @@ public class App {
     private func dispatchBind(ws: WebSocket, state: SessionState, session: Session, name: String, value: String): Unit {
         SignalTracker.execMutex.lock()
         try {
-            match (state.handlers.get(name)) {
+            match (session.handlers.get(name)) {
                 case Some(fn) => this.doBind(ws, state, session, fn, value, name)
                 case None => ()
             }
@@ -430,7 +423,7 @@ public class App {
         newPage.onMount(mountCtx)
         let raw = newPage.renderWithScope()
         let tree = RenderContext.expandTree(applyLayout(path, raw), "")
-        state.refreshFromTree(tree)
+        session.refreshHandlers(tree)
         session.updatePage(newPage, tree)
         session.path = path
         wsSendJson(ws, FullTreeMsg(tree, path: path))
@@ -460,8 +453,8 @@ public class App {
             wsSendText(ws, msg)
         }
 
-        state.handlers.clear()
-        RenderContext.collectHandlersFromTree(session.tree, state.handlers)
+        session.handlers.clear()
+        RenderContext.collectHandlersFromTree(session.tree, session.handlers)
         RenderContext.clearDirty()
     }
 }

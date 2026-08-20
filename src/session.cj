@@ -18,6 +18,10 @@ public class Session {
     // 当前连接（服务端推送用：外部线程通过 App.pushUpdate 推补丁）
     // 连接建立时设置，断开时清空
     var ws: ?WebSocket
+    // 会话级 handler 注册表：startSession/pushUpdate/applyNav 渲染后
+    // 统一写入这里，listenLoop 分发 action/bind 也查这里——保证异步
+    // pushUpdate 渲染出的新 handler（如会话列表删除按钮）不丢失。
+    var handlers: HashMap<String, ActionHandler>
     var createdAt: Int64
     var lastActiveAt: Int64
     let context: HashMap<String, String>
@@ -30,6 +34,7 @@ public class Session {
         this.path = "/"
         this.wsState = WsState.Connecting
         this.ws = None
+        this.handlers = HashMap<String, ActionHandler>()
         this.createdAt = nowMillis()
         this.lastActiveAt = nowMillis()
         this.context = HashMap<String, String>()
@@ -38,6 +43,14 @@ public class Session {
 
     public func touch(): Unit {
         this.lastActiveAt = nowMillis()
+    }
+
+    /// 从会话树重建 handler 注册表（startSession/resumeSession/
+    /// pushUpdate/applyNav 渲染后调用——统一写入会话级 handlers，
+    /// 保证 listenLoop 分发 action/bind 时能看到全部 handler）。
+    public func refreshHandlers(tree: IComponent): Unit {
+        this.handlers.clear()
+        RenderContext.collectHandlersFromTree(tree, this.handlers)
     }
 
     public func updatePage(page: IComponent, tree: IComponent): Unit {

@@ -558,3 +558,24 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 **验证**
 - `cjpm test`：82 个单元测试全部通过（70 原有 + 12 日历纯逻辑）。
 - agent-browser（独立会话，examples /showcase → DatePicker）：单日期打开/选中/清除/今天高亮；区间双月面板、首次点选面板保持打开、二次点选完成并关闭、start/end/in-range 高亮、反向选择自动交换、disabled 全部正常。
+
+### 2026-08-20 Session 级 handler 注册表修复（异步 pushUpdate 渲染的 handler 丢失）
+
+**实现功能**
+- `Session` 增加 `handlers: HashMap<String, ActionHandler>`（会话级共享注册表）+ `refreshHandlers(tree)`。
+- `SessionState` 移除 `handlers` 字段；`dispatchAction`/`dispatchBind`/`sendPatch` 全部改查/写 `session.handlers`。
+- 所有渲染点（startSession/resumeSession/pushUpdate/applyNav）统一 `session.refreshHandlers(tree)`。
+- 新增 `session_test.cj`：3 个单测（rebuild/不累积/bind 收集）。
+
+**问题（根因）：异步 pushUpdate 渲染出的 handler 找不到 → 点击无响应**
+- 旧架构：`handlers` 存在 `SessionState` 里，而 `startSession` 和 `pushUpdate` **各自 new 一个 SessionState**。
+  - `startSession` 创建的 state 传给 `listenLoop` 用于分发 action。
+  - `pushUpdate`（如 ChatPage.refreshSessions 异步填充会话列表）创建**另一个** state，其 `sendPatch` 把 handler 写进**自己**的 state.handlers。
+  - → 异步渲染的新 handler（如会话列表的**删除按钮**）只进了临时 state，`listenLoop` 查的旧 state.handlers 里没有 → 点击删除无反应。
+- 表现：聊天页「发送」正常（bind/enter 同连接同步处理），但「删除会话」按钮点击无响应（handler 是异步 refreshSessions 渲染的）。
+- 修复：handlers 提升到 Session 级（所有渲染/分发共享同一 map），彻底消除 startSession 与 pushUpdate 的 state 分裂。
+
+**验证**
+- `cjpm test`：85 个单元测试全部通过（82 原有 + 3 Session 注册表）。
+- agent-browser（独立 socket 目录 + 命名会话）实测聊天页：发送消息 → 会话列表出现项 → 点删除按钮 → 回欢迎页 + 自动新建会话，全链路正常。
+- 注：agent-browser 在并行会话环境下必须 `AGENT_BROWSER_SOCKET_DIR=<可写目录>` + 命名会话隔离，否则 target 漂移（eval 打到 about:blank）。
