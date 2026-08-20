@@ -16,7 +16,7 @@ public class SelectOption <: Component {
 
     public func render(): IComponent { VNode("li", this._children, attrs: Some(HashMap<String, String>([("class", "el-select-dropdown__item")]))) }
 
-    func renderItem(currentValue: String, signal: Signal<String>, openSignal: Signal<Bool>): IComponent {
+    func renderItem(currentValue: String, signal: Signal<String>, openSignal: Signal<Bool>, onChange: Option<ActionHandler>): IComponent {
         let selected = this._value == currentValue
         var cls = "el-select-dropdown__item"
         if (selected) { cls = "${cls} is-selected" }
@@ -25,9 +25,19 @@ public class SelectOption <: Component {
         let v = this._value
         let s = signal
         let o = openSignal
+        let cb = onChange
         let item = VNode("li", this._children, attrs: Some(attrs))
         if (this._disabled) { item } else {
-            item.onClick({ ctx => s.set(v); o.set(false); PatchResult.ReRender })
+            item.onClick({ ctx =>
+                s.set(v)
+                o.set(false)
+                let r = match (cb) {
+                    case Some(fn) => fn(ctx)
+                    case None => ()
+                }
+                let _ = r
+                PatchResult.ReRender
+            })
         }
     }
 
@@ -67,6 +77,7 @@ public class Select <: Component {
     var _filterable: Bool = false
     var _open: Signal<Bool>
     var _filterText: Signal<String>
+    var _onChange: Option<ActionHandler> = None
 
     public init(children: Array<IComponent>) {
         this._children = children
@@ -80,6 +91,8 @@ public class Select <: Component {
     public func multiple(): Select { this._multiple = true; this }
     public func clearable(): Select { this._clearable = true; this }
     public func filterable(): Select { this._filterable = true; this }
+    // 单选选项选中后回调（值已写入信号）
+    public func onChange(h: ActionHandler): Select { this._onChange = Some(h); this }
 
     public func render(): IComponent {
         var cls = "el-select"
@@ -272,26 +285,27 @@ public class Select <: Component {
     }
 
     func buildDropdownItemsSingle(items: ArrayList<IComponent>, filterStr: String, o: Signal<Bool>, currentValue: String, s: Signal<String>): Unit {
+        let cb = this._onChange
         for (c in this._children) {
             match (c) {
-                case opt: SelectOption => this.addOptionIfFilterSingle(items, opt, filterStr, currentValue, s, o)
-                case g: SelectOptionGroup => this.addSingleOptionGroup(items, g, filterStr, currentValue, s, o)
+                case opt: SelectOption => this.addOptionIfFilterSingle(items, opt, filterStr, currentValue, s, o, cb)
+                case g: SelectOptionGroup => this.addSingleOptionGroup(items, g, filterStr, currentValue, s, o, cb)
                 case _ => items.add(c)
             }
         }
     }
 
-    func addOptionIfFilterSingle(items: ArrayList<IComponent>, opt: SelectOption, filterStr: String, currentValue: String, s: Signal<String>, o: Signal<Bool>): Unit {
+    func addOptionIfFilterSingle(items: ArrayList<IComponent>, opt: SelectOption, filterStr: String, currentValue: String, s: Signal<String>, o: Signal<Bool>, onChange: Option<ActionHandler>): Unit {
         if (filterStr == "" || this.extractLabel(opt).toAsciiLower().contains(filterStr)) {
-            items.add(opt.renderItem(currentValue, s, o))
+            items.add(opt.renderItem(currentValue, s, o, onChange))
         }
     }
 
-    func addSingleOptionGroup(items: ArrayList<IComponent>, g: SelectOptionGroup, filterStr: String, currentValue: String, s: Signal<String>, o: Signal<Bool>): Unit {
+    func addSingleOptionGroup(items: ArrayList<IComponent>, g: SelectOptionGroup, filterStr: String, currentValue: String, s: Signal<String>, o: Signal<Bool>, onChange: Option<ActionHandler>): Unit {
         let groupItems = ArrayList<IComponent>()
         for (gc in g.getChildren()) {
             match (gc) {
-                case opt: SelectOption => this.filterAddSingleOpt(groupItems, opt, filterStr, currentValue, s, o)
+                case opt: SelectOption => this.filterAddSingleOpt(groupItems, opt, filterStr, currentValue, s, o, onChange)
                 case _ => ()
             }
         }
@@ -305,9 +319,9 @@ public class Select <: Component {
         }
     }
 
-    func filterAddSingleOpt(groupItems: ArrayList<IComponent>, opt: SelectOption, filterStr: String, currentValue: String, s: Signal<String>, o: Signal<Bool>): Unit {
+    func filterAddSingleOpt(groupItems: ArrayList<IComponent>, opt: SelectOption, filterStr: String, currentValue: String, s: Signal<String>, o: Signal<Bool>, onChange: Option<ActionHandler>): Unit {
         if (filterStr == "" || this.extractLabel(opt).toAsciiLower().contains(filterStr)) {
-            groupItems.add(opt.renderItem(currentValue, s, o))
+            groupItems.add(opt.renderItem(currentValue, s, o, onChange))
         }
     }
 

@@ -54,6 +54,11 @@ class CangjieUI {
         for (const a of el.attributes) {
             if (a.name.startsWith('data-') && !a.name.startsWith('data-action-')) params[a.name.slice(5)] = a.value;
         }
+        // 表单控件（input/select/textarea）额外带上当前值，供 action 处理
+        const tag = el.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+            params.value = el.value !== undefined && el.value !== null ? String(el.value) : '';
+        }
         return params;
     }
     attachHistoryHandler() {

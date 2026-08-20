@@ -10,7 +10,7 @@ let componentNames: Array<String> = [
     "Text", "Link", "Tag", "Badge", "Space", "Icon",
     "Input", "InputNumber", "Switch", "Radio", "Checkbox",
     "Rate", "Select", "Slider", "Form", "Table", "Dialog", "Drawer", "Tooltip", "Popover",
-    "Progress", "Avatar", "Empty", "Descriptions", "Statistic", "Result"
+    "Progress", "Avatar", "Empty", "Descriptions", "Statistic", "Result", "Pagination"
 ]
 
 class ShowcaseState <: AppState {
@@ -26,6 +26,8 @@ class ShowcaseState <: AppState {
     var groupValue = Signal<String>("")
     var multiSelectValue = Signal<ArrayList<String>>(ArrayList<String>(["a"]))
     var sliderValue = Signal<Int64>(30)
+    var paginationPage = Signal<Int64>(1)
+    var paginationSize = Signal<Int64>(10)
     var formUsername = Signal<String>("")
     var formPassword = Signal<String>("")
     var formUserError = Signal<String>("")
@@ -136,6 +138,7 @@ class ShowcasePage <: Component {
             case "Descriptions" => this.demoDescriptions()
             case "Statistic" => this.demoStatistic()
             case "Result" => this.demoResult()
+            case "Pagination" => this.demoPagination()
             case _ => text("选择左侧组件查看示例")
         }
     }
@@ -730,6 +733,45 @@ class ShowcasePage <: Component {
                 .subTitle("请检查网络连接后重试")
                 .icon(ResultIcon.Error),
         ], attrs: Some(HashMap<String, String>([("class", cls("result-demo"))])))
+    }
+
+    func demoPagination(): IComponent {
+        let st = this.state
+        div([
+            div([text("基础分页（prev / pager / next / total）")], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
+            div([
+                Pagination()
+                    .total(500)
+                    .currentPage(st.paginationPage)
+                    .pageSize(st.paginationSize)
+                    .background(),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([text("完整布局（prev / pager / next / sizes / jumper / total）")], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
+            div([
+                Pagination()
+                    .total(1000)
+                    .layout("prev, pager, next, sizes, jumper, total")
+                    .pageSizes([10, 20, 50, 100])
+                    .currentPage(st.paginationPage)
+                    .pageSize(st.paginationSize)
+                    .background(),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([text("小尺寸 + 单页隐藏")], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
+            div([
+                Pagination()
+                    .total(3)
+                    .pageSizes([5, 10])
+                    .currentPage(st.paginationPage)
+                    .pageSize(st.paginationSize)
+                    .small(),
+                Pagination()
+                    .total(3)
+                    .currentPage(st.paginationPage)
+                    .pageSize(st.paginationSize)
+                    .hideOnSinglePage(),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([text("当前状态：第 ${st.paginationPage.get()} 页，每页 ${st.paginationSize.get()} 条（共 1000 条）")], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+        ], attrs: Some(HashMap<String, String>([("class", cls("pagination-demo"))])))
     }
 
     // ============ Props ============

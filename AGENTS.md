@@ -142,27 +142,35 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 
 ## 后续计划
 
-### P0 — 框架基础设施
+> 组件一律参照 Element Plus（本地 `~/Projects/element-plus/`）的属性/样式/事件实现。
+
+### P0 — 框架基础设施（已完成）
 - [x] 路由参数 `[id]`：RouteRegistry 改用 RouteEntry.doMatch 匹配，支持 `/user/[id]`
 - [x] Form 增强：校验体系（rules、validate、状态 class）
 - [x] History API（Issue #1）：前端 pushState/popstate 全流程
 - [x] onClick 简化重载：Button/MenuItem/Tag/Link 支持 `(ActionContext) -> Unit`
-- [x] 优化组件样式导入：`@EmbedString` + `App.addCSS`/`UseComponent` 实现 CSS 编译时嵌入+运行时服务。依赖 cjxt 的项目不再需要 `componentsCss` + `serveStatic` 服务独立 CSS 文件。`download-ep-css.sh` 保留供其他场景使用
+- [x] 优化组件样式导入：`@EmbedString` + `App.addCSS`/`UseComponent` 实现 CSS 编译时嵌入+运行时服务
+- [x] Tooltip / Popover（客户端组件）
+- [x] Progress / Avatar / Empty / Descriptions / Statistic / Result（数据展示组件）
+- [x] 按键事件：稳定 handler id（路径派生）+ KeyEvent 模型（keydown/keyup/修饰键）
 
-### P1 — 组件完善
-- [x] Table + TableColumn：数据驱动 / 排序 / 多选 / 高亮当前行 / 斑马纹 / 边框 / 固定列 / 汇总行
-- [x] Dialog：模态框
-- [x] Drawer：抽屉
-- [ ] Tooltip / Popover：定位浮层
-- [ ] Tabs：标签页
-- [ ] Progress / Avatar / Empty：简单展示组件
+### P1 — ERP/Chat 第一批（业务最小可用）
+- [x] Pagination 分页（Table 配套，Signal 驱动 currentPage/pageSize）
+- [ ] DatePicker / DateRange / Calendar（ERP 单据/报表日期字段）
+- [ ] Message / Notification / Loading / Skeleton（反馈体系）
+- [ ] Tabs 标签页（多标签工作台布局）
+- [ ] Markdown 渲染组件（Agent Chat 消息可读）
+- [ ] 聊天自动滚动 + 流式消息优化
 
-### P2 — 基础设施第二阶段
-- [x] #3 客户端组件（Client Component）：`@ClientComponent` 宏 + `ClientComponentNode` + 前端运行时 + Tooltip 示例
+### P2 — 基础设施第二阶段（架构投入，影响面最大）
+- [ ] 补丁粒度细化：元素级 diff / keyed reconciliation（替换废弃的 diff.cj），流式/大数据不再整页重建
+- [ ] 虚拟滚动（列表 / Table / 长消息流）
 - [ ] #4 DOM 事务（DOM Transaction）：批量更新 + 过渡动画
 
-### P3 — 剩余组件
-- [ ] P0/P1 完成后的全部剩余组件（Dropdown / Pagination / Tree / DatePicker 等）
+### P3 — ERP/Chat 第三批（体验完整）
+- [ ] Upload 附件、Tree/TreeTable、Dropdown、Cascader、Steps、Breadcrumb
+- [ ] 图表集成、Excel/CSV 导出
+- [ ] 无障碍（ARIA）、i18n、主题 token
 
 ### 不做先行
 - HMR、code splitting — Cangjie 静态编译无需
@@ -471,3 +479,30 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 - `cjpm test`：58 个单元测试全部通过（49 原有 + 3 稳定性 + 9 KeyEvent/params 解析）。
 - agent-browser（examples /todo）：回车添加、Esc 清空、点击添加、输入后立即回车全部正常；受控单次 keydown 派发 = 单次 action（`agent-browser press Enter` 会多次派发 keydown 导致误加，属工具行为）。
 - 注：harness-cj 构建有**预先存在**的依赖冲突（`bstorm 1.4.0` 要求 `gjson = 1.1.1`，harness 用 path 依赖 `gjson-cj 1.2.1`），清 cjxt 缓存触发重解析才暴露；00:31 能构建是 bstorm 有缓存。与本次改动无关，需单独解决。
+
+### 2026-08-20 Pagination 分页组件（ERP 第一批 #1）
+
+**实现功能**
+- 完整 Pagination 组件，对齐 Element Plus：`prev/pager/next/total/sizes/jumper` 六段布局（layout 字符串控制顺序）、pagerCount 折叠省略号、background/small/disabled/hideOnSinglePage、prevText/nextText。
+- 纯逻辑抽到 `src/pager.cj`（package cjxt）：`computePageCount`（向上取整）、`computePager`（对齐 EP pager.vue 的 pagers 算法：showPrevMore/showNextMore + 中间页数组）、`clampPage`——10 个单测覆盖。
+- 状态外置：`currentPage(Signal<Int64>)` / `pageSize(Signal<Int64>)`（对齐 Table 实践，跨重渲染持久化）。
+- 事件：`onCurrentChange` / `onSizeChange` / `onChange`（页变化触发；先写信号再回调）。
+- sizes 复用 Select 组件（给 Select 加了可选 `onChange(h)`：选项选中后回调，值已写入信号）。
+- jumper 输入框：不 bind，直接 `onKeydown`，通过增强后的 `collectParams`（表单控件附带 `value`）在回车 action 里拿到页码。
+- 新增 "more" 图标（EP MoreFilled 三点路径）到 Icons.cj。
+
+**问题 1：子组件 `.render()` 内联会破坏脏追踪作用域（sizes 下拉打不开）**
+- 坑：`buildSizes` 里写 `VNode("span", [sel.render()], ...)`（内联 Select 的渲染结果），导致 Select 不是独立 Component 节点，`_open` 信号被订阅到**父组件 Pagination** 上；点开下拉 → `_open.set(true)` → Pagination 重渲染 → new 出全新 Select（`_open=false`）→ 下拉永远打不开。
+- 修复：把 `Select(...)`（Component 本身）作为 span 的 children 传入，不调 `.render()`。expandTree 会把它当 `case b: Component` 处理 → 自己的 renderWithScope → 正确的脏追踪。
+- 结论：**组件树里内联 `.render()` 会破坏子组件的独立脏追踪/信号状态，应把组件实例作为 children 节点传入**。
+
+**问题 2：Cangjie 约束**
+- match arm `=> {}` 块内不能写 `let`：`case Some(fn) => { let _ = fn(ctx); () }` 编译报错。提取为 `func runCb(fn, ctx): Unit { let _ = fn(ctx); () }`。
+- `Int64.parse` 需 `import std.convert.*`（Pagination.cj 里漏过一次）。
+- `String.trim` 未确认，用字节级 `trimKey`（跳过 32u8/9u8）替代。
+- `VNode.attr()/className()/style()` 是**整表替换** attrs，不是合并——jumper 输入框的 class/type/value 必须一次构造进 attrs。
+
+**验证**
+- `cjpm test`：70 个单元测试全部通过（60 原有 + 10 Pagination 纯逻辑）。
+- agent-browser（examples /showcase → Pagination）：prev/next、页码点击、省略号快退快进、jumper 回车跳页、sizes 下拉改每页条数（50 条 → 页码正确 clamp）、共享信号跨实例同步、hideOnSinglePage/small/background 全部正常。
+- 注：工作区有**并行会话**的未提交改动（app.cj 的 App.stop()/finally unlock、registry.cj、session.cj），提交时需只 add 自己的文件，避免误并。
