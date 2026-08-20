@@ -506,3 +506,26 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 - `cjpm test`：70 个单元测试全部通过（60 原有 + 10 Pagination 纯逻辑）。
 - agent-browser（examples /showcase → Pagination）：prev/next、页码点击、省略号快退快进、jumper 回车跳页、sizes 下拉改每页条数（50 条 → 页码正确 clamp）、共享信号跨实例同步、hideOnSinglePage/small/background 全部正常。
 - 注：工作区有**并行会话**的未提交改动（app.cj 的 App.stop()/finally unlock、registry.cj、session.cj），提交时需只 add 自己的文件，避免误并。
+
+### 2026-08-20 execMutex 静态锁泄漏 + RouteRegistry 同路径替换（harness 融合稳定性修复）
+
+**实现功能**
+- `App.stop()`：停 tang 服务器 + `SessionManager.clearAll()` 清会话（测试清理/生命周期管理用）。
+- `SignalTracker.execMutex` 解锁移入 `finally`：runAction/pushUpdate/dispatchBind 三处。
+- `RouteRegistry.register` 同路径重复注册改为**替换**（后注册者生效），新增 `removeEntry` 私有方法 + `entriesSize()`。
+
+**问题 1（根因）：handler 抛非 Error 异常 → execMutex 永久泄漏 → 全量单测间歇死锁**
+- 旧代码 `try { ... } catch (e: Error) { ... } SignalTracker.execMutex.unlock()`——`catch (e: Error)` 只捕获 `Error` 子类，handler 抛普通 `Exception`（如 WS 已关闭时 `wsSendJson` 抛的 socket 异常）时**跳过 unlock**。
+- `execMutex` 是 `SignalTracker` 的 **static** 锁，跨所有 App 实例共享 → 泄漏后**所有**会话/测试的 `pushUpdate` 永久阻塞。
+- 表现：harness 全量单测里 `testFullChain`（WS 推送 e2e）间歇性挂起——先跑 ChatLayout e2e（`refreshSessions` 异步 pushUpdate 写已关闭的 WS 抛 Exception）就泄漏锁，后续任何 pushUpdate 死锁；单独跑/成对跑通过是因为时序不同。
+- 修复：解锁移入 `finally`（无论异常与否都执行）。Cangjie 的 try 表达式支持 `finally` 块。
+- 回归测试：`testThrowingPushUpdateReleasesExecMutex`（harness_tests）——先触发一次抛 Exception 的 pushUpdate，再执行正常 pushUpdate 断言能拿到锁（旧代码此处死锁）。
+
+**问题 2：RouteRegistry.global() 是进程级单例，register 追加导致陈旧路由残留**
+- 旧代码 `entries.add(...)` 追加；多个 App/测试在同一进程注册同一路径时，`resolve` 取**第一个**匹配 → 先注册的陈旧工厂（绑定了已停的 host）残留，后续连接解析到错误页面/挂死。
+- 修复：register 先 `removeEntry(path)` 删同路径旧条目再 add（后注册者生效），与 `titles/guards/layouts` 的覆盖语义一致。
+- 回归测试：`testRegisterReplacesSamePath` / `testRegisterReplaceKeepsOtherPaths`（registry_test.cj）。
+
+**验证**
+- `cjpm test`：70 个单元测试全部通过（60 原有 + 2 新注册替换 + Select.cj 的 match-arm 修复让全新编译通过）。
+- harness-cj 全量 `cjpm test`：80 个测试全部通过（此前全量挂起 600s 超时，修复后稳定通过）。
