@@ -1,11 +1,57 @@
 package cjxt
 
 import std.collection.{HashMap, ArrayList}
+import std.convert.*
 import std.reflect.*
 import stdx.encoding.json.stream.{JsonWriter, JsonSerializable}
 import stdx.net.http.WebSocket
 
 public interface AppState {}
+
+// 按键事件信息：由前端 keydown/keyup 委托捕获，随 action 消息回传服务端
+public struct KeyEvent {
+    public let key: String
+    public let code: String
+    public let keyCode: Int64
+    public let ctrl: Bool
+    public let shift: Bool
+    public let alt: Bool
+    public let meta: Bool
+
+    public init(key: String, code: String, keyCode: Int64, ctrl: Bool, shift: Bool, alt: Bool, meta: Bool) {
+        this.key = key
+        this.code = code
+        this.keyCode = keyCode
+        this.ctrl = ctrl
+        this.shift = shift
+        this.alt = alt
+        this.meta = meta
+    }
+
+    public func isEnter(): Bool { this.key == "Enter" || this.code == "Enter" }
+    public func isEscape(): Bool { this.key == "Escape" || this.code == "Escape" }
+    public func isTab(): Bool { this.key == "Tab" || this.code == "Tab" }
+    public func isCtrlEnter(): Bool { this.ctrl && this.isEnter() }
+}
+
+// 从 action 的 params（前端回传的按键字段）解析 KeyEvent
+// params 里没有 key 字段（普通点击/非按键 action）时返回 None
+public func parseKeyEvent(params: HashMap<String, String>): Option<KeyEvent> {
+    match (params.get("key")) {
+        case Some(k) =>
+            let code = match (params.get("code")) { case Some(c) => c case None => "" }
+            let keyCode = match (params.get("keyCode")) {
+                case Some(kc) => try { Int64.parse(kc) } catch (_) { 0 }
+                case None => 0
+            }
+            let ctrl = match (params.get("ctrl")) { case Some(v) => v == "1" case None => false }
+            let shift = match (params.get("shift")) { case Some(v) => v == "1" case None => false }
+            let alt = match (params.get("alt")) { case Some(v) => v == "1" case None => false }
+            let meta = match (params.get("meta")) { case Some(v) => v == "1" case None => false }
+            Some(KeyEvent(k, code, keyCode, ctrl, shift, alt, meta))
+        case None => None
+    }
+}
 
 func doGetState<T>(s: AppState): T where T <: AppState {
     match (s) {
@@ -89,8 +135,9 @@ public struct ActionContext {
     let pushFn: (Array<PatchEntryMsg>) -> Unit
     let sessionStates: HashMap<String, AppState>
     public let route: RouteContext
+    public let keyEvent: Option<KeyEvent>
 
-    public init(sessionId: String, context: HashMap<String, String>, params: HashMap<String, String>, router: Router, pushFn!: (Array<PatchEntryMsg>) -> Unit = { _ => () }, sessionStates!: HashMap<String, AppState> = HashMap<String, AppState>()) {
+    public init(sessionId: String, context: HashMap<String, String>, params: HashMap<String, String>, router: Router, pushFn!: (Array<PatchEntryMsg>) -> Unit = { _ => () }, sessionStates!: HashMap<String, AppState> = HashMap<String, AppState>(), keyEvent!: Option<KeyEvent> = None) {
         this.sessionId = sessionId
         this.context = context
         this.params = params
@@ -98,6 +145,7 @@ public struct ActionContext {
         this.pushFn = pushFn
         this.sessionStates = sessionStates
         this.route = RouteContext(params: HashMap<String, String>(), pushFn: Some({ p => router.push(p) }))
+        this.keyEvent = keyEvent
     }
 
     public func push(patches: Array<PatchEntryMsg>): Unit {

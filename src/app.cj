@@ -273,7 +273,10 @@ public class App {
                     }
                 } else if (t == "action") {
                     let name = readField(raw, "name")
-                    if (name != "") { this.dispatchAction(ws, state, session, name) }
+                    if (name != "") {
+                        let params = readActionParams(raw)
+                        this.dispatchAction(ws, state, session, name, params)
+                    }
                 } else if (t == "bind") {
                     let name = readField(raw, "name")
                     let value = readBindValue(raw)
@@ -292,20 +295,21 @@ public class App {
         session.tree = RenderContext.expandTree(state.page.renderWithScope(), "")
     }
 
-    private func dispatchAction(ws: WebSocket, state: SessionState, session: Session, name: String): Unit {
+    private func dispatchAction(ws: WebSocket, state: SessionState, session: Session, name: String, params: HashMap<String, String>): Unit {
         match (state.handlers.get(name)) {
-            case Some(fn) => this.runAction(ws, state, session, name, fn)
+            case Some(fn) => this.runAction(ws, state, session, name, fn, params)
             case None => ()
         }
     }
 
-    private func runAction(ws: WebSocket, state: SessionState, session: Session, name: String, fn: ActionHandler): Unit {
+    private func runAction(ws: WebSocket, state: SessionState, session: Session, name: String, fn: ActionHandler, params: HashMap<String, String>): Unit {
         SignalTracker.execMutex.lock()
         let flag = NavFlag()
         let router = Router("", { path => this.execNavAction(ws, state, session, flag, path) })
-        let ctx = ActionContext("", session.context, HashMap<String, String>(), router, pushFn: { patches =>
+        let keyEvent = parseKeyEvent(params)
+        let ctx = ActionContext("", session.context, params, router, pushFn: { patches =>
             wsSendJson(ws, PushMsg(patches))
-        }, sessionStates: session.states)
+        }, sessionStates: session.states, keyEvent: keyEvent)
         try {
             match (fn(ctx)) {
                 case PatchResult.ReRender => if (!flag.done) { this.sendPatch(ws, state, session) }
@@ -484,6 +488,81 @@ private func readBindValue(raw: String): String {
     match (raw.indexOf(mark)) {
         case Some(idx) => doReadBindValue(raw, idx + mark.size)
         case None => ""
+    }
+}
+
+// 解析 action 消息中的 params 对象（前端所有参数值均为字符串，如按键信息）
+func readActionParams(raw: String): HashMap<String, String> {
+    let result = HashMap<String, String>()
+    let mark = "\"params\":{"
+    match (raw.indexOf(mark)) {
+        case Some(start) =>
+            let body = extractJsonObjectBody(raw, start + mark.size)
+            if (body != "") { parseStringPairs(body, result) }
+        case None => ()
+    }
+    result
+}
+
+// 从指定起点提取匹配的 JSON 对象体（跳过字符串字面量，处理嵌套 {}）
+func extractJsonObjectBody(s: String, from: Int64): String {
+    var depth: Int64 = 1
+    var i = from
+    while (i < s.size) {
+        let ch = s[i]
+        if (ch == 123u8) {
+            depth += 1
+        } else if (ch == 125u8) {
+            depth -= 1
+            if (depth == 0) {
+                return s[from..i]
+            }
+        } else if (ch == 34u8) {
+            i += 1
+            while (i < s.size) {
+                if (s[i] == 92u8) {
+                    i += 2
+                } else if (s[i] == 34u8) {
+                    i += 1
+                    break
+                } else {
+                    i += 1
+                }
+            }
+            continue
+        }
+        i += 1
+    }
+    ""
+}
+
+// 解析 body 内所有 "key":"value" 键值对（值为字符串；跳过非字符串值）
+func parseStringPairs(body: String, out: HashMap<String, String>): Unit {
+    var i: Int64 = 0
+    while (i < body.size) {
+        match (body.indexOf("\"", i)) {
+            case Some(q1) =>
+                match (body.indexOf("\"", q1 + 1)) {
+                    case Some(q2) =>
+                        let key = body[q1 + 1..q2]
+                        // 跳过键后的空白与冒号
+                        var j = q2 + 1
+                        while (j < body.size && (body[j] == 32u8 || body[j] == 58u8)) { j += 1 }
+                        if (j < body.size && body[j] == 34u8) {
+                            let vs = j + 1
+                            match (body.indexOf("\"", vs)) {
+                                case Some(ve) =>
+                                    out[key] = body[vs..ve]
+                                    i = ve + 1
+                                case None => break
+                            }
+                        } else {
+                            i = j
+                        }
+                    case None => break
+                }
+            case None => break
+        }
     }
 }
 

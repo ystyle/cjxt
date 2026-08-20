@@ -15,16 +15,46 @@ class CangjieUI {
         this.connectWS();
     }
     attachKeyDelegate() {
-        this.container.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                const el = e.target.closest('[data-action-keydown_enter]');
-                if (el) {
-                    e.preventDefault();
-                    const name = el.getAttribute('data-action-keydown_enter');
-                    this.send({ type: 'action', name, params: {}, sessionId: this.sessionId });
+        this.attachKeyEvent('keydown');
+        this.attachKeyEvent('keyup');
+    }
+    attachKeyEvent(type) {
+        this.container.addEventListener(type, (e) => {
+            const el = e.target.closest('[data-action-keydown],[data-action-keyup],[data-action-keydown_enter]');
+            if (!el) return;
+            let name = null;
+            if (type === 'keydown') {
+                const kd = el.getAttribute('data-action-keydown');
+                if (kd) {
+                    name = kd;
+                } else {
+                    const enter = el.getAttribute('data-action-keydown_enter');
+                    if (enter && e.key === 'Enter') name = enter;
                 }
+            } else {
+                name = el.getAttribute('data-action-keyup');
             }
+            if (!name) return;
+            // keydown_enter 是显式回车命令：阻止默认行为（避免触发表单提交等）；
+            // 通用 keydown 不 preventDefault，否则会破坏输入（backspace/字符键）。
+            if (type === 'keydown' && !el.getAttribute('data-action-keydown')) e.preventDefault();
+            const params = this.collectParams(el);
+            params.key = e.key;
+            params.code = e.code;
+            params.keyCode = String(e.keyCode);
+            params.ctrl = e.ctrlKey ? '1' : '0';
+            params.shift = e.shiftKey ? '1' : '0';
+            params.alt = e.altKey ? '1' : '0';
+            params.meta = e.metaKey ? '1' : '0';
+            this.send({ type: 'action', name, params, sessionId: this.sessionId });
         });
+    }
+    collectParams(el) {
+        const params = {};
+        for (const a of el.attributes) {
+            if (a.name.startsWith('data-') && !a.name.startsWith('data-action-')) params[a.name.slice(5)] = a.value;
+        }
+        return params;
     }
     attachHistoryHandler() {
         window.addEventListener('popstate', () => {
@@ -37,11 +67,7 @@ class CangjieUI {
             const el = e.target.closest('[data-action-click]');
             if (!el) return;
             const name = el.getAttribute('data-action-click');
-            const params = {};
-            for (const a of el.attributes) {
-                if (a.name.startsWith('data-') && !a.name.startsWith('data-action-')) params[a.name.slice(5)] = a.value;
-            }
-            this.send({ type: 'action', name, params, sessionId: this.sessionId });
+            this.send({ type: 'action', name, params: this.collectParams(el), sessionId: this.sessionId });
         });
     }
     connectWS() {
@@ -131,15 +157,11 @@ class CangjieUI {
         for (const ev in node.actions || {}) {
             const action = node.actions[ev];
             el.setAttribute('data-action-' + ev, action);
-            if (ev !== 'click') {
+            if (ev !== 'click' && ev !== 'keydown' && ev !== 'keyup' && ev !== 'keydown_enter') {
                 el.addEventListener(ev, (e) => {
                     const name = el.getAttribute('data-action-' + ev);
                     if (!name) return;
-                    const params = {};
-                    for (const a of el.attributes) {
-                        if (a.name.startsWith('data-') && !a.name.startsWith('data-action-')) params[a.name.slice(5)] = a.value;
-                    }
-                    this.send({ type: 'action', name, params, sessionId: this.sessionId });
+                    this.send({ type: 'action', name, params: this.collectParams(el), sessionId: this.sessionId });
                 });
             }
         }
@@ -158,9 +180,10 @@ class CangjieUI {
             const value = el.type === 'range' ? parseFloat(raw) : raw;
             this.send({ type: 'bind', name: bid, value });
         };
-        el.addEventListener('compositionstart', () => { composing = true; });
+        el.addEventListener('compositionstart', () => { composing = true; el.dataset.composing = '1'; });
         el.addEventListener('compositionend', () => {
             composing = false;
+            delete el.dataset.composing;
             clearTimeout(timer);
             timer = setTimeout(send, 300);
         });
@@ -215,7 +238,6 @@ class CangjieUI {
         const focusIdx = activeEl ? allInputs.indexOf(activeEl) : -1;
         const focusSelStart = activeEl ? activeEl.selectionStart : null;
         const focusSelEnd = activeEl ? activeEl.selectionEnd : null;
-        if (activeEl) { delete activeEl.dataset.bindDirty; }
 
         for (const p of trees) {
             const parts = (p.path || '').split('/').filter(Boolean);
@@ -234,11 +256,17 @@ class CangjieUI {
             if (p.op === 'replace' && p.tree) {
                 const old = parentEl.childNodes[idx];
                 if (old) {
-                    // 绑定 input 且无 IME 组合时只更新 value，保持 IME 状态
+                    // 绑定 input 只更新 value，保持元素引用与 IME 状态；
+                    // 服务端值有变化时（如清空命令、发送后清空）也要应用——
+                    // 但若正在 IME 组合或用户仍在输入（bindDirty 未提交）则跳过，避免覆盖。
                     if ((old.tagName === 'INPUT' || old.tagName === 'TEXTAREA') && old.hasAttribute('data-bind-id')) {
                         const newVal = p.tree.attrs && p.tree.attrs.value;
-                        if (newVal !== undefined && newVal !== null && old !== document.activeElement) {
-                            old.value = newVal;
+                        if (newVal !== undefined && newVal !== null && old.value !== newVal) {
+                            const composing = old.dataset.composing === '1';
+                            const dirty = old.dataset.bindDirty === '1';
+                            if (!composing && !dirty) {
+                                old.value = newVal;
+                            }
                         }
                     } else {
                         // 替换前销毁旧的 client 组件
@@ -250,6 +278,9 @@ class CangjieUI {
                 }
             }
         }
+
+        // 补丁应用完成：输入已与服务端同步，清除 dirty 标记
+        if (activeEl) { delete activeEl.dataset.bindDirty; }
 
         if (focusIdx >= 0) {
             const newInputs = document.querySelectorAll('input,textarea');
@@ -308,15 +339,11 @@ class CangjieUI {
         for (const ev in node.actions || {}) {
             const action = node.actions[ev];
             el.setAttribute('data-action-' + ev, action);
-            if (ev !== 'click') {
+            if (ev !== 'click' && ev !== 'keydown' && ev !== 'keyup' && ev !== 'keydown_enter') {
                 el.addEventListener(ev, (e) => {
                     const name = el.getAttribute('data-action-' + ev);
                     if (!name) return;
-                    const params = {};
-                    for (const a of el.attributes) {
-                        if (a.name.startsWith('data-') && !a.name.startsWith('data-action-')) params[a.name.slice(5)] = a.value;
-                    }
-                    this.send({ type: 'action', name, params, sessionId: this.sessionId });
+                    this.send({ type: 'action', name, params: this.collectParams(el), sessionId: this.sessionId });
                 });
             }
         }

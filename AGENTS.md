@@ -440,3 +440,34 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 
 **验证**
 - `cjpm test`：46 个单元测试全部通过（42 原有 + 4 新增 pushUpdate 守卫路径）。
+
+### 2026-08-20 按键事件 + 稳定 handler id（回车发送修复 + 完整 KeyEvent 模型）
+
+**实现功能**
+- 完整 KeyEvent 模型：`KeyEvent` 结构（key/code/keyCode/ctrl/shift/alt/meta + `isEnter()/isEscape()/isCtrlEnter()`），`ActionContext.keyEvent: Option<KeyEvent>`，`VNode.onKeydown/onKeyup` 便捷 API。
+- 前端按键委托泛化：`attachKeyDelegate` 改为 keydown+keyup 委托，params 回传 key/code/keyCode/修饰键；`keydown_enter`（回车命令）向后兼容保留。
+- 服务端解析 action 的 params：`readActionParams`（从 WS 原始 JSON 提取 `"params":{}` 对象）+ `parseKeyEvent`，action 的 params 不再被丢弃（点击的 `data-*` 参数也一并可用）。
+- examples todo 页改用它做演示：回车添加 / Esc 清空（`on("keydown", ...)` + `ctx.keyEvent`）。
+
+**问题 1（根因）：handler id 每次重渲染都变 → 事件失效（回车用不了）**
+- `VNode.on/bind/onClick` 用全局计数 `nextHid()/nextBid()` 生成 id；服务端每次重渲染（bind 触发、push 更新）都重新 render → 全新 id。
+- 前端 `applyTreePatches` 对绑定 input 只更新 value、不更新 `data-action-*` 属性（保 IME 状态）→ DOM 上的旧 id 过期 → `dispatchAction` 查不到 handler → 回车/点击无响应。
+- 修复：`RenderContext.expandTree` 里 `stabilizeVNodeHandlers` 把 handler id 从全局计数改为**节点路径 + 事件**派生（`h:${path}:${ev}` / `b:${path}:bind`），重渲染后 id 不变。只对 `_handlers` 里存在的真 handler id 重映射，字面量命名 action（`button(actions:{"click":"submit"})`）保持原样。
+- 坑：重映射后必须记录已消费的原始 id（`consumed`），否则"保留未引用 handler"的逻辑会把原始 `_h1` 加回来导致一个 handler 重复收集（`testExpandActionIdsConsistent` 就因此挂过一次）。
+
+**问题 2：Escape 清空命令不更新聚焦输入框的 DOM value**
+- `applyTreePatches` 原来对聚焦的绑定 input 一律跳过 value 更新（防覆盖正在输入的内容）→ 服务端清了信号，DOM 还显示旧文本。
+- 修复：仅在**值确实变化**时应用，且跳过 IME 组合中（`data-composing`）与输入未提交（`data-bindDirty`）两种情况；`bindDirty` 的清理从补丁前移到补丁应用后。
+- `attachBind` 的 compositionstart/end 现在把组合状态写到元素 `data-composing`，供 `applyTreePatches` 读取。
+
+**问题 3：`' '` 单引号空格字面量被 Cangjie 解析成 String**
+- `s[i] == ' '` 编译报 `invalid binary operator '==' on type 'UInt8' and 'Struct-String'`。
+- 修复：JSON 解析器的字符比较一律用字节字面量（`32u8`/`58u8`/`34u8`/`123u8` 等），对齐 `define_css.cj` 的 `46u8` 写法。
+
+**问题 4：WS 新建会话总是解析 `/` 根路由**
+- 调试 WS 时用全新 sessionId 连接拿到的不是当前 URL 的页面，而是根页面。要先 GET 目标路径拿 sessionId，再带 sessionId 连 WS `resumeSession` 恢复对应会话。
+
+**验证**
+- `cjpm test`：58 个单元测试全部通过（49 原有 + 3 稳定性 + 9 KeyEvent/params 解析）。
+- agent-browser（examples /todo）：回车添加、Esc 清空、点击添加、输入后立即回车全部正常；受控单次 keydown 派发 = 单次 action（`agent-browser press Enter` 会多次派发 keydown 导致误加，属工具行为）。
+- 注：harness-cj 构建有**预先存在**的依赖冲突（`bstorm 1.4.0` 要求 `gjson = 1.1.1`，harness 用 path 依赖 `gjson-cj 1.2.1`），清 cjxt 缓存触发重解析才暴露；00:31 能构建是 bstorm 有缓存。与本次改动无关，需单独解决。

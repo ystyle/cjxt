@@ -106,6 +106,15 @@ public struct VNode <: IComponent {
         VNode(this._tag, this._children, attrs: this._attrs, key: this._key, actions: Some(acts), handlers: Some(hmap))
     }
 
+    // 按键事件便捷注册：任意键按下/抬起，handler 通过 ctx.keyEvent 读取按键信息
+    public func onKeydown(h: ActionHandler): VNode {
+        this.on("keydown", h)
+    }
+
+    public func onKeyup(h: ActionHandler): VNode {
+        this.on("keyup", h)
+    }
+
     public func bind<T>(signal: Signal<T>): VNode where T <: ToString & JsonDeserializable<T> {
         let id = nextBid()
         let attrs = addAttrItem(this._attrs, "data-bind-id", id)

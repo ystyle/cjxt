@@ -35,6 +35,89 @@ func doCollectMap(m: HashMap<String, ActionHandler>, out: HashMap<String, Action
     for ((k, v) in m) { out.add(k, v) }
 }
 
+// 把 VNode 的 handler id 从「全局计数」稳定化为「节点路径 + 事件」派生。
+// 服务端每次重渲染都会重新调用 render()/nextHid() 生成全新 id，若前端 DOM
+// 上的 data-action-* 属性持有旧 id，事件（点击/按键）就会因 handler 查不到而失效。
+// 稳定 id 使重渲染后 id 不变，前端属性无需同步也不会过期。
+func stabilizeVNodeHandlers(v: VNode, path: String): VNode {
+    var newActions: Option<ActionMap> = None
+    var newAttrs: Option<Attributes> = None
+    let newHandlers = HashMap<String, ActionHandler>()
+    // 记录已被稳定化重映射的原始 id（重映射后原始 id 不再保留）
+    let consumed = ArrayList<String>()
+
+    // 1) 重映射 actions：仅当该值在 _handlers 中存在（真 handler id）才稳定化；
+    //    字面量命名 action（button(actions: {"click": "submit"})）保持原样。
+    match (v._actions) {
+        case Some(a) =>
+            let na = HashMap<String, String>()
+            for ((ev, val) in a) {
+                match (v._handlers) {
+                    case Some(h) => match (h.get(val)) {
+                        case Some(fn) =>
+                            let stable = makeStableHandlerId(path, ev)
+                            na[ev] = stable
+                            newHandlers[stable] = fn
+                            consumed.add(val)
+                        case None => na[ev] = val
+                    }
+                    case None => na[ev] = val
+                }
+            }
+            newActions = Some(na)
+        case None => ()
+    }
+
+    // 2) 重映射 bind handler：data-bind-id → "${path}:bind"
+    match (v._attrs) {
+        case Some(m) => match (m.get("data-bind-id")) {
+            case Some(oldBid) =>
+                match (v._handlers) {
+                    case Some(h) => match (h.get(oldBid)) {
+                        case Some(fn) =>
+                            let stable = makeStableBindId(path)
+                            newHandlers[stable] = fn
+                            consumed.add(oldBid)
+                            let na = doCloneAttrMap(m)
+                            na["data-bind-id"] = stable
+                            newAttrs = Some(na)
+                        case None => newAttrs = Some(m)
+                    }
+                    case None => newAttrs = Some(m)
+                }
+            case None => newAttrs = Some(m)
+        }
+        case None => ()
+    }
+
+    // 3) 保留未被 actions/bind 引用的其他 handler（防御性，一般不存在）
+    match (v._handlers) {
+        case Some(h) =>
+            for ((id, fn) in h) {
+                if (!consumed.contains(id)) { newHandlers[id] = fn }
+            }
+        case None => ()
+    }
+
+    let finalHandlers = if (newHandlers.size > 0) { Some(newHandlers) } else { v._handlers }
+    VNode(v._tag, v._children, attrs: newAttrs, key: v._key, actions: newActions, handlers: finalHandlers)
+}
+
+// 路径中的分隔符对 JS 属性名/服务端 map key 都是安全的（含 / : 字符）
+func makeStableHandlerId(path: String, ev: String): String {
+    if (path == "") { "h:${ev}" } else { "h:${path}:${ev}" }
+}
+
+func makeStableBindId(path: String): String {
+    if (path == "") { "b:bind" } else { "b:${path}:bind" }
+}
+
+func doCloneAttrMap(m: HashMap<String, String>): HashMap<String, String> {
+    let c = HashMap<String, String>()
+    for ((k, v) in m) { c[k] = v }
+    c
+}
+
 func hasDirtyParent(c: IComponent, all: ArrayList<IComponent>): Bool {
     let cp = c.getPath()
     for (other in all) {
@@ -58,7 +141,9 @@ public class RenderContext {
                     let cp = if (path == "") { "children/${i}" } else { "${path}/children/${i}" }
                     expanded.add(expandTree(v._children[i], cp))
                 }
-                VNode(v._tag, expanded.toArray(), attrs: v._attrs, key: v._key, actions: v._actions, handlers: v._handlers)
+                // 稳定 handler id：重渲染后事件 id 不变，前端 DOM 不失效
+                let stable = stabilizeVNodeHandlers(v, path)
+                stable.children(expanded.toArray())
             case f: FragmentNode =>
                 let expanded = ArrayList<IComponent>()
                 for (i in 0..f._children.size) {

@@ -121,6 +121,37 @@ public class VnodeTest {
         let expanded = RenderContext.expandTree(wrapper, "")
         doCheckActionIds(expanded)
     }
+
+    // handler id 稳定性：同一组件重复展开（模拟服务端重渲染），
+    // 事件 handler id / bind id 必须保持不变，否则前端 DOM 的
+    // data-action-* 属性会过期导致事件失效
+    @TestCase
+    public func testHandlerIdsStableAcrossRender(): Unit {
+        let wrapper = Wrapper()
+        let t1 = RenderContext.expandTree(wrapper, "")
+        let t2 = RenderContext.expandTree(wrapper, "")
+        @Expect(findFirstActionId(t1), findFirstActionId(t2))
+    }
+
+    @TestCase
+    public func testHandlerIdPathScoped(): Unit {
+        let wrapper = Wrapper()
+        let t1 = RenderContext.expandTree(wrapper, "children/0")
+        let t2 = RenderContext.expandTree(wrapper, "children/1")
+        // 不同路径 → 不同 id（避免同页面多个节点共用同一 id）
+        @Expect(findFirstActionId(t1) == findFirstActionId(t2), false)
+    }
+
+    @TestCase
+    public func testBindIdStableAcrossRender(): Unit {
+        let s = Signal<String>("")
+        let node = input().bind(s)
+        let e1 = RenderContext.expandTree(node, "children/0")
+        let e2 = RenderContext.expandTree(node, "children/0")
+        @Expect(getBindId(e1), getBindId(e2))
+        // bind id 与 action id 必须不同（数据绑定 vs 事件）
+        @Expect(getBindId(e1) == findFirstActionId(e1), false)
+    }
 }
 
 func doCheckExpanded(c: IComponent): Unit {
@@ -155,6 +186,53 @@ func doCheckActionIds(expanded: IComponent): Unit {
             @Fail("handler id ${id} not found in serialized json")
         }
     }
+}
+
+// 找到树中第一个事件 action 的 handler id（用于稳定性断言）
+func findFirstActionId(c: IComponent): String {
+    match (c) {
+        case v: VNode =>
+            match (v._actions) {
+                case Some(a) =>
+                    for ((_, id) in a) { return id }
+                    findFirstActionIdInChildren(v._children)
+                case None => findFirstActionIdInChildren(v._children)
+            }
+        case f: FragmentNode => findFirstActionIdInChildren(f._children)
+        case _ => ""
+    }
+}
+
+func findFirstActionIdInChildren(children: Array<IComponent>): String {
+    for (c in children) {
+        let id = findFirstActionId(c)
+        if (id != "") { return id }
+    }
+    ""
+}
+
+// 找出树的 data-bind-id 值
+func getBindId(c: IComponent): String {
+    match (c) {
+        case v: VNode =>
+            match (v._attrs) {
+                case Some(m) => match (m.get("data-bind-id")) {
+                    case Some(id) => id
+                    case None => findFirstBindId(v._children)
+                }
+                case None => findFirstBindId(v._children)
+            }
+        case f: FragmentNode => findFirstBindId(f._children)
+        case _ => ""
+    }
+}
+
+func findFirstBindId(children: Array<IComponent>): String {
+    for (c in children) {
+        let id = getBindId(c)
+        if (id != "") { return id }
+    }
+    ""
 }
 
 public class Wrapper <: Component {

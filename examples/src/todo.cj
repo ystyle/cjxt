@@ -32,15 +32,7 @@ class TodoPage <: Component {
                     div([text("添加待办")], attrs: Some(HashMap<String, String>([("class", cls("card-title"))]))),
                     div([
                         todoInput(st.todoInput),
-                        button([text("添加")]).className(cls("btn") + " " + cls("btn-primary")).onClick({ ctx =>
-                            let s = ctx.getState<TodoState>()
-                            let text = s.todoInput.get()
-                            if (text != "") {
-                                s.todoItems.update({ list => list.add(text); list })
-                                s.todoInput.set("")
-                            }
-                            PatchResult.ReRender
-                        }),
+                        button([text("添加")]).className(cls("btn") + " " + cls("btn-primary")).onClick(addHandler),
                     ], attrs: Some(attrRow)),
                 ], attrs: Some(attrCard)),
                 div([
@@ -53,11 +45,37 @@ class TodoPage <: Component {
     }
 }
 
+func addHandler(ctx: ActionContext): PatchResult {
+    let s = ctx.getState<TodoState>()
+    let text = s.todoInput.get()
+    if (text != "") {
+        s.todoItems.update({ list => list.add(text); list })
+        s.todoInput.set("")
+    }
+    PatchResult.ReRender
+}
+
+// 完整按键事件模型：通过 ctx.keyEvent 区分按键
+// 回车 → 添加待办；Escape → 清空输入框
+func keyHandler(ctx: ActionContext): PatchResult {
+    match (ctx.keyEvent) {
+        case Some(ke) =>
+            if (ke.isEnter()) {
+                return addHandler(ctx)
+            } else if (ke.isEscape()) {
+                let s = ctx.getState<TodoState>()
+                s.todoInput.set("")
+            }
+        case None => ()
+    }
+    PatchResult.ReRender
+}
+
 func todoInput(signal: Signal<String>): IComponent {
     let a = HashMap<String, String>()
     a["class"] = cls("input")
-    a["placeholder"] = "输入待办事项..."
-    input(attrs: Some(a)).bind(signal)
+    a["placeholder"] = "输入待办事项...（回车添加 / Esc 清空）"
+    input(attrs: Some(a)).bind(signal).on("keydown", keyHandler)
 }
 
 func renderTodoList(items: ArrayList<String>, st: TodoState): IComponent {
