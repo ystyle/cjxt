@@ -9502,6 +9502,473 @@
   color: var(--el-result-color);
 }
 
+.el-message {
+  --el-message-bg-color: var(--el-color-info-light-9);
+  --el-message-border-color: var(--el-border-color-lighter);
+  --el-message-padding: 11px 15px;
+  --el-message-close-size: 16px;
+  --el-message-close-icon-color: var(--el-text-color-placeholder);
+  --el-message-close-hover-color: var(--el-text-color-secondary);
+}
+
+.el-message {
+  width: max-content;
+  max-width: calc(100% - 32px);
+  box-sizing: border-box;
+  border-radius: var(--el-border-radius-base);
+  border-width: var(--el-border-width);
+  border-style: var(--el-border-style);
+  border-color: var(--el-message-border-color);
+  position: fixed;
+  background-color: var(--el-message-bg-color);
+  transition: opacity var(--el-transition-duration), transform 0.4s, top 0.4s, bottom 0.4s;
+  padding: var(--el-message-padding);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.el-message.is-left {
+  left: 16px;
+}
+.el-message.is-right {
+  right: 16px;
+}
+.el-message.is-center {
+  left: 50%;
+  transform: translateX(-50%);
+}
+.el-message.is-plain {
+  background-color: var(--el-bg-color-overlay);
+  border-color: var(--el-bg-color-overlay);
+  box-shadow: var(--el-box-shadow-light);
+}
+
+.el-message p {
+  margin: 0;
+}
+.el-message--primary {
+  --el-message-bg-color: var(--el-color-primary-light-9);
+  --el-message-border-color: var(--el-color-primary-light-8);
+  --el-message-text-color: var(--el-color-primary);
+}
+.el-message--primary .el-message__content {
+  color: var(--el-message-text-color);
+  overflow-wrap: break-word;
+}
+
+.el-message .el-message-icon--primary {
+  color: var(--el-message-text-color);
+}
+.el-message--success {
+  --el-message-bg-color: var(--el-color-success-light-9);
+  --el-message-border-color: var(--el-color-success-light-8);
+  --el-message-text-color: var(--el-color-success);
+}
+.el-message--success .el-message__content {
+  color: var(--el-message-text-color);
+  overflow-wrap: break-word;
+}
+
+.el-message .el-message-icon--success {
+  color: var(--el-message-text-color);
+}
+.el-message--info {
+  --el-message-bg-color: var(--el-color-info-light-9);
+  --el-message-border-color: var(--el-color-info-light-8);
+  --el-message-text-color: var(--el-color-info);
+}
+.el-message--info .el-message__content {
+  color: var(--el-message-text-color);
+  overflow-wrap: break-word;
+}
+
+.el-message .el-message-icon--info {
+  color: var(--el-message-text-color);
+}
+.el-message--warning {
+  --el-message-bg-color: var(--el-color-warning-light-9);
+  --el-message-border-color: var(--el-color-warning-light-8);
+  --el-message-text-color: var(--el-color-warning);
+}
+.el-message--warning .el-message__content {
+  color: var(--el-message-text-color);
+  overflow-wrap: break-word;
+}
+
+.el-message .el-message-icon--warning {
+  color: var(--el-message-text-color);
+}
+.el-message--error {
+  --el-message-bg-color: var(--el-color-error-light-9);
+  --el-message-border-color: var(--el-color-error-light-8);
+  --el-message-text-color: var(--el-color-error);
+}
+.el-message--error .el-message__content {
+  color: var(--el-message-text-color);
+  overflow-wrap: break-word;
+}
+
+.el-message .el-message-icon--error {
+  color: var(--el-message-text-color);
+}
+.el-message .el-message__badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+}
+.el-message__content {
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+}
+.el-message__content:focus {
+  outline-width: 0;
+}
+
+.el-message .el-message__closeBtn {
+  cursor: pointer;
+  color: var(--el-message-close-icon-color);
+  font-size: var(--el-message-close-size);
+}
+.el-message .el-message__closeBtn:focus {
+  outline-width: 0;
+}
+.el-message .el-message__closeBtn:hover {
+  color: var(--el-message-close-hover-color);
+}
+
+.el-message-fade-enter-from,
+.el-message-fade-leave-to {
+  opacity: 0;
+}
+.el-message-fade-enter-from.is-left, .el-message-fade-enter-from.is-right,
+.el-message-fade-leave-to.is-left,
+.el-message-fade-leave-to.is-right {
+  transform: translateY(-100%);
+}
+.el-message-fade-enter-from.is-left.is-bottom, .el-message-fade-enter-from.is-right.is-bottom,
+.el-message-fade-leave-to.is-left.is-bottom,
+.el-message-fade-leave-to.is-right.is-bottom {
+  transform: translateY(100%);
+}
+.el-message-fade-enter-from.is-center,
+.el-message-fade-leave-to.is-center {
+  transform: translate(-50%, -100%);
+}
+.el-message-fade-enter-from.is-center.is-bottom,
+.el-message-fade-leave-to.is-center.is-bottom {
+  transform: translate(-50%, 100%);
+}
+
+.el-notification {
+  --el-notification-width: 330px;
+  --el-notification-padding: 14px 26px 14px 13px;
+  --el-notification-radius: 8px;
+  --el-notification-shadow: var(--el-box-shadow-light);
+  --el-notification-border-color: var(--el-border-color-lighter);
+  --el-notification-icon-size: 24px;
+  --el-notification-close-font-size: var(--el-message-close-size, 16px);
+  --el-notification-group-margin-left: 13px;
+  --el-notification-group-margin-right: 8px;
+  --el-notification-content-font-size: var(--el-font-size-base);
+  --el-notification-content-color: var(--el-text-color-regular);
+  --el-notification-title-font-size: 16px;
+  --el-notification-title-color: var(--el-text-color-primary);
+  --el-notification-close-color: var(--el-text-color-secondary);
+  --el-notification-close-hover-color: var(--el-text-color-regular);
+}
+
+.el-notification {
+  display: flex;
+  width: var(--el-notification-width);
+  padding: var(--el-notification-padding);
+  border-radius: var(--el-notification-radius);
+  box-sizing: border-box;
+  border: 1px solid var(--el-notification-border-color);
+  position: fixed;
+  background-color: var(--el-bg-color-overlay);
+  box-shadow: var(--el-notification-shadow);
+  transition: opacity var(--el-transition-duration), transform var(--el-transition-duration), left var(--el-transition-duration), right var(--el-transition-duration), top 0.4s, bottom var(--el-transition-duration);
+  overflow-wrap: break-word;
+  overflow: hidden;
+  z-index: 9999;
+}
+.el-notification.right {
+  right: 16px;
+}
+.el-notification.left {
+  left: 16px;
+}
+.el-notification__group {
+  flex: 1;
+  min-width: 0;
+  margin-left: var(--el-notification-group-margin-left);
+  margin-right: var(--el-notification-group-margin-right);
+}
+
+.el-notification__title {
+  font-weight: bold;
+  font-size: var(--el-notification-title-font-size);
+  line-height: var(--el-notification-icon-size);
+  color: var(--el-notification-title-color);
+  margin: 0;
+}
+
+.el-notification__content {
+  font-size: var(--el-notification-content-font-size);
+  line-height: 24px;
+  margin: 6px 0 0;
+  color: var(--el-notification-content-color);
+}
+.el-notification__content p {
+  margin: 0;
+}
+
+.el-notification .el-notification__icon {
+  flex-shrink: 0;
+  height: var(--el-notification-icon-size);
+  width: var(--el-notification-icon-size);
+  font-size: var(--el-notification-icon-size);
+}
+.el-notification .el-notification__closeBtn {
+  position: absolute;
+  top: 18px;
+  right: 15px;
+  cursor: pointer;
+  color: var(--el-notification-close-color);
+  font-size: var(--el-notification-close-font-size);
+}
+.el-notification .el-notification__closeBtn:hover {
+  color: var(--el-notification-close-hover-color);
+}
+.el-notification .el-notification--primary {
+  --el-notification-icon-color: var(--el-color-primary);
+  color: var(--el-notification-icon-color);
+}
+.el-notification .el-notification--success {
+  --el-notification-icon-color: var(--el-color-success);
+  color: var(--el-notification-icon-color);
+}
+.el-notification .el-notification--info {
+  --el-notification-icon-color: var(--el-color-info);
+  color: var(--el-notification-icon-color);
+}
+.el-notification .el-notification--warning {
+  --el-notification-icon-color: var(--el-color-warning);
+  color: var(--el-notification-icon-color);
+}
+.el-notification .el-notification--error {
+  --el-notification-icon-color: var(--el-color-error);
+  color: var(--el-notification-icon-color);
+}
+
+.el-notification-fade-enter-from.right {
+  right: 0;
+  transform: translateX(100%);
+}
+.el-notification-fade-enter-from.left {
+  left: 0;
+  transform: translateX(-100%);
+}
+
+.el-notification-fade-leave-to {
+  opacity: 0;
+}
+
+:root {
+  --el-loading-spinner-size: 42px;
+  --el-loading-fullscreen-spinner-size: 50px;
+}
+
+.el-loading-parent--relative {
+  position: relative !important;
+}
+
+.el-loading-parent--hidden {
+  overflow: hidden !important;
+}
+
+.el-loading-mask {
+  position: absolute;
+  z-index: 2000;
+  background-color: var(--el-mask-color);
+  margin: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  transition: opacity var(--el-transition-duration);
+}
+.el-loading-mask.is-fullscreen {
+  position: fixed;
+}
+.el-loading-mask.is-fullscreen .el-loading-spinner {
+  margin-top: calc((0px - var(--el-loading-fullscreen-spinner-size)) / 2);
+}
+.el-loading-mask.is-fullscreen .el-loading-spinner .circular {
+  height: var(--el-loading-fullscreen-spinner-size);
+  width: var(--el-loading-fullscreen-spinner-size);
+}
+
+.el-loading-spinner {
+  top: 50%;
+  margin-top: calc((0px - var(--el-loading-spinner-size)) / 2);
+  width: 100%;
+  text-align: center;
+  position: absolute;
+}
+.el-loading-spinner .el-loading-text {
+  color: var(--el-color-primary);
+  margin: 3px 0;
+  font-size: 14px;
+}
+.el-loading-spinner .circular {
+  display: inline;
+  height: var(--el-loading-spinner-size);
+  width: var(--el-loading-spinner-size);
+  animation: loading-rotate 2s linear infinite;
+}
+.el-loading-spinner .path {
+  animation: loading-dash 1.5s ease-in-out infinite;
+  stroke-dasharray: 90, 150;
+  stroke-dashoffset: 0;
+  stroke-width: 2;
+  stroke: var(--el-color-primary);
+  stroke-linecap: round;
+}
+.el-loading-spinner i {
+  color: var(--el-color-primary);
+}
+
+.el-loading-fade-enter-from,
+.el-loading-fade-leave-to {
+  opacity: 0;
+}
+
+@keyframes loading-rotate {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+@keyframes loading-dash {
+  0% {
+    stroke-dasharray: 1, 200;
+    stroke-dashoffset: 0;
+  }
+  50% {
+    stroke-dasharray: 90, 150;
+    stroke-dashoffset: -40px;
+  }
+  100% {
+    stroke-dasharray: 90, 150;
+    stroke-dashoffset: -120px;
+  }
+}
+.el-skeleton {
+  --el-skeleton-color: var(--el-fill-color);
+  --el-skeleton-to-color: var(--el-fill-color-darker);
+}
+
+@keyframes el-skeleton-loading {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+.el-skeleton {
+  width: 100%;
+}
+.el-skeleton__first-line {
+  height: 16px;
+  margin-top: 16px;
+  background: var(--el-skeleton-color);
+}
+
+.el-skeleton__paragraph {
+  height: 16px;
+  margin-top: 16px;
+  background: var(--el-skeleton-color);
+}
+
+.el-skeleton.is-animated .el-skeleton__item {
+  background: linear-gradient(90deg, var(--el-skeleton-color) 25%, var(--el-skeleton-to-color) 37%, var(--el-skeleton-color) 63%);
+  background-size: 400% 100%;
+  animation: el-skeleton-loading 1.4s ease infinite;
+}
+
+.el-skeleton {
+  --el-skeleton-circle-size: var(--el-avatar-size);
+}
+
+.el-skeleton__item {
+  background: var(--el-skeleton-color);
+  display: inline-block;
+  height: 16px;
+  border-radius: var(--el-border-radius-base);
+  width: 100%;
+}
+
+.el-skeleton__circle {
+  border-radius: 50%;
+  width: var(--el-skeleton-circle-size);
+  height: var(--el-skeleton-circle-size);
+  line-height: var(--el-skeleton-circle-size);
+}
+
+.el-skeleton__button {
+  height: 40px;
+  width: 64px;
+  border-radius: 4px;
+}
+
+.el-skeleton__p {
+  width: 100%;
+}
+.el-skeleton__p.is-last {
+  width: 61%;
+}
+
+.el-skeleton__p.is-first {
+  width: 33%;
+}
+
+.el-skeleton__text {
+  width: 100%;
+  height: var(--el-font-size-small);
+}
+
+.el-skeleton__caption {
+  height: var(--el-font-size-extra-small);
+}
+
+.el-skeleton__h1 {
+  height: var(--el-font-size-extra-large);
+}
+
+.el-skeleton__h3 {
+  height: var(--el-font-size-large);
+}
+
+.el-skeleton__h5 {
+  height: var(--el-font-size-medium);
+}
+
+.el-skeleton__image {
+  width: unset;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0;
+}
+.el-skeleton__image svg {
+  color: var(--el-svg-monochrome-grey);
+  fill: currentColor;
+  width: 22%;
+  height: 22%;
+}
+
 .el-button:not(.is-circle) {
   min-width: 68px;
 }

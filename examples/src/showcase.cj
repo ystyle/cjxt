@@ -11,7 +11,7 @@ let componentNames: Array<String> = [
     "Input", "InputNumber", "Switch", "Radio", "Checkbox",
     "Rate", "Select", "Slider", "Form", "Table", "Dialog", "Drawer", "Tooltip", "Popover",
     "Progress", "Avatar", "Empty", "Descriptions", "Statistic", "Result", "Pagination",
-    "DatePicker", "DateRangePicker"
+    "DatePicker", "DateRangePicker", "Message", "Notification", "Loading", "Skeleton"
 ]
 
 class ShowcaseState <: AppState {
@@ -32,6 +32,9 @@ class ShowcaseState <: AppState {
     var dateValue = Signal<String>("2026-08-05")
     var rangeStart = Signal<String>("2026-08-01")
     var rangeEnd = Signal<String>("2026-08-15")
+    var messageItems = Signal<ArrayList<MessageItem>>(ArrayList<MessageItem>())
+    var notificationItems = Signal<ArrayList<NotificationItem>>(ArrayList<NotificationItem>())
+    var loadingVisible = Signal<Bool>(false)
     var formUsername = Signal<String>("")
     var formPassword = Signal<String>("")
     var formUserError = Signal<String>("")
@@ -144,6 +147,10 @@ class ShowcasePage <: Component {
             case "Result" => this.demoResult()
             case "Pagination" => this.demoPagination()
             case "DatePicker" => this.demoDatePicker()
+            case "Message" => this.demoMessage()
+            case "Notification" => this.demoNotification()
+            case "Loading" => this.demoLoading()
+            case "Skeleton" => this.demoSkeleton()
             case _ => text("选择左侧组件查看示例")
         }
     }
@@ -801,6 +808,66 @@ class ShowcasePage <: Component {
                 DateRangePicker().start(st.rangeStart).end(st.rangeEnd).disabled(),
             ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
         ], attrs: Some(HashMap<String, String>([("class", cls("datepicker-demo"))])))
+    }
+
+    func demoMessage(): IComponent {
+        let st = this.state
+        let q = MessageQueue(st.messageItems)
+        let successH: ActionHandler = { ctx => q.success("这是一条成功提示"); PatchResult.ReRender }
+        let warningH: ActionHandler = { ctx => q.warning("这是一条警告提示"); PatchResult.ReRender }
+        let errorH: ActionHandler = { ctx => q.error("这是一条错误提示"); PatchResult.ReRender }
+        let infoH: ActionHandler = { ctx => q.info("这是一条普通提示"); PatchResult.ReRender }
+        div([
+            div([text("消息提示（Message，3 秒自动消失，点击任意处可关闭）")], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
+            div([
+                PrimaryButton("成功").onClick(successH),
+                WarningButton("警告").onClick(warningH),
+                DangerButton("错误").onClick(errorH),
+                InfoButton("信息").onClick(infoH),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            MessageHost().bind(st.messageItems),
+        ], attrs: Some(HashMap<String, String>([("class", cls("feedback-demo"))])))
+    }
+
+    func demoNotification(): IComponent {
+        let st = this.state
+        let q = NotificationQueue(st.notificationItems)
+        let successH: ActionHandler = { ctx => q.success("成功通知", "操作已成功完成，数据已保存。"); PatchResult.ReRender }
+        let warningH: ActionHandler = { ctx => q.warning("警告通知", "检测到异常，请检查配置。"); PatchResult.ReRender }
+        let errorH: ActionHandler = { ctx => q.error("错误通知", "操作失败，请重试。"); PatchResult.ReRender }
+        div([
+            div([text("通知（Notification，右上角，4.5 秒自动消失）")], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
+            div([
+                PrimaryButton("成功").onClick(successH),
+                WarningButton("警告").onClick(warningH),
+                DangerButton("错误").onClick(errorH),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            NotificationHost().bind(st.notificationItems),
+        ], attrs: Some(HashMap<String, String>([("class", cls("feedback-demo"))])))
+    }
+
+    func demoLoading(): IComponent {
+        let st = this.state
+        let toggleH: ActionHandler = { ctx => st.loadingVisible.set(!st.loadingVisible.get()); PatchResult.ReRender }
+        div([
+            div([text("加载遮罩（Loading，绑定 Signal<Bool>）")], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
+            div([
+                PrimaryButton("切换加载状态").onClick(toggleH),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([
+                Loading().bind(st.loadingVisible).label("拼命加载中..."),
+                div([text("这是被加载遮罩覆盖的内容区域")], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            ], attrs: Some(HashMap<String, String>([("style", "position:relative;min-height:140px;border:1px solid #e5e7eb;border-radius:8px;display:flex;align-items:center;justify-content:center")]))),
+        ], attrs: Some(HashMap<String, String>([("class", cls("feedback-demo"))])))
+    }
+
+    func demoSkeleton(): IComponent {
+        div([
+            div([text("骨架屏（Skeleton）")], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
+            div([Skeleton().rows(3)], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([text("不带动画")], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
+            div([Skeleton().rows(2).noAnimated()], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+        ], attrs: Some(HashMap<String, String>([("class", cls("feedback-demo"))])))
     }
 
     // ============ Props ============

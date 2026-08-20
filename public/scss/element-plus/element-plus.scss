@@ -46,6 +46,11 @@
 @use 'descriptions-item.scss';
 @use 'statistic.scss';
 @use 'result.scss';
+@use 'message.scss';
+@use 'notification.scss';
+@use 'loading.scss';
+@use 'skeleton.scss';
+@use 'skeleton-item.scss';
 
 .el-button:not(.is-circle) {
   min-width: 68px;

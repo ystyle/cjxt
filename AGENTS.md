@@ -157,7 +157,7 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 ### P1 — ERP/Chat 第一批（业务最小可用）
 - [x] Pagination 分页（Table 配套，Signal 驱动 currentPage/pageSize）
 - [x] DatePicker / DateRange / Calendar（ERP 单据/报表日期字段）
-- [ ] Message / Notification / Loading / Skeleton（反馈体系）
+- [x] Message / Notification / Loading / Skeleton（反馈体系）
 - [ ] Tabs 标签页（多标签工作台布局）
 - [ ] Markdown 渲染组件（Agent Chat 消息可读）
 - [ ] 聊天自动滚动 + 流式消息优化
@@ -579,3 +579,28 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 - `cjpm test`：85 个单元测试全部通过（82 原有 + 3 Session 注册表）。
 - agent-browser（独立 socket 目录 + 命名会话）实测聊天页：发送消息 → 会话列表出现项 → 点删除按钮 → 回欢迎页 + 自动新建会话，全链路正常。
 - 注：agent-browser 在并行会话环境下必须 `AGENT_BROWSER_SOCKET_DIR=<可写目录>` + 命名会话隔离，否则 target 漂移（eval 打到 about:blank）。
+
+### 2026-08-21 Message / Notification / Loading / Skeleton 反馈体系（ERP 第一批 #3）
+
+**实现功能**
+- `MessageHost`：绑定 `Signal<ArrayList<MessageItem>>`，顶部居中 toast 堆叠；点任意处关闭 + 3s 自动消失；`MessageQueue.success/warning/error/info(text)` 服务端推送。
+- `NotificationHost`：右上角通知（标题+内容），4.5s 自动消失；`NotificationQueue.success(title, text)` 等。
+- `Loading`：绑定 `Signal<Bool>`，EP 加载遮罩（circular spinner + 文案），fullscreen。
+- `Skeleton`：骨架屏（首行 + rows 段落），animated/noAnimated。
+- 前端新增 `data-auto-dismiss="ms"` 机制（JS setTimeout → dispatch click → 关闭 action）。
+- toast 队列纯逻辑抽到 `src/toast.cj`（package cjxt）：`nextToastId`（模块级单调 id）/ `toastPush` / `toastRemoveAt` —— 5 个单测。
+- EP message/notification/loading/skeleton/skeleton-item scss 复制编译嵌入。
+
+**问题 1（关键坑）：EmptyVNode 在 children 中不产生 DOM 节点 → 补丁替换落空**
+- MessageHost 列表为空时返回 `EmptyVNode()` → 服务端树里占 index N，但 JS 渲染 `empty` 不创建 DOM 节点 → 实际 DOM 少一个槽位 → 补丁 path 指向的 index 不存在 → `parentEl.childNodes[idx]` 为 undefined → 替换被跳过 → toast 永远不出现。
+- 修复：MessageHost/NotificationHost 的容器 div **始终渲染**（空时是无内容 fixed div，无碍）；Loading 的 mask 也始终渲染（隐藏时 `display:none`）。
+- 结论：**树路径按 children 索引定位 DOM，任何会切换成 EmptyVNode 的组件都要保证始终有一个稳定 DOM 槽位**，否则补丁对不上。
+
+**问题 2（关键坑）：方法名遮蔽顶层函数 → 无限递归 OOM**
+- `Loading` 有方法 `text(v: String)`；`Loading.render()` 里 `text(this._text)` 本意调顶层 `text(content): TextNode`，但**类方法优先解析** → 返回 `this`（Loading 自身）→ 作为 `VNode("p", [Loading], ...)` 的子节点 → expandTree 递归处理 Loading → 再调 text → 无限递归 → `OutOfMemoryError`（服务端 action 被 catch 吞掉，页面卡死）。
+- 修复：方法改名 `label`。错误类型是 `OutOfMemoryError`（msg 空），用 `TypeInfo.of(e).name` + `e.getStackTrace()` 定位。
+- 教训：**组件方法名不要与 cjxt 顶层辅助函数同名**（text/div/span/input 等），否则类内同名调用会被方法遮蔽。
+
+**验证**
+- `cjpm test`：90 个单元测试全部通过（85 原有 + 5 toast 队列）。
+- agent-browser（独立命名会话）：Message 三条堆叠 + 点击关闭 + 3s 自动消失；Notification 标题内容 + 自动消失；Loading 切换遮罩/spinner/文案；Skeleton rows/动画；全部正常。

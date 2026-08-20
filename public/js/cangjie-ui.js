@@ -174,6 +174,15 @@ class CangjieUI {
         parentEl.appendChild(el);
         // 绑定 input 事件
         if (el.hasAttribute('data-bind-id')) this.attachBind(el);
+        // 自动消失（Message/Notification 等）：data-auto-dismiss="ms" → 到时触发点击（关闭 action）
+        if (el.hasAttribute('data-auto-dismiss')) this.attachAutoDismiss(el);
+    }
+    attachAutoDismiss(el) {
+        const ms = parseInt(el.getAttribute('data-auto-dismiss'), 10);
+        if (!ms || ms <= 0) return;
+        setTimeout(() => {
+            if (el.isConnected) el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        }, ms);
     }
     attachBind(el) {
         const bid = el.getAttribute('data-bind-id');
@@ -354,6 +363,7 @@ class CangjieUI {
         }
         for (const child of node.children || []) el.appendChild(this.renderSubtree(child));
         if (el.hasAttribute('data-bind-id')) this.attachBind(el);
+        if (el.hasAttribute('data-auto-dismiss')) this.attachAutoDismiss(el);
         return el;
     }
 }
