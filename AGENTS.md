@@ -156,7 +156,7 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 
 ### P1 — ERP/Chat 第一批（业务最小可用）
 - [x] Pagination 分页（Table 配套，Signal 驱动 currentPage/pageSize）
-- [ ] DatePicker / DateRange / Calendar（ERP 单据/报表日期字段）
+- [x] DatePicker / DateRange / Calendar（ERP 单据/报表日期字段）
 - [ ] Message / Notification / Loading / Skeleton（反馈体系）
 - [ ] Tabs 标签页（多标签工作台布局）
 - [ ] Markdown 渲染组件（Agent Chat 消息可读）
@@ -529,3 +529,32 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 **验证**
 - `cjpm test`：70 个单元测试全部通过（60 原有 + 2 新注册替换 + Select.cj 的 match-arm 修复让全新编译通过）。
 - harness-cj 全量 `cjpm test`：80 个测试全部通过（此前全量挂起 600s 超时，修复后稳定通过）。
+
+### 2026-08-20 DatePicker / DateRangePicker 日期组件（ERP 第一批 #2）
+
+**实现功能**
+- `DatePicker` 单选日期：el-date-editor 输入框（日历前缀图标 + clearable 清除）+ 日历弹层（年/月导航、42 格月历、今天/选中高亮、prev/next-month 补位）。
+- `DateRangePicker` 区间：双月面板（is-left/is-right）、start/end/in-range 高亮、反向选择自动交换、clearable/disabled。
+- 纯逻辑抽到 `src/calendar.cj`（package cjxt）：`isLeap/daysInMonth/firstWeekday/addMonths/monthGrid/formatDate/pad2/parseDate/dateToDays/compareDate/isToday/nowDateKey` —— 12 个单测。
+- 值格式 "yyyy-MM-dd"（Signal<String> 绑定）；今天高亮用 `DateTime.now().format("yyyy-MM-dd")`。
+- EP date-picker scss（picker/picker-panel/date-picker/date-table/date-range-picker/utils）复制并调整 `@use` 相对路径，编译嵌入。
+- 新增 "calendar" 图标。
+
+**问题 1（关键坑）：区间首次点选写外部信号 → 面板关闭**
+- 首次点选把 start 写进外部 Signal → 父组件（showcase）读该信号 → 重渲染 → new 出全新 DateRangePicker（`_open=false`）→ 面板关闭，没法点第二次选 end。
+- 修复：首次点选**只写内部 `_pendingStart`**（内部信号变更只重渲染 DateRangePicker 自身实例，面板保持打开）；两端都选齐才写外部 start/end 并关闭。
+- 显示用 `displayStart/displayEnd`：pendingStart 已设时显示待选起点、end 置空。
+
+**问题 2：`None` 字面量歧义**
+- 包内多个枚举有 `None` 变体（SortOrder.None / ResultStatus.None / AvatarFit.None 等），值位置传裸 `None` 给 `Option<T>` 参数报 "find multiple constructor 'None'"。
+- 修复：用全限定 `Option<(String, String)>.None`（对齐 Radio.cj 的 `Option<Signal<String>>.None` 写法）；match 模式的 `case None` 不受影响。
+
+**问题 3：日期字符串比较**
+- 不确定 String 是否支持 `<`/`>`，日期 key（"yyyy-MM-dd"）统一用 `dateKeyLess/dateKeyLessOrEq`（parseDate + compareDate 数值比较）。
+
+**问题 4：agent-browser 并发**
+- 仓库有并行会话也用 agent-browser；务必用独立 `AGENT_BROWSER_SOCKET_DIR` + `AGENT_BROWSER_SESSION`（命名会话）隔离，避免抢同一浏览器实例。
+
+**验证**
+- `cjpm test`：82 个单元测试全部通过（70 原有 + 12 日历纯逻辑）。
+- agent-browser（独立会话，examples /showcase → DatePicker）：单日期打开/选中/清除/今天高亮；区间双月面板、首次点选面板保持打开、二次点选完成并关闭、start/end/in-range 高亮、反向选择自动交换、disabled 全部正常。

@@ -10,7 +10,8 @@ let componentNames: Array<String> = [
     "Text", "Link", "Tag", "Badge", "Space", "Icon",
     "Input", "InputNumber", "Switch", "Radio", "Checkbox",
     "Rate", "Select", "Slider", "Form", "Table", "Dialog", "Drawer", "Tooltip", "Popover",
-    "Progress", "Avatar", "Empty", "Descriptions", "Statistic", "Result", "Pagination"
+    "Progress", "Avatar", "Empty", "Descriptions", "Statistic", "Result", "Pagination",
+    "DatePicker", "DateRangePicker"
 ]
 
 class ShowcaseState <: AppState {
@@ -28,6 +29,9 @@ class ShowcaseState <: AppState {
     var sliderValue = Signal<Int64>(30)
     var paginationPage = Signal<Int64>(1)
     var paginationSize = Signal<Int64>(10)
+    var dateValue = Signal<String>("2026-08-05")
+    var rangeStart = Signal<String>("2026-08-01")
+    var rangeEnd = Signal<String>("2026-08-15")
     var formUsername = Signal<String>("")
     var formPassword = Signal<String>("")
     var formUserError = Signal<String>("")
@@ -139,6 +143,7 @@ class ShowcasePage <: Component {
             case "Statistic" => this.demoStatistic()
             case "Result" => this.demoResult()
             case "Pagination" => this.demoPagination()
+            case "DatePicker" => this.demoDatePicker()
             case _ => text("选择左侧组件查看示例")
         }
     }
@@ -772,6 +777,30 @@ class ShowcasePage <: Component {
             ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
             div([text("当前状态：第 ${st.paginationPage.get()} 页，每页 ${st.paginationSize.get()} 条（共 1000 条）")], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
         ], attrs: Some(HashMap<String, String>([("class", cls("pagination-demo"))])))
+    }
+
+    func demoDatePicker(): IComponent {
+        let st = this.state
+        div([
+            div([text("日期选择（DatePicker）")], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
+            div([
+                DatePicker().bind(st.dateValue).clearable(),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([text("当前选择：${st.dateValue.get()}")], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([text("区间选择（DateRangePicker）")], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
+            div([
+                DateRangePicker()
+                    .start(st.rangeStart)
+                    .end(st.rangeEnd)
+                    .clearable(),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([text("当前区间：${st.rangeStart.get()} ~ ${st.rangeEnd.get()}")], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([text("禁用状态")], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
+            div([
+                DatePicker().bind(st.dateValue).disabled(),
+                DateRangePicker().start(st.rangeStart).end(st.rangeEnd).disabled(),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+        ], attrs: Some(HashMap<String, String>([("class", cls("datepicker-demo"))])))
     }
 
     // ============ Props ============
