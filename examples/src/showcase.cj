@@ -11,7 +11,7 @@ let componentNames: Array<String> = [
     "Input", "InputNumber", "Switch", "Radio", "Checkbox",
     "Rate", "Select", "Slider", "Form", "Table", "Dialog", "Drawer", "Tooltip", "Popover",
     "Progress", "Avatar", "Empty", "Descriptions", "Statistic", "Result", "Pagination",
-    "DatePicker", "DateRangePicker", "Message", "Notification", "Loading", "Skeleton"
+    "DatePicker", "DateRangePicker", "Message", "Notification", "Loading", "Skeleton", "Tabs"
 ]
 
 class ShowcaseState <: AppState {
@@ -35,6 +35,7 @@ class ShowcaseState <: AppState {
     var messageItems = Signal<ArrayList<MessageItem>>(ArrayList<MessageItem>())
     var notificationItems = Signal<ArrayList<NotificationItem>>(ArrayList<NotificationItem>())
     var loadingVisible = Signal<Bool>(false)
+    var activeTab = Signal<String>("tab1")
     var formUsername = Signal<String>("")
     var formPassword = Signal<String>("")
     var formUserError = Signal<String>("")
@@ -151,6 +152,7 @@ class ShowcasePage <: Component {
             case "Notification" => this.demoNotification()
             case "Loading" => this.demoLoading()
             case "Skeleton" => this.demoSkeleton()
+            case "Tabs" => this.demoTabs()
             case _ => text("选择左侧组件查看示例")
         }
     }
@@ -868,6 +870,37 @@ class ShowcasePage <: Component {
             div([text("不带动画")], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
             div([Skeleton().rows(2).noAnimated()], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
         ], attrs: Some(HashMap<String, String>([("class", cls("feedback-demo"))])))
+    }
+
+    func demoTabs(): IComponent {
+        let st = this.state
+        div([
+            div([text("基础标签（line）")], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
+            div([
+                Tabs([
+                    TabPane([text("用户管理内容：这里是用户列表相关功能。")], "tab1", "用户管理"),
+                    TabPane([text("配置管理内容：这里是系统配置相关功能。")], "tab2", "配置管理"),
+                    TabPane([text("角色管理内容：这里是角色与权限相关功能。")], "tab3", "角色管理"),
+                ]).bind(st.activeTab),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([text("卡片标签（card）")], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
+            div([
+                Tabs([
+                    TabPane([text("选项 A 的内容。")], "a", "选项A"),
+                    TabPane([text("选项 B 的内容。")], "b", "选项B"),
+                    TabPane([text("这个标签被禁用。")], "c", "禁用项").disabled(),
+                ]).bind(st.activeTab).tabType("card"),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([text("边框卡片（border-card）")], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
+            div([
+                Tabs([
+                    TabPane([text("标签页 1 的内容。")], "t1", "标签页 1"),
+                    TabPane([text("标签页 2 的内容。")], "t2", "标签页 2"),
+                    TabPane([text("标签页 3 的内容。")], "t3", "标签页 3"),
+                ]).bind(st.activeTab).tabType("border-card"),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([text("当前激活标签：${st.activeTab.get()}（三个 Tabs 共享信号联动）")], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+        ], attrs: Some(HashMap<String, String>([("class", cls("tabs-demo"))])))
     }
 
     // ============ Props ============

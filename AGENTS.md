@@ -158,7 +158,7 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 - [x] Pagination 分页（Table 配套，Signal 驱动 currentPage/pageSize）
 - [x] DatePicker / DateRange / Calendar（ERP 单据/报表日期字段）
 - [x] Message / Notification / Loading / Skeleton（反馈体系）
-- [ ] Tabs 标签页（多标签工作台布局）
+- [x] Tabs 标签页（多标签工作台布局）
 - [ ] Markdown 渲染组件（Agent Chat 消息可读）
 - [ ] 聊天自动滚动 + 流式消息优化
 
@@ -604,3 +604,22 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 **验证**
 - `cjpm test`：90 个单元测试全部通过（85 原有 + 5 toast 队列）。
 - agent-browser（独立命名会话）：Message 三条堆叠 + 点击关闭 + 3s 自动消失；Notification 标题内容 + 自动消失；Loading 切换遮罩/spinner/文案；Skeleton rows/动画；全部正常。
+
+### 2026-08-21 Tabs 标签页组件（ERP 第一批 #4）
+
+**实现功能**
+- `Tabs` + `TabPane`：line / card / border-card 三种类型、top/bottom/left/right 位置（EP scss 按 root class 驱动布局）。
+- 激活标签外置 `Signal<String>`（跨重渲染持久化），`onChange` 事件；禁用标签点击 no-op。
+- 仅渲染激活 pane 内容；active 不在 panes 时回退首个 pane（`resolveActiveTab` 纯逻辑 + 4 单测）。
+- 激活项高亮（`el-tabs__item.is-active`）；v1 省略滑动 active-bar（需客户端测量定位）。
+- EP tabs.scss 复制编译嵌入。
+
+**问题 1：`type` 是仓颉关键字**
+- `public func type(...)` 编译报错（type 保留字），方法改 `tabType`。
+
+**问题 2：TabPane 作为"数据载体"不单独渲染**
+- TabPane 是 Tabs 的 children，Tabs.render() 消费其 name/label/children；TabPane.render() 返回稳定空 `div([])`（防 EmptyVNode 槽位错位——上一阶段教训）。
+
+**验证**
+- `cjpm test`：94 个单元测试全部通过（90 原有 + 4 tab 逻辑）。
+- agent-browser（独立命名会话）：line/card/border-card 三种类型切换 + 内容更新、禁用标签 no-op、共享信号联动、active 名不匹配回退首个 pane，全部正常。
