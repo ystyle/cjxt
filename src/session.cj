@@ -22,6 +22,10 @@ public class Session {
     // 统一写入这里，listenLoop 分发 action/bind 也查这里——保证异步
     // pushUpdate 渲染出的新 handler（如会话列表删除按钮）不丢失。
     var handlers: HashMap<String, ActionHandler>
+    // 挂起的 DOM 事务续体：txId → (results) -> PatchResult（dom_result 到达后由 listenLoop 调用）
+    var pendingTx: HashMap<String, (HashMap<String, String>) -> PatchResult>
+    // 命名引用注册表：ref 名 → 树路径（DOM 事务寻址用，每次渲染后 refreshRefs 重建）
+    var refPaths: HashMap<String, String>
     var createdAt: Int64
     var lastActiveAt: Int64
     let context: HashMap<String, String>
@@ -39,6 +43,8 @@ public class Session {
         this.wsState = WsState.Connecting
         this.ws = None
         this.handlers = HashMap<String, ActionHandler>()
+        this.pendingTx = HashMap<String, (HashMap<String, String>) -> PatchResult>()
+        this.refPaths = HashMap<String, String>()
         this.createdAt = nowMillis()
         this.lastActiveAt = nowMillis()
         this.context = HashMap<String, String>()
@@ -54,6 +60,12 @@ public class Session {
     /// 从会话树重建 handler 注册表（startSession/resumeSession/
     /// pushUpdate/applyNav 渲染后调用——统一写入会话级 handlers，
     /// 保证 listenLoop 分发 action/bind 时能看到全部 handler）。
+    // 从树收集 data-ref → 路径（DOM 事务寻址）
+    public func refreshRefs(tree: IComponent): Unit {
+        this.refPaths.clear()
+        collectRefsFromTree(tree, "", this.refPaths)
+    }
+
     public func refreshHandlers(tree: IComponent): Unit {
         this.handlers.clear()
         RenderContext.collectHandlersFromTree(tree, this.handlers)

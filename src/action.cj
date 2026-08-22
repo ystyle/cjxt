@@ -136,8 +136,10 @@ public struct ActionContext {
     let sessionStates: HashMap<String, AppState>
     public let route: RouteContext
     public let keyEvent: Option<KeyEvent>
+    // DOM 事务入口（事件驱动）：fire-and-forget 命令 + 查询续体。App 注入，None 表示不可用
+    public let dom: Option<DomApi>
 
-    public init(sessionId: String, context: HashMap<String, String>, params: HashMap<String, String>, router: Router, pushFn!: (Array<PatchEntryMsg>) -> Unit = { _ => () }, sessionStates!: HashMap<String, AppState> = HashMap<String, AppState>(), keyEvent!: Option<KeyEvent> = None) {
+    public init(sessionId: String, context: HashMap<String, String>, params: HashMap<String, String>, router: Router, pushFn!: (Array<PatchEntryMsg>) -> Unit = { _ => () }, sessionStates!: HashMap<String, AppState> = HashMap<String, AppState>(), keyEvent!: Option<KeyEvent> = None, dom!: Option<DomApi> = None) {
         this.sessionId = sessionId
         this.context = context
         this.params = params
@@ -146,6 +148,7 @@ public struct ActionContext {
         this.sessionStates = sessionStates
         this.route = RouteContext(params: HashMap<String, String>(), pushFn: Some({ p => router.push(p) }))
         this.keyEvent = keyEvent
+        this.dom = dom
     }
 
     public func push(patches: Array<PatchEntryMsg>): Unit {

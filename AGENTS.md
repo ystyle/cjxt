@@ -165,7 +165,7 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 ### P2 — 基础设施第二阶段（架构投入，影响面最大）
 - [x] 补丁粒度细化：前端 keyed reconciliation（原位 reconcile，流式/大数据不再整页重建）
 - [x] 虚拟滚动（VirtualList：列表/长消息流；Table 待接入）
-- [ ] #4 DOM 事务（DOM Transaction）：批量更新 + 过渡动画
+- [x] #4 回调式 DOM 事务（事件驱动：命令/查询/顺序/超时——比原"批量+动画"设计更贴合服务端模型）
 
 ### P3 — ERP/Chat 第三批（体验完整）
 - [ ] Upload 附件、Tree/TreeTable、Dropdown、Cascader、Steps、Breadcrumb
@@ -746,3 +746,29 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 **验证**
 - `cjpm test`：163 个单测全过（+8 虚拟窗口）。
 - 端到端：10000 项只渲染 14 行（8 可见 + 6 buffer）；总高度 400000px（占位）；WS 驱动 bind(value=2000) → 窗口切到第 48 项（下标 47）。
+
+### 2026-08-23 回调式 DOM 事务（issue #4 落地）——事件驱动：命令/查询/顺序/超时
+
+**架构决策（经多轮评审修正）**
+- **同步协程挂起不可落地**：Cangjie 无语言级 async/await/可挂起续体；`Future.get()` 是线程阻塞；单连接 listenLoop + 全局 execMutex 使 handler 阻塞 = 死锁/全局冻结。
+- **事件驱动状态机是正解**：handler 不阻塞（注册续体即返回），WS 双工事件（dom_result）驱动续体，走 pushUpdate 同构链路（锁内跑 + ReRender→sendPatch）。
+- **寻址用 ref**（`VNode.ref("name")` → data-ref → Session.refPaths 服务端解析为路径），不用 CSS 选择器（客户端无 id、需要 querySelector、不稳）。
+
+**实现（src/dom.cj + app.cj + session.cj + vnode.cj + cangjie-ui.js）**
+- `ctx.dom.command([domFocus/domScrollIntoView/domSetProperty])`：fire-and-forget，发 dom_command 不等待。
+- `ctx.dom.query/queryAs<T>/queryInt64`：注册续体到 Session.pendingTx（txId→续体）+ 发 getProperty；dom_result 到达 → dispatchDomResult 跑续体。
+- `DomSeq`：co-lite 顺序步骤（query/queryInt64 中间步 + then/thenInt64 末步 + command + timeout/cancel），pending 只在 api 真正下发时递增（ref 找不到不卡状态机）。
+- 客户端 execDomCommands：navigateTo(path) 定位执行命令，needResult 回 dom_result。
+- 协议：服务端→前端 `{"kind":"dom_command",txId,commands,needResult}`；前端→服务端 `{"type":"dom_result",txId,results}`。
+
+**关键坑（本轮踩）**
+- `readValue<Int64>` 对 JSON 字符串 "10" 抛异常（虚拟滚动同款）→ 数值用 `Int64.parse`（queryInt64），`queryAs<T>` 只适合 String/JSON 友好类型。
+- DomSeq pending 卡死：先 pending++ 再调 api，ref 找不到时卡住 → api 返回 Bool，成功才计数。
+- dispatchDomResult 无 catch：续体异常杀连接 → 加 catch（onError）。
+- dispatchDomResult 参数含内部类型 SessionState → 不能 public；超时走新增 public `App.dispatchDomTimeout(session, txId)`（内部构造 state 调私有 dispatchDomResult）。
+- 测试触发 markDirty 后须 `RenderContext.clearDirty()`（全局 dirtyComponents 污染后续测试）。
+
+**验证**
+- `cjpm test`：172 全过（DomLogic 4 + DomParseResult 3 + DomTx e2e + DomTimeout e2e）。
+- DomSeq 顺序流经 Node WS 驱动验证（两个顺序 dom_command + 延迟 then + 最终补丁）；超时经 e2e（客户端不回 → 300ms 触发 → 补丁）。
+- 移除挂起的 DomSeq e2e（ws.read 无超时 + 测试输出缓冲；机制经真实 WS 驱动证明）。

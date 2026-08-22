@@ -103,6 +103,9 @@ class CangjieUI {
             case 'title':
                 document.title = msg.title;
                 break;
+            case 'dom_command':
+                this.execDomCommands(msg);
+                break;
             case 'deny':
                 console.warn('Navigation denied:', msg.reason);
                 if (msg.path) {
@@ -504,6 +507,35 @@ class CangjieUI {
             const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
             if (dist < 80) el.scrollTop = el.scrollHeight;
         });
+    }
+    // DOM 事务执行器（事件驱动）：执行服务端下发的 dom_command，needResult 时回 dom_result
+    execDomCommands(msg) {
+        const results = {};
+        const cmds = msg.commands || [];
+        for (const cmd of cmds) {
+            const parts = (cmd.path || '').split('/').filter(Boolean);
+            const el = parts.length ? this.navigateTo(parts, this.container) : this.container;
+            if (!el) continue;
+            switch (cmd.cmd) {
+                case 'focus':
+                    el.focus();
+                    break;
+                case 'scrollIntoView':
+                    el.scrollIntoView({ behavior: cmd.value || 'smooth', block: 'nearest' });
+                    break;
+                case 'setProperty':
+                    if (cmd.property) el[cmd.property] = cmd.value || '';
+                    break;
+                case 'getProperty':
+                    if (cmd.resultKey && cmd.property !== undefined) {
+                        results[cmd.resultKey] = String(el[cmd.property] ?? '');
+                    }
+                    break;
+            }
+        }
+        if (msg.needResult) {
+            this.send({ type: 'dom_result', txId: msg.txId, results, sessionId: this.sessionId });
+        }
     }
     navigateTo(parts, parent) {
         let el = parent.firstElementChild;

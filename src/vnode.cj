@@ -156,6 +156,18 @@ public struct VNode <: IComponent {
         m[k] = v
         this.attrs(m)
     }
+
+    // 命名引用：给元素起名（data-ref="<name>"），DOM 事务用 ref 名寻址（服务端解析为路径）
+    // 注意：合并进现有 attrs（attr() 是整表替换，会丢掉原 class/type 等）
+    public func ref(name: String): VNode {
+        let m = HashMap<String, String>()
+        match (this._attrs) {
+            case Some(a) => for ((k, v) in a) { m[k] = v }
+            case None => ()
+        }
+        m["data-ref"] = name
+        this.attrs(m)
+    }
     // （IComponent 接口的默认实现通过 match 转发到这些）
 }
 

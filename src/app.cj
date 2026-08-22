@@ -272,6 +272,7 @@ public class App {
         let state = SessionState(session.page, session.path)
         let tree = RenderContext.expandTree(applyLayout(session.path, session.tree), "")
         session.refreshHandlers(tree)
+        session.refreshRefs(tree)
         // 初始渲染/恢复后清理脏标记（渲染出口统一清理，防止残留污染后续补丁）
         RenderContext.clearDirty()
         wsSendJson(ws, ConnectedMsg())
@@ -364,6 +365,7 @@ public class App {
         let raw = state.page.renderWithScope()
         let tree = RenderContext.expandTree(applyLayout(state.path, raw), "")
         session.refreshHandlers(tree)
+        session.refreshRefs(tree)
         session.tree = tree
         // 初始渲染后清理脏标记（渲染出口统一清理，防止残留污染后续补丁）
         RenderContext.clearDirty()
@@ -395,6 +397,10 @@ public class App {
                 } else if (t == "navigate") {
                     let path = readField(raw, "path")
                     if (path != "") { this.handleNavigate(ws, state, session, path) }
+                } else if (t == "dom_result") {
+                    let txId = readField(raw, "txId")
+                    let results = readResults(raw)
+                    if (txId != "") { this.dispatchDomResult(ws, state, session, txId, results) }
                 }
             } else if (frame.frameType == WebSocketFrameType.CloseWebFrame) {
                 ws.writeCloseFrame()
@@ -420,7 +426,7 @@ public class App {
         let keyEvent = parseKeyEvent(params)
         let ctx = ActionContext(session.id, session.context, params, router, pushFn: { patches =>
             wsSendJson(ws, PushMsg(patches))
-        }, sessionStates: session.states, keyEvent: keyEvent)
+        }, sessionStates: session.states, keyEvent: keyEvent, dom: Some(DomApi(this, ws, session)))
         try {
             match (fn(ctx)) {
                 case PatchResult.ReRender => if (!flag.done) { this.sendPatch(ws, state, session) }
@@ -477,12 +483,13 @@ public class App {
         }
         let state = SessionState(session.page, session.path)
         session.refreshHandlers(session.tree)
+        session.refreshRefs(session.tree)
         SignalTracker.execMutex.lock()
         let flag = NavFlag()
         let router = Router("", { path => this.execNavAction(ws, state, session, flag, path) })
         let ctx = ActionContext(sid, session.context, HashMap<String, String>(), router, pushFn: { patches =>
             wsSendJson(ws, PushMsg(patches))
-        }, sessionStates: session.states)
+        }, sessionStates: session.states, dom: Some(DomApi(this, ws, session)))
         try {
             match (update(ctx)) {
                 case PatchResult.ReRender => if (!flag.done) { this.markPushPending(sid) }
@@ -539,6 +546,45 @@ public class App {
         this.sendPatch(ws, state, session)
     }
 
+    // 超时/取消分发：若 tx 仍 pending 则跑其续体（ReRender→sendPatch）；已正常完成则忽略
+    public func dispatchDomTimeout(session: Session, txId: String): Bool {
+        match (session.wsState) {
+            case WsState.Connected => ()
+            case _ => return false
+        }
+        let ws = match (session.ws) { case Some(w) => w case None => return false }
+        let state = SessionState(session.page, session.path)
+        let results = HashMap<String, String>()
+        this.dispatchDomResult(ws, state, session, txId, results)
+        true
+    }
+
+    // DOM 事务结果分发：dom_result 到达 → 取 session.pendingTx 续体 → 锁内跑 → ReRender 则 sendPatch
+    private func dispatchDomResult(ws: WebSocket, state: SessionState, session: Session, txId: String, results: HashMap<String, String>): Unit {
+        SignalTracker.execMutex.lock()
+        try {
+            match (session.pendingTx.get(txId)) {
+                case Some(k) =>
+                    session.pendingTx.remove(txId)
+                    let flag = NavFlag()
+                    let router = Router("", { path => this.execNavAction(ws, state, session, flag, path) })
+                    let ctx = ActionContext(session.id, session.context, HashMap<String, String>(), router, pushFn: { patches =>
+                        wsSendJson(ws, PushMsg(patches))
+                    }, sessionStates: session.states, dom: Some(DomApi(this, ws, session)))
+                    match (k(results)) {
+                        case PatchResult.ReRender => if (!flag.done) { this.sendPatch(ws, state, session) }
+                        case _ => ()
+                    }
+                case None => ()
+            }
+        } catch (e: Exception) {
+            // 续体异常不杀连接：捕获并走 onError（与 runAction 一致）
+            state.page.onError(ErrorContext("", "dom_result", e))
+        } finally {
+            SignalTracker.execMutex.unlock()
+        }
+    }
+
     private func dispatchBind(ws: WebSocket, state: SessionState, session: Session, name: String, value: String): Unit {
         SignalTracker.execMutex.lock()
         try {
@@ -558,7 +604,7 @@ public class App {
         let router = Router("", { path => this.execNavAction(ws, state, session, flag, path) })
         let ctx = ActionContext(session.id, session.context, params, router, pushFn: { patches =>
             wsSendJson(ws, PushMsg(patches))
-        }, sessionStates: session.states)
+        }, sessionStates: session.states, dom: Some(DomApi(this, ws, session)))
         try {
             match (fn(ctx)) {
                 case PatchResult.ReRender => if (!flag.done) { this.sendPatch(ws, state, session) }
@@ -597,6 +643,7 @@ public class App {
         let raw = newPage.renderWithScope()
         let tree = RenderContext.expandTree(applyLayout(path, raw), "")
         session.refreshHandlers(tree)
+        session.refreshRefs(tree)
         session.updatePage(newPage, tree)
         session.path = path
         // 导航后清理脏标记：旧页面实例（如登录页）的 markDirty 残留会在下次
@@ -639,6 +686,7 @@ public class App {
 
         session.handlers.clear()
         RenderContext.collectHandlersFromTree(session.tree, session.handlers)
+        session.refreshRefs(session.tree)
         RenderContext.clearDirty()
     }
 }
@@ -681,6 +729,19 @@ func readBindValue(raw: String): String {
 }
 
 // 解析 action 消息中的 params 对象（前端所有参数值均为字符串，如按键信息）
+// 解析 dom_result 的 results 对象：{"r1":"<值>",...} → HashMap
+func readResults(raw: String): HashMap<String, String> {
+    let result = HashMap<String, String>()
+    let mark = "\"results\":{"
+    match (raw.indexOf(mark)) {
+        case Some(start) =>
+            let body = extractJsonObjectBody(raw, start + mark.size)
+            if (body != "") { parseStringPairs(body, result) }
+        case None => ()
+    }
+    result
+}
+
 func readActionParams(raw: String): HashMap<String, String> {
     let result = HashMap<String, String>()
     let mark = "\"params\":{"

@@ -11,7 +11,7 @@ let componentNames: Array<String> = [
     "Input", "InputNumber", "Switch", "Radio", "Checkbox",
     "Rate", "Select", "Slider", "Form", "Table", "Dialog", "Drawer", "Tooltip", "Popover",
     "Progress", "Avatar", "Empty", "Descriptions", "Statistic", "Result", "Pagination",
-    "DatePicker", "DateRangePicker", "Message", "Notification", "Loading", "Skeleton", "Tabs", "Markdown", "AutoScroll", "Reactive", "VirtualList"
+    "DatePicker", "DateRangePicker", "Message", "Notification", "Loading", "Skeleton", "Tabs", "Markdown", "AutoScroll", "Reactive", "VirtualList", "DomTx"
 ]
 
 class ShowcaseState <: AppState {
@@ -44,6 +44,7 @@ class ShowcaseState <: AppState {
     var reactiveEff: Effect
     var virtualItems: Signal<ArrayList<Int64>>
     var virtualScrollTop = Signal<Int64>(0)
+    var domTxResult = Signal<String>("未查询")
     var formUsername = Signal<String>("")
     var formPassword = Signal<String>("")
     var formUserError = Signal<String>("")
@@ -170,6 +171,7 @@ class ShowcasePage <: Component {
             case "AutoScroll" => this.demoAutoScroll()
             case "Reactive" => this.demoReactive()
             case "VirtualList" => this.demoVirtualList()
+            case "DomTx" => this.demoDomTx()
             case _ => text("选择左侧组件查看示例")
         }
     }
@@ -983,6 +985,16 @@ class ShowcasePage <: Component {
         ], attrs: Some(HashMap<String, String>([("class", cls("vlist-demo"))])))
     }
 
+    func demoDomTx(): IComponent {
+        let st = this.state
+        div([
+            div([text("DOM 事务（事件驱动：服务端发起命令/查询，前端执行，结果回传续体）")], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
+            div([DomTxWidget(st.domTxResult)], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([text("查询结果：${st.domTxResult.get()}")], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([text("原理：ctx.dom.command([...]) fire-and-forget（聚焦/滚动）；ctx.dom.query(path, prop){续体} —— 注册续体到 Session，dom_result 事件到达后驱动续体，无阻塞无死锁")], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+        ], attrs: Some(HashMap<String, String>([("class", cls("domtx-demo"))])))
+    }
+
     func virtualRow(idx: Int64, item: Int64): IComponent {
         let a = HashMap<String, String>()
         a["class"] = "vlist-row"
@@ -1328,4 +1340,59 @@ func makeReactiveDouble(s: Signal<Int64>): Computed<Int64> {
 }
 func makeReactiveEff(s: Signal<Int64>, out: Signal<Int64>): Effect {
     Effect({ => out.set(s.get()) })
+}
+
+// DOM 事务演示组件：用 this.getPath() 定位自身子树元素
+class DomTxWidget <: Component {
+    let result: Signal<String>
+    public init(result: Signal<String>) { this.result = result }
+
+    public func render(): IComponent {
+        let focusH: ActionHandler = { ctx =>
+            match (ctx.dom) {
+                case Some(d) =>
+                    // ref 寻址：服务端把 ref 名解析为树路径，客户端 navigateTo 定位
+                    d.command([domFocus("domtx-input"), domSetProperty("domtx-status", "innerText", "已聚焦输入框")])
+                case None => ()
+            }
+            PatchResult.ReRender
+        }
+        let queryH: ActionHandler = { ctx =>
+            match (ctx.dom) {
+                case Some(d) =>
+                    d.query("domtx-widget", "offsetHeight") { results =>
+                        let v = match (results.get("r1")) { case Some(x) => x case None => "?" }
+                        this.result.set("高度 ${v}px")
+                        PatchResult.ReRender
+                    }
+                case None => ()
+            }
+            PatchResult.ReRender
+        }
+        let seqH: ActionHandler = { ctx =>
+            match (ctx.dom) {
+                case Some(d) =>
+                    let seq = d.seq()
+                    let hbox = Box<Int64>(0)
+                    seq.queryInt64("domtx-widget", "offsetHeight") { h => hbox.value = h }
+                    seq.thenInt64("domtx-widget", "offsetWidth") { w =>
+                        this.result.set("高+宽=${hbox.value + w}")
+                        PatchResult.ReRender
+                    }
+                case None => ()
+            }
+            PatchResult.ReRender
+        }
+        let attrs = HashMap<String, String>()
+        attrs["class"] = "domtx-widget"
+        attrs["style"] = "padding:12px;border:1px solid #e4e7ed;border-radius:8px;background:#fff"
+        let root = VNode("div", [
+            VNode("input", [], attrs: Some(HashMap<String, String>([("type", "text"), ("placeholder", "这是一个输入框")]))).ref("domtx-input"),
+            VNode("span", [text("状态")], attrs: Some(HashMap<String, String>([("class", "domtx-status")]))).ref("domtx-status"),
+            VNode("button", [text("聚焦输入框")], attrs: Some(HashMap<String, String>([("type", "button")]))).onClick(focusH),
+            VNode("button", [text("查询组件高度")], attrs: Some(HashMap<String, String>([("type", "button")]))).onClick(queryH),
+            VNode("button", [text("序列查询 高+宽")], attrs: Some(HashMap<String, String>([("type", "button")]))).onClick(seqH),
+        ], attrs: Some(attrs)).ref("domtx-widget")
+        root
+    }
 }
