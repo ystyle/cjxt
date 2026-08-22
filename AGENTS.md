@@ -671,3 +671,26 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 - `cjpm test`：123 个单测全过（服务端未改）。
 - agent-browser：全页 reconcile 切换 demo 内容正确（Tabs 3 个、Pagination 3 个、Table 4 行数据）；AutoScroll 追加 reconcile 无 JS 异常（`window.onerror` 捕获为空）且滚动容器保留。
 - 受 agent-browser 会话不稳定限制（~5 次 eval 后退化），交互细节验证受限；核心 reconcile 逻辑 + 渲染正确性已确认。
+
+### 2026-08-22 全特性响应式核心——Computed / Effect / batch / untracked / 相等性 / 订阅生命周期（P2 前置地基）
+
+**实现功能**
+- `SignalTracker` 扩展：`batchDepth`（批量延迟通知）+ `untrackedDepth`（不追踪读取）+ `collectorStack`（computed/effect 重算时收集依赖以便退订）。
+- `Signal<T>`：可选相等性（相同值不通知，防无限循环/多余重渲染）；`get` 支持 untracked 读取；`set` 支持 batch 合并（多次 set 一次通知）；订阅按 id 精确退订（`subscribe -> Int64` + `unsubscribe(id)`）。
+- `Computed<T>`：惰性派生值（首次 get 计算 + 缓存；依赖变化自动失效并通知下游；支持链式依赖与 `dispose` 退订）。
+- `Effect`：自动运行的副作用（init 立即跑一次，依赖变化重跑；`dispose` 退订依赖）。
+- 顶层 API：`batch<T>(fn)`（流式/多字段更新合并为一次渲染）、`untracked<T>(fn)`。
+- `notify()` 迭代**快照**——修复 effect 通知期间退订/改订阅破坏迭代导致的死循环。
+
+**Cangjie 约束（本轮踩坑）**
+- lambda 多参数**不带括号**：`{ a, b => ... }`（`{ (a, b) => ... }` 报错）。
+- 零参 block lambda 必须 `{ => ... }`（`{` 后紧跟 `=>`）。
+- 被 lambda 捕获的可变绑定必须 `let`（`var` 绑定不能进闭包）；可变性用 `Box<T>.value`。
+- 类继承用 `<:` 不是 `:`。
+- **构造函数/字段初始化器里不能创建捕获 `this` 的闭包**（"not allowed to be accessed before all member variables are initialized"）——用顶层辅助函数把依赖作为参数传入 lambda。
+
+**验证**
+- `cjpm test`：140 个单元测试全过（123 原有 + 17 新响应式：相等性/untracked/batch/Computed 惰性缓存与链式/Effect 跟随与 dispose/unsubscribe）。
+- showcase Reactive 演示：`+1` → count=1、Computed 派生 ×2=2、Effect 同步=1（WS 端到端验证）。
+
+### 2026-08-22 前端 keyed reconciliation 补丁粒度细化（P2 #1）

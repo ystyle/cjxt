@@ -11,7 +11,7 @@ let componentNames: Array<String> = [
     "Input", "InputNumber", "Switch", "Radio", "Checkbox",
     "Rate", "Select", "Slider", "Form", "Table", "Dialog", "Drawer", "Tooltip", "Popover",
     "Progress", "Avatar", "Empty", "Descriptions", "Statistic", "Result", "Pagination",
-    "DatePicker", "DateRangePicker", "Message", "Notification", "Loading", "Skeleton", "Tabs", "Markdown", "AutoScroll"
+    "DatePicker", "DateRangePicker", "Message", "Notification", "Loading", "Skeleton", "Tabs", "Markdown", "AutoScroll", "Reactive"
 ]
 
 class ShowcaseState <: AppState {
@@ -38,6 +38,10 @@ class ShowcaseState <: AppState {
     var activeTab = Signal<String>("tab1")
     var chatMessages = Signal<ArrayList<String>>(ArrayList<String>())
     var chatCounter = Signal<Int64>(0)
+    var reactiveCount = Signal<Int64>(0)
+    var reactiveEffCount = Signal<Int64>(0)
+    var reactiveDouble: Computed<Int64>
+    var reactiveEff: Effect
     var formUsername = Signal<String>("")
     var formPassword = Signal<String>("")
     var formUserError = Signal<String>("")
@@ -58,6 +62,8 @@ class ShowcaseState <: AppState {
     var tableCurrentRow: Signal<Option<HashMap<String, String>>>
 
     public init() {
+        this.reactiveDouble = makeReactiveDouble(this.reactiveCount)
+        this.reactiveEff = makeReactiveEff(this.reactiveCount, this.reactiveEffCount)
         let noneRow: Option<HashMap<String, String>> = None
         this.tableCurrentRow = Signal<Option<HashMap<String, String>>>(noneRow)
     }
@@ -157,6 +163,7 @@ class ShowcasePage <: Component {
             case "Tabs" => this.demoTabs()
             case "Markdown" => this.demoMarkdown()
             case "AutoScroll" => this.demoAutoScroll()
+            case "Reactive" => this.demoReactive()
             case _ => text("选择左侧组件查看示例")
         }
     }
@@ -927,6 +934,36 @@ class ShowcasePage <: Component {
         ], attrs: Some(HashMap<String, String>([("class", cls("autoscroll-demo"))])))
     }
 
+    func demoReactive(): IComponent {
+        let st = this.state
+        let incH: ActionHandler = { ctx =>
+            st.reactiveCount.update({ v => v + 1 })
+            PatchResult.ReRender
+        }
+        let batchH: ActionHandler = { ctx =>
+            batch({ =>
+                st.reactiveCount.update({ v => v + 10 })
+            })
+            PatchResult.ReRender
+        }
+        let resetH: ActionHandler = { ctx =>
+            st.reactiveCount.set(0)
+            PatchResult.ReRender
+        }
+        div([
+            div([text("响应式核心（Signal + Computed + Effect + batch）")], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
+            div([text("Signal count：${st.reactiveCount.get()}")], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([text("Computed 派生（count × 2）：${st.reactiveDouble.get()}")], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([text("Effect 自动跟随（= count）：${st.reactiveEffCount.get()}")], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([
+                PrimaryButton("+1").onClick(incH),
+                PrimaryButton("+10（batch 一次通知）").onClick(batchH),
+                DangerButton("重置").onClick(resetH),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([text("说明：computed 惰性缓存仅在依赖变化时重算；effect 随依赖自动重跑；batch 内多次 set 只触发一次重渲染")], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+        ], attrs: Some(HashMap<String, String>([("class", cls("reactive-demo"))])))
+    }
+
     func demoMarkdown(): IComponent {
         let sample = """
 # 欢迎使用 Markdown 组件
@@ -1257,4 +1294,12 @@ func buildAutoScrollItems(items: ArrayList<String>): Array<IComponent> {
         list.add(VNode("div", [text(item)], attrs: Some(attrs)))
     }
     list.toArray()
+}
+
+// 响应式演示辅助：顶层函数让 lambda 只捕获参数（构造函数里不能创建捕获 this 的闭包）
+func makeReactiveDouble(s: Signal<Int64>): Computed<Int64> {
+    Computed<Int64>({ => s.get() * 2 })
+}
+func makeReactiveEff(s: Signal<Int64>, out: Signal<Int64>): Effect {
+    Effect({ => out.set(s.get()) })
 }
