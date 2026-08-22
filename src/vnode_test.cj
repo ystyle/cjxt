@@ -261,7 +261,8 @@ func doTestBindHandler(node: VNode, s: Signal<String>, bid: String): Unit {
 }
 
 func doInvokeBind(fn: ActionHandler, s: Signal<String>): Unit {
-    let p = HashMap<String, String>([("value", "\"hello\"")])
+    // 对齐修复后的 readBindValue：value 是干净字符串（不含引号）
+    let p = HashMap<String, String>([("value", "hello")])
     let ctx = ActionContext("", HashMap<String, String>(), p, Router("", { _ => () }))
     let r = fn(ctx)
     @Expect(s.get(), "hello")

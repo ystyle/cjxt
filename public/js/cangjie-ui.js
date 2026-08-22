@@ -144,7 +144,13 @@ class CangjieUI {
             (node.children || []).forEach(c => this.renderTree(c, parentEl));
             return;
         }
-        if (type === 'empty') return;
+        if (type === 'empty') {
+            // 空节点必须占 DOM 槽位：树路径按 children 索引定位 DOM，
+            // 若 empty 不产生节点，后续 patch（如 Dialog 打开/关闭）的
+            // 路径定位会错位——打开时定位失败、关闭时旧 DOM 残留遮罩。
+            parentEl.appendChild(this.makeEmptySlot());
+            return;
+        }
         if (type === 'text') {
             parentEl.appendChild(document.createTextNode(node.attrs ? (node.attrs.text || '') : ''));
             return;
@@ -329,6 +335,12 @@ class CangjieUI {
         }
         return (i >= parts.length) ? el : null;
     }
+    makeEmptySlot() {
+        const el = document.createElement('span');
+        el.style.display = 'none';
+        el.dataset.cjxtEmpty = '1';
+        return el;
+    }
     renderSubtree(node) {
         const type = (node.type || '').toLowerCase();
         if (type === 'fragment') {
@@ -336,7 +348,7 @@ class CangjieUI {
             (node.children || []).forEach(c => wrapper.appendChild(this.renderSubtree(c)));
             return wrapper;
         }
-        if (type === 'empty') return null;
+        if (type === 'empty') return this.makeEmptySlot();
         if (type === 'text') {
             return document.createTextNode(node.attrs ? (node.attrs.text || '') : '');
         }

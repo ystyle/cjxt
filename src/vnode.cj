@@ -123,7 +123,9 @@ public struct VNode <: IComponent {
             let raw = match (ctx.params.get("value")) { case Some(v) => v case None => "" }
             let buf = ByteBuffer()
             let w = JsonWriter(buf)
-            w.jsonValue(raw)
+            // writeValue 输出带引号的 JSON 字符串（jsonValue 是按 JSON 原文写入，
+            // 干净字符串会被裸写导致 readValue 抛 Character not expected）
+            w.writeValue(raw)
             w.flush()
             buf.flush()
             buf.seek(SeekPosition.Begin(0))
