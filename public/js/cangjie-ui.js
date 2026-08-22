@@ -211,7 +211,7 @@ class CangjieUI {
         if (type.startsWith('client:')) {
             const wrapper = document.createElement('div');
             this.renderClientComponent(node, wrapper);
-            return wrapper;
+            return wrapper.firstElementChild || wrapper;
         }
         const el = this.createElement(type);
         this.applyAttrs(el, node);
@@ -271,12 +271,16 @@ class CangjieUI {
 
     // 现有 DOM 节点能否复用来匹配 tree node
     matchesNode(el, node) {
-        const type = (node.type || '').toLowerCase();
+        const rawType = node.type || '';
+        const type = rawType.toLowerCase();
         if (type === 'fragment') return false;
         if (type === 'empty') return !!(el.dataset && el.dataset.cjxtEmpty === '1');
         if (type === 'text') return el.nodeType === 3;
         if (type === 'style') return el.nodeType === 1 && el.tagName === 'STYLE';
-        if (type.startsWith('client:')) return false;
+        if (type.startsWith('client:')) {
+            // 组件名大小写敏感（client:Tooltip），用原始 type 取组件名
+            return el.__cjxtCompName === rawType.slice(7);
+        }
         return el.nodeType === 1 && el.tagName === type.toUpperCase();
     }
 
@@ -294,6 +298,14 @@ class CangjieUI {
             return;
         }
         if (type === 'empty') return;
+        if (type.startsWith('client:')) {
+            // 客户端组件：原位复用实例，调 update() 同步 props（保留瞬时 UI 状态）
+            if (el.__cjxtComp && typeof el.__cjxtComp.update === 'function') {
+                el.__cjxtComp.update(node.props || {}, el);
+            }
+            this.applyActions(el, node);
+            return;
+        }
         this.applyAttrs(el, node);
         this.applyActions(el, node);
         this.reconcileChildren(el, node.children || []);
@@ -408,6 +420,7 @@ class CangjieUI {
         const comp = new CompClass();
         const el = comp.create(node.props || {}, parentEl);
         el.__cjxtComp = comp;
+        el.__cjxtCompName = compName;
         // 将 actions（事件名 → handler ID）设到 DOM 上，通过标准 action 派发
         for (const ev in node.actions || {}) {
             el.setAttribute('data-action-' + ev, node.actions[ev]);

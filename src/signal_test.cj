@@ -358,3 +358,52 @@ public class SignalTest {
         @Expect(captured.value, -1)
     }
 }
+
+@Test
+public class EffectReentrancyTest {
+    @TestCase
+    public func testEffectSelfWriteNoStackOverflow(): Unit {
+        // effect 写自身读取的依赖（无条件 +1）：重入保护把递归变成有界重跑（这里用有限条件验证不栈溢出）
+        let s = Signal<Int64>(0)
+        let runs = Box<Int64>(0)
+        let eff = Effect({ =>
+            runs.value += 1
+            let cur = s.get()
+            if (cur < 5) {
+                s.set(cur + 1)
+            }
+        })
+        // 收敛到 5；每次 set 触发一次重跑（重入保护使运行中变更延迟到结束）
+        @Expect(s.get(), 5)
+        @Expect(runs.value >= 5, true)
+        @Expect(runs.value < 20, true) // 没有无限递归/栈溢出
+    }
+
+    @TestCase
+    public func testEffectSelfWriteEqualValueConverges(): Unit {
+        // effect 写回相同值（相等性信号）：不触发重跑，不循环
+        let s = Signal<Int64>(1, compare: Some({ a, b => a == b }))
+        let runs = Box<Int64>(0)
+        let eff = Effect({ =>
+            runs.value += 1
+            s.set(s.get()) // 写回相同值
+        })
+        @Expect(runs.value, 1) // 只跑一次
+        @Expect(s.get(), 1)
+    }
+
+    @TestCase
+    public func testEffectDisposeStopsPendingRerun(): Unit {
+        let s = Signal<Int64>(0)
+        let runs = Box<Int64>(0)
+        let eff = Effect({ =>
+            runs.value += 1
+            let cur = s.get()
+            if (cur < 3) { s.set(cur + 1) }
+        })
+        eff.dispose()
+        let before = runs.value
+        s.set(100)
+        @Expect(runs.value, before) // dispose 后不再重跑
+    }
+}

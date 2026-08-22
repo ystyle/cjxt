@@ -9,12 +9,13 @@ public class Markdown <: Component {
     var _content: String = ""
 
     public func content(v: String): Markdown { this._content = v; this }
-    public func bind(signal: Signal<String>): Markdown { this._signal = Some(signal); this }
+    // bind 接受 Readable<String>：Signal（可写）或 Computed（派生）皆可驱动内容
+    public func bind(src: Readable<String>): Markdown { this._src = Some(src); this }
 
-    var _signal: Option<Signal<String>> = None
+    var _src: Option<Readable<String>> = None
 
     public func render(): IComponent {
-        let text = match (this._signal) {
+        let text = match (this._src) {
             case Some(s) => s.get()
             case None => this._content
         }

@@ -710,3 +710,23 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 - Cangjie 坑：`for (i in 1..5)` 是**半开区间** `[1,5)` 只跑 4 次——闭区间用 `1..=5`。
 
 **效果**：聊天流式每 token 的 pushUpdate 从"各自 sendPatch（整页重渲染+下发）"变为"一个窗口合并为一次 sendPatch"——配合 keyed reconciliation，流式从"每 token 整页重建"到"每窗口一次局部更新"的完整闭环。
+
+### 2026-08-22 响应式缺口闭合：组件用上 computed/effect + Effect 重入保护 + 客户端组件 update-on-reconcile
+
+**缺口 #2：组件用上 computed/effect（脏追踪穿透 + Readable 接口）**
+- `Readable<T>` 接口（get()）：`Signal` 与 `Computed` 都实现——组件/框架的**只读输入统一接受** Signal 或 Computed。
+- `Markdown.bind` 改为接受 `Readable<String>`（Computed 可驱动内容；Signal 天然兼容）。
+- `reactive_component_test.cj`：**关键集成测试**——组件渲染读 Computed，依赖信号变化 → computed 失效 → 组件标脏（脏追踪穿透 computed，含链式/共享/effect 驱动）。4 + 1 测试。
+- 教训：测试触发 markDirty 后必须 `RenderContext.clearDirty()`，否则残留的全局 dirtyComponents 污染并行/后续测试（`testCollectDirtyParentOverrideChild` 间歇失败根因）。
+
+**缺口 #3：Effect 重入保护**
+- `Effect` 加 `running/pending` 状态：执行中依赖又变 → 标 pending，**本次结束后统一重跑一次**（而非递归）——防自写依赖的 effect 栈溢出。
+- 测试：自写 +1 有界收敛不栈溢出；写回相同值（相等性）只跑一次；dispose 后不再重跑。
+
+**缺口 #4：客户端组件 update-on-reconcile（瞬时状态跨 patch 保留）**
+- 原缺陷：客户端组件（Tooltip/Popover）reconcile 时**总是 destroy+重建**，`update()` 契约从未被调用——父组件重渲染（如流式 patch）会关闭已打开的 tooltip/popover。
+- 修复：`createNode` client 分支返回实际元素（统一 `__cjxtComp` 位置）；`matchesNode` 按组件名匹配（**大小写敏感**，用原始 type）；`reconcileNode` client 分支调 `comp.update(props, el)` + 同步 data-action-*。
+- 验证：Node + 最小 DOM stub 逻辑测试（createNode 标记/matchesNode 匹配与区分/reconcile 调 update + actions 同步/非 client 不调 update）全过——比 flaky 的 agent-browser 更可靠。
+
+**验证**
+- `cjpm test`：155 个单测全过。

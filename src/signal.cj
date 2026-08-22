@@ -70,6 +70,12 @@ public open class ReactiveNode {
     }
 }
 
+// 可读响应式值：Signal（可写源）与 Computed（派生）的公共只读接口
+// 组件/框架的只读输入统一接受 Readable<T>——调用方可传 Signal 或 Computed
+public interface Readable<T> {
+    func get(): T
+}
+
 // 追踪上下文：scope 栈（自动追踪）+ collector 栈（computed 依赖收集）+ batch/untracked 深度
 public class SignalTracker {
     static var scopeStack = ArrayList<() -> Unit>()
@@ -150,7 +156,7 @@ public func untracked<T>(fn: () -> T): T {
 // ============================================================================
 // Signal<T>：可写响应式状态源
 // ============================================================================
-public class Signal<T> <: ReactiveNode {
+public class Signal<T> <: ReactiveNode & Readable<T> {
     var value: T
     // 可选相等性函数：set 相同值时不通知（防无限循环/多余重渲染）
     var compare: Option<(T, T) -> Bool> = None
@@ -201,7 +207,7 @@ public class Signal<T> <: ReactiveNode {
 // ============================================================================
 // Computed<T>：惰性派生值（缓存 + 依赖变化自动失效）
 // ============================================================================
-public class Computed<T> <: ReactiveNode {
+public class Computed<T> <: ReactiveNode & Readable<T> {
     var computeFn: () -> T
     var cached: Option<T> = None
     var dirty: Bool = true
@@ -277,6 +283,8 @@ public class Effect {
     var fn: () -> Unit
     var disposed: Bool = false
     var depIds = ArrayList<DepEntry>()
+    var running: Bool = false
+    var pending: Bool = false
 
     public init(fn: () -> Unit) {
         this.fn = fn
@@ -285,6 +293,8 @@ public class Effect {
 
     func run(): Unit {
         this.unsubscribeDeps()
+        this.running = true
+        this.pending = false
         SignalTracker.enterScope({ => this.rerun() })
         SignalTracker.pushCollector({ src, id => this.depIds.add(DepEntry(src, id)) })
         try {
@@ -292,13 +302,24 @@ public class Effect {
         } finally {
             SignalTracker.popCollector()
             SignalTracker.exitScope()
+            this.running = false
+        }
+        // 运行期间发生的依赖变更（重入）推迟到本次结束后统一再跑一次，避免递归栈溢出
+        if (this.pending && !this.disposed) {
+            this.rerun()
         }
     }
 
     func rerun(): Unit {
-        if (!this.disposed) {
-            this.run()
+        if (this.disposed) {
+            return
         }
+        if (this.running) {
+            // 重入保护：effect 执行中依赖又变 → 标记 pending，等本次结束再跑
+            this.pending = true
+            return
+        }
+        this.run()
     }
 
     public func dispose(): Unit {
