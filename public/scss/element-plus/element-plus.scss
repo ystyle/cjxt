@@ -52,6 +52,7 @@
 @use 'loading.scss';
 @use 'skeleton.scss';
 @use 'skeleton-item.scss';
+@use 'markdown.scss';
 
 .el-button:not(.is-circle) {
   min-width: 68px;

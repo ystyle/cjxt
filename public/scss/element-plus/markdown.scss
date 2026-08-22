@@ -1,0 +1,94 @@
+// 服务端渲染的 Markdown 内容排版（Markdown 组件 innerHTML 输出）
+.el-markdown {
+  font-size: 14px;
+  line-height: 1.7;
+  color: #303133;
+  word-break: break-word;
+
+  > *:first-child { margin-top: 0; }
+  > *:last-child { margin-bottom: 0; }
+
+  h1, h2, h3, h4, h5, h6 {
+    margin: 1.2em 0 0.6em;
+    font-weight: 600;
+    color: #1f2d3d;
+    line-height: 1.4;
+  }
+  h1 { font-size: 24px; }
+  h2 { font-size: 20px; }
+  h3 { font-size: 17px; }
+  h4 { font-size: 15px; }
+  h5, h6 { font-size: 14px; }
+
+  p { margin: 0.5em 0; }
+
+  strong { font-weight: 600; }
+  em { font-style: italic; }
+  del { text-decoration: line-through; }
+
+  a {
+    color: var(--el-color-primary, #409eff);
+    text-decoration: none;
+    &:hover { text-decoration: underline; }
+  }
+
+  code {
+    background: #f4f4f5;
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-family: Consolas, Menlo, monospace;
+    font-size: 0.9em;
+    color: #d03050;
+  }
+
+  pre {
+    background: #282c34;
+    color: #abb2bf;
+    border-radius: 6px;
+    padding: 12px 16px;
+    overflow-x: auto;
+    margin: 0.8em 0;
+
+    code {
+      background: transparent;
+      color: inherit;
+      padding: 0;
+      border-radius: 0;
+      font-size: 0.9em;
+    }
+  }
+
+  ul, ol { padding-left: 1.6em; margin: 0.5em 0; }
+  li { margin: 0.3em 0; }
+
+  blockquote {
+    margin: 0.8em 0;
+    padding: 6px 14px;
+    border-left: 3px solid var(--el-color-primary, #409eff);
+    background: #f5f7fa;
+    color: #606266;
+    border-radius: 0 4px 4px 0;
+  }
+
+  table {
+    border-collapse: collapse;
+    margin: 0.8em 0;
+    width: 100%;
+    font-size: 13px;
+  }
+  th, td {
+    border: 1px solid #e4e7ed;
+    padding: 6px 12px;
+    text-align: left;
+  }
+  th { background: #f5f7fa; font-weight: 600; }
+  tr:nth-child(even) td { background: #fafafa; }
+
+  img { max-width: 100%; border-radius: 4px; }
+
+  hr {
+    border: none;
+    border-top: 1px solid #e4e7ed;
+    margin: 1em 0;
+  }
+}

@@ -159,7 +159,7 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 - [x] DatePicker / DateRange / Calendar（ERP 单据/报表日期字段）
 - [x] Message / Notification / Loading / Skeleton（反馈体系）
 - [x] Tabs 标签页（多标签工作台布局）
-- [ ] Markdown 渲染组件（Agent Chat 消息可读）
+- [x] Markdown 渲染组件（Agent Chat 消息可读）
 - [ ] 聊天自动滚动 + 流式消息优化
 
 ### P2 — 基础设施第二阶段（架构投入，影响面最大）
@@ -623,3 +623,23 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 **验证**
 - `cjpm test`：94 个单元测试全部通过（90 原有 + 4 tab 逻辑）。
 - agent-browser（独立命名会话）：line/card/border-card 三种类型切换 + 内容更新、禁用标签 no-op、共享信号联动、active 名不匹配回退首个 pane，全部正常。
+
+### 2026-08-21 Markdown 渲染组件（ERP 第一批 #5，Agent Chat 消息可读）
+
+**实现功能**
+- `Markdown` 组件：服务端 markit 解析 markdown → HTML 字符串，`innerhtml` 属性输出（支持 content 或 bind Signal<String>）。
+- `src/markdown.cj` 纯逻辑：`renderMarkdown(text)`（GFM bundle）+ `escapeHtmlText`（解析失败回退）——7 个单测。
+- `.el-markdown` 排版样式（标题/段落/代码块/行内代码/列表/引用/表格/链接/删除线/hr）编译嵌入。
+- 选用 **markit v0.0.4**（对比 pulldown4cj v0.1.0）：
+  - cjc-version 1.1.0 与 cjxt 完全一致（pulldown4cj 要 1.1.3，静态库 ABI 有风险）；
+  - `Markit().use(GFMBundle()).parse(text).document.toHtml()` 一步到位（pulldown4cj 是事件流，要自建 HTML 渲染器）；
+  - GFM bundle 支持表格/任务列表/删除线/自动链接。
+
+**经验**
+- 中心仓新包拉取：沙箱下 `~/.cjpm/repository` 只读，cjpm 无法写索引下载新包；registry API 401。可用 `cjpm build` 的一次性提权（danger-full-access）让 cjpm 完成下载（沙箱只读是真实 denial，可提权）。
+- 评估依赖用 `Markit().use(StandardMarkdownBundle())` 时**表格不渲染**——表格是 GFM 扩展，须用 `GFMBundle()`。
+- markit 依赖 `seajson`，`output-type=static`，编译正常。
+
+**验证**
+- `cjpm test`：123 个单元测试全部通过（116 原有 + 7 markdown）。
+- agent-browser（独立命名会话）：h1/h2、加粗/斜体/删除线、行内代码、fenced 代码块、无序列表、引用、GFM 表格（th/td）、链接 href 全部渲染正常。

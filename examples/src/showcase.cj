@@ -11,7 +11,7 @@ let componentNames: Array<String> = [
     "Input", "InputNumber", "Switch", "Radio", "Checkbox",
     "Rate", "Select", "Slider", "Form", "Table", "Dialog", "Drawer", "Tooltip", "Popover",
     "Progress", "Avatar", "Empty", "Descriptions", "Statistic", "Result", "Pagination",
-    "DatePicker", "DateRangePicker", "Message", "Notification", "Loading", "Skeleton", "Tabs"
+    "DatePicker", "DateRangePicker", "Message", "Notification", "Loading", "Skeleton", "Tabs", "Markdown"
 ]
 
 class ShowcaseState <: AppState {
@@ -153,6 +153,7 @@ class ShowcasePage <: Component {
             case "Loading" => this.demoLoading()
             case "Skeleton" => this.demoSkeleton()
             case "Tabs" => this.demoTabs()
+            case "Markdown" => this.demoMarkdown()
             case _ => text("选择左侧组件查看示例")
         }
     }
@@ -901,6 +902,40 @@ class ShowcasePage <: Component {
             ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
             div([text("当前激活标签：${st.activeTab.get()}（三个 Tabs 共享信号联动）")], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
         ], attrs: Some(HashMap<String, String>([("class", cls("tabs-demo"))])))
+    }
+
+    func demoMarkdown(): IComponent {
+        let sample = """
+# 欢迎使用 Markdown 组件
+
+这是 **服务端渲染** 的 Markdown 内容（由 markit 解析为 HTML）。
+
+## 支持的功能
+
+- 标题、**加粗**、*斜体*、~~删除线~~、`行内代码`
+- 代码块、列表、引用、表格、链接
+
+```cangjie
+public func main() {
+    println("Hello, Cangjie!")
+}
+```
+
+> 引用：仓颉 + cjxt 全栈服务端驱动。
+
+| 组件 | 状态 |
+|------|------|
+| Markdown | ✅ 已完成 |
+| 表格 | ✅ 支持 |
+
+[访问 cjxt 文档](https://example.com/cjxt)
+"""
+        div([
+            div([text("Markdown 渲染（服务端 markit 解析 → HTML）")], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
+            div([
+                Markdown().content(sample),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+        ], attrs: Some(HashMap<String, String>([("class", cls("markdown-demo"))])))
     }
 
     // ============ Props ============
