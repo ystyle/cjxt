@@ -3,6 +3,7 @@ package cjxt
 import std.collection.{ArrayList, HashMap}
 import std.reflect.*
 import std.sync.Mutex
+import std.time.*
 import stdx.net.http.{WebSocket, WebSocketFrameType}
 import tang.{Tang, TangHttpContext}
 import tang.middleware.staticfile.{staticFiles, withPrefix, staticMiddleware}
@@ -27,6 +28,10 @@ public class App {
     var cssBlobs = HashMap<String, String>()
     var jsBlobs = HashMap<String, String>()
     var staticRoutes = ArrayList<(String, String)>()
+    // 服务端推送合并器：流式多 token 的 pushUpdate 合并为一次 flush（一个 sendPatch）
+    var pushCoalescer = PushCoalescer()
+    // sendPatch 调用计数（诊断/测试用：验证推送合并——N 次 pushUpdate → 1 次 sendPatch）
+    public static var sendPatchCount: Int64 = 0
 
     public init() {
         this.tangApp = Tang()
@@ -480,7 +485,7 @@ public class App {
         }, sessionStates: session.states)
         try {
             match (update(ctx)) {
-                case PatchResult.ReRender => if (!flag.done) { this.sendPatch(ws, state, session) }
+                case PatchResult.ReRender => if (!flag.done) { this.markPushPending(sid) }
                 case _ => ()
             }
         } catch (e: Exception) {
@@ -489,6 +494,49 @@ public class App {
             SignalTracker.execMutex.unlock()
         }
         true
+    }
+
+    /**
+     * 推送合并：流式场景下短时间内多个 pushUpdate（每 token 一次）合并为一次
+     * sendPatch——避免每 token 都整页重渲染 + 下发。首个 pending 启动后台
+     * flush 线程，窗口（config.pushFlushMs）内后续 pushUpdate 只追加会话，
+     * 窗口到期后统一取走并逐个 sendPatch。用户触发的 runAction 不受影响（即时）。
+     */
+    private func markPushPending(sid: String): Unit {
+        if (this.pushCoalescer.mark(sid)) {
+            this.spawnPushFlush()
+        }
+    }
+
+    private func spawnPushFlush(): Unit {
+        let app = this
+        let flushMs = this.config.pushFlushMs
+        spawn {
+            sleep(Duration.millisecond * flushMs)
+            SignalTracker.execMutex.lock()
+            let sids = app.pushCoalescer.beginFlush()
+            for (sid in sids) {
+                app.flushSessionPush(sid)
+            }
+            SignalTracker.execMutex.unlock()
+        }
+    }
+
+    private func flushSessionPush(sid: String): Unit {
+        let session = match (this.sessions.get(sid)) {
+            case Some(s) => s
+            case None => return
+        }
+        match (session.wsState) {
+            case WsState.Connected => ()
+            case _ => return
+        }
+        let ws = match (session.ws) {
+            case Some(w) => w
+            case None => return
+        }
+        let state = SessionState(session.page, session.path)
+        this.sendPatch(ws, state, session)
     }
 
     private func dispatchBind(ws: WebSocket, state: SessionState, session: Session, name: String, value: String): Unit {
@@ -567,6 +615,7 @@ public class App {
     }
 
     private func sendPatch(ws: WebSocket, state: SessionState, session: Session): Unit {
+        App.sendPatchCount += 1
         SignalTracker.pendingRender = false
         let dirty = RenderContext.collectDirty()
         if (dirty.size == 0) { return }

@@ -694,3 +694,19 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 - showcase Reactive 演示：`+1` → count=1、Computed 派生 ×2=2、Effect 同步=1（WS 端到端验证）。
 
 ### 2026-08-22 前端 keyed reconciliation 补丁粒度细化（P2 #1）
+
+### 2026-08-22 pushUpdate 推送合并——流式多 token 一次下发（补丁粒度闭环）
+
+**实现功能**
+- `PushCoalescer`（src/push_coalescer.cj）：服务端推送合并状态机——首个 pushUpdate 标记会话并"武装"flush（返回 true），窗口内后续 pushUpdate 只追加（去重），flush 时 beginFlush 一次性取走。6 个单测。
+- `App.pushUpdate` 的 ReRender 路径改为延迟下发：`markPushPending(sid)` → `spawnPushFlush()`（后台线程 sleep `config.pushFlushMs`（默认 15ms）后加锁逐个 `flushSessionPush` → `sendPatch`）。
+- `AppConfig.pushFlushMs`：合并窗口配置。
+- `App.sendPatchCount`：sendPatch 调用计数（诊断/测试）。
+- 用户触发的 `runAction` **不受影响**（仍即时下发）；只有服务端推送合并。
+
+**端到端验证（cjxt 内真实 WS）**
+- `push_coalesce_e2e_test.cj`：启动真实 App + `WebSocket.upgradeFromClient` 建会话 → 5 次 pushUpdate 突发 → `sendPatchCount == 1` + 客户端收到单帧 patch 且含 `n=5`。**147 个单测全过。**
+- 关键：cjxt 测试里做 WS 客户端需 `import stdx.crypto.kit.*`（否则 "Global crypto kit is not set"）；`upgradeFromClient` 依赖 target 级 digest link-option。
+- Cangjie 坑：`for (i in 1..5)` 是**半开区间** `[1,5)` 只跑 4 次——闭区间用 `1..=5`。
+
+**效果**：聊天流式每 token 的 pushUpdate 从"各自 sendPatch（整页重渲染+下发）"变为"一个窗口合并为一次 sendPatch"——配合 keyed reconciliation，流式从"每 token 整页重建"到"每窗口一次局部更新"的完整闭环。

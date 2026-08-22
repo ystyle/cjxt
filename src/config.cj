@@ -11,8 +11,9 @@ public struct AppConfig {
     let cssBundle: String
     let componentsCss: String
     let basePath: String
+    let pushFlushMs: Int64
 
-    public init(title!: String = "cjxt App", favicon!: String = "/favicon.ico", links!: Array<(String, String)> = [], scripts!: Array<String> = [], primaryColor!: String = "#1890ff", fontFamily!: String = "-apple-system, BlinkMacSystemFont, sans-serif", borderRadius!: String = "6px", cssBundle!: String = "", componentsCss!: String = "", basePath!: String = "") {
+    public init(title!: String = "cjxt App", favicon!: String = "/favicon.ico", links!: Array<(String, String)> = [], scripts!: Array<String> = [], primaryColor!: String = "#1890ff", fontFamily!: String = "-apple-system, BlinkMacSystemFont, sans-serif", borderRadius!: String = "6px", cssBundle!: String = "", componentsCss!: String = "", basePath!: String = "", pushFlushMs!: Int64 = 15) {
         this.title = title
         this.favicon = favicon
         this.links = links
@@ -23,5 +24,6 @@ public struct AppConfig {
         this.cssBundle = cssBundle
         this.componentsCss = componentsCss
         this.basePath = basePath
+        this.pushFlushMs = pushFlushMs
     }
 }
