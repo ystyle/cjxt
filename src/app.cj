@@ -18,7 +18,7 @@ class SessionState {
 }
 
 public class App {
-    let tangApp: Tang
+    var tangApp: Tang
     let sessions = SessionManager(300000)
     var config: AppConfig
     var bindHost: String
@@ -26,6 +26,7 @@ public class App {
     let stateRegs = ArrayList<StateReg>()
     var cssBlobs = HashMap<String, String>()
     var jsBlobs = HashMap<String, String>()
+    var staticRoutes = ArrayList<(String, String)>()
 
     public init() {
         this.tangApp = Tang()
@@ -37,6 +38,19 @@ public class App {
     public func host(h: String): App { this.bindHost = h; this }
     public func port(p: UInt16): App { this.bindPort = p; this }
     public func configure(c: AppConfig): App { this.config = c; this }
+
+    /// 配置 token 校验钩子（WS 连接恢复会话时调用，返回会话上下文信息）
+    /// 校验回调由应用提供（如 AuthService.validateSessionToken），框架不关心业务
+    public func auth(validateToken: (String) -> Option<HashMap<String, String>>): App {
+        AuthHooks.setup(validateToken)
+        this
+    }
+
+    /// 注入外部 Tang 实例（与其他服务共享同一 HTTP 服务），随后正常 serve()
+    public func setTang(t: Tang): App {
+        this.tangApp = t
+        this
+    }
 
     public func state<T>(factory: () -> T): App where T <: AppState {
         let name = TypeInfo.of<T>().qualifiedName
@@ -66,6 +80,7 @@ public class App {
     }
 
     public func serveStatic(prefix: String, dir: String): App {
+        this.staticRoutes.add((prefix, dir))
         this.tangApp.get("${prefix}/*", staticFiles(dir, [withPrefix(prefix)]))
         this
     }
@@ -90,6 +105,9 @@ public class App {
             let routePath = if (bp != "") { "${bp}${entry.path}" } else { entry.path }
             let tangPath = if (entry.path.contains("[")) { this.makeWildcard(routePath) } else { routePath }
             this.tangApp.get(tangPath, { ctx => this.renderHTTP(ctx) })
+        }
+        for ((prefix, dir) in this.staticRoutes) {
+            this.tangApp.get("${prefix}/*", staticFiles(dir, [withPrefix(prefix)]))
         }
         this.tangApp.get("${bp}/ws", { ctx => this.upgradeWS(ctx) })
         if (this.cssBlobs.size > 0) {
@@ -142,9 +160,32 @@ public class App {
     private func servePage(ctx: TangHttpContext, p: IComponent, routeParams: HashMap<String, String>): Unit {
         let session = sessions.create(p, text(""))
         session.path = ctx.path()
+        // HTTP 阶段没有凭据（token 在前端 localStorage，随 WS 连接回传），
+        // 因此受守卫保护的路径在此渲染登录页占位；WS 连接令牌校验成功后
+        // 再按 session.path 重新渲染真实页面（见 resumeSession/rerenderDeferred）
+        match (RouteRegistry.global().resolveGuard(ctx.path(), session.context)) {
+            case Some(target) =>
+                // 守卫拒绝：渲染守卫指定的跳转页面（如登录页）占位；无该路由则 404
+                match (RouteRegistry.global().create(target)) {
+                    case Some(fallbackPage) =>
+                        this.renderPageInto(ctx, session, fallbackPage, routeParams)
+                        session.deferred = true
+                    case None =>
+                        this.sessions.remove(session.id)
+                        ctx.status(404).writeString("Not Found")
+                }
+                return
+            case None => ()
+        }
+        this.renderPageInto(ctx, session, p, routeParams)
+    }
+
+    /// 渲染页面到 HTML 壳（会话初始化 + onMount + 树展开 + 写响应）
+    private func renderPageInto(ctx: TangHttpContext, session: Session, page: IComponent, routeParams: HashMap<String, String>): Unit {
         this.initStates(session)
-        p.onMount(LifecycleContext(session.id, routeParams, None, None, states: session.states))
-        let tree = RenderContext.expandTree(p.renderWithScope(), "")
+        page.onMount(LifecycleContext(session.id, routeParams, None, None, states: session.states))
+        let tree = RenderContext.expandTree(page.renderWithScope(), "")
+        session.page = page
         session.tree = tree
 
         let cssLinks = ArrayList<String>()
@@ -196,10 +237,11 @@ public class App {
         let frame = ws.read()
         let raw = String.fromUtf8(frame.payload)
         let sid = readField(raw, "sessionId")
+        let token = readField(raw, "token")
 
         if (sid != "") {
             match (sessions.get(sid)) {
-                case Some(session) => this.resumeSession(ws, session)
+                case Some(session) => this.resumeSession(ws, session, token)
                 case None => this.newSession(ws, sid)
             }
         } else {
@@ -207,17 +249,80 @@ public class App {
         }
     }
 
-    private func resumeSession(ws: WebSocket, session: Session): Unit {
+    private func resumeSession(ws: WebSocket, session: Session, token: String): Unit {
         session.wsState = WsState.Connected
         session.ws = Some(ws)
         session.touch()
+        // 令牌恢复：连接携带的 token → 应用钩子校验 → 写会话上下文（uid/角色等）
+        if (token != "") {
+            this.restoreToken(session, token)
+        }
+        // HTTP 阶段守卫未通过时渲染的是登录页占位；令牌就绪后按 session.path
+        // 重新渲染（守卫再次执行：通过 → 原页面，未通过 → 登录页）
+        var sendFull = false
+        if (session.deferred) {
+            sendFull = this.rerenderDeferred(session)
+            session.deferred = false
+        }
         let state = SessionState(session.page, session.path)
         let tree = RenderContext.expandTree(applyLayout(session.path, session.tree), "")
         session.refreshHandlers(tree)
+        // 初始渲染/恢复后清理脏标记（渲染出口统一清理，防止残留污染后续补丁）
+        RenderContext.clearDirty()
         wsSendJson(ws, ConnectedMsg())
-        wsSendJson(ws, CombinedPatchMsg([], [TreePatchEntry("replace", "", Some(tree))]))
+        if (sendFull) {
+            wsSendJson(ws, FullTreeMsg(tree, path: session.path))
+        } else {
+            wsSendJson(ws, CombinedPatchMsg([], [TreePatchEntry("replace", "", Some(tree))]))
+        }
         sendTitle(ws, session.path)
         this.listenLoop(ws, state, session)
+    }
+
+    /// 令牌校验并写会话上下文（校验回调返回的信息 + 令牌本身）
+    private func restoreToken(session: Session, token: String): Unit {
+        match (AuthHooks.global()) {
+            case Some(hooks) =>
+                match (hooks.doValidateToken(token)) {
+                    case Some(ctxMap) =>
+                        for ((k, v) in ctxMap) {
+                            session.context[k] = v
+                        }
+                        session.context[TOKEN_KEY] = token
+                        session.syncedToken = token
+                    case None => ()
+                }
+            case None => ()
+        }
+    }
+
+    /// 延迟页面重渲：按 session.path 重新解析并渲染（守卫未通过 → 守卫指定页面）
+    /// 返回 true 表示渲染了新页面（调用方以 fullTree 发送，携带新路径）
+    private func rerenderDeferred(session: Session): Bool {
+        let path = session.path
+        match (RouteRegistry.global().resolveGuard(path, session.context)) {
+            case Some(target) =>
+                match (RouteRegistry.global().create(target)) {
+                    case Some(fallbackPage) =>
+                        if (session.states.size == 0) { this.initStates(session) }
+                        fallbackPage.onMount(LifecycleContext(session.id, HashMap<String, String>(), None, None, states: session.states))
+                        session.page = fallbackPage
+                        session.path = target
+                        session.tree = RenderContext.expandTree(fallbackPage.renderWithScope(), "")
+                        return true
+                    case None => return false
+                }
+            case None => ()
+        }
+        match (RouteRegistry.global().resolve(path)) {
+            case Some(rm) =>
+                if (session.states.size == 0) { this.initStates(session) }
+                rm.component.onMount(LifecycleContext(session.id, rm.params, None, None, states: session.states))
+                session.page = rm.component
+                session.tree = RenderContext.expandTree(rm.component.renderWithScope(), "")
+                return true
+            case None => return false
+        }
     }
 
     private func newSession(ws: WebSocket, sid: String): Unit {
@@ -255,6 +360,8 @@ public class App {
         let tree = RenderContext.expandTree(applyLayout(state.path, raw), "")
         session.refreshHandlers(tree)
         session.tree = tree
+        // 初始渲染后清理脏标记（渲染出口统一清理，防止残留污染后续补丁）
+        RenderContext.clearDirty()
     }
 
     private func listenLoop(ws: WebSocket, state: SessionState, session: Session): Unit {
@@ -314,12 +421,27 @@ public class App {
                 case PatchResult.ReRender => if (!flag.done) { this.sendPatch(ws, state, session) }
                 case _ => ()
             }
+            // 登录/登出等动作可能修改上下文 token → 同步给前端（localStorage）
+            this.syncAuthToken(ws, session)
         } catch (e: Error) {
             state.page.onError(ErrorContext("", name, e))
         } finally {
             // 必须保证释放 execMutex：handler 抛非 Error 异常时
             // 若跳过 unlock，静态锁永久泄漏 → 后续所有会话/测试死锁
             SignalTracker.execMutex.unlock()
+        }
+    }
+
+    /// 会话上下文 token 变化时，通过 WS 同步给前端（前端存 localStorage，
+    /// 下次连接时回传用于恢复会话）。登出（token 清空）时同步空串清除。
+    private func syncAuthToken(ws: WebSocket, session: Session): Unit {
+        let token = match (session.context.get(TOKEN_KEY)) {
+            case Some(t) => t
+            case None => ""
+        }
+        if (token != session.syncedToken) {
+            session.syncedToken = token
+            wsSendJson(ws, AuthMsg(token))
         }
     }
 
@@ -405,9 +527,12 @@ public class App {
     }
 
     private func handleNavigate(ws: WebSocket, state: SessionState, session: Session, path: String): Unit {
-        if (!RouteRegistry.global().checkGuard(path, session.context)) {
-            wsSendJson(ws, DenyMsg("无权限访问"))
-            return
+        match (RouteRegistry.global().resolveGuard(path, session.context)) {
+            case Some(target) =>
+                // 拒绝导航并告知守卫指定的跳转目标，前端据此自动跳转
+                wsSendJson(ws, DenyMsg("无权限访问", path: target))
+                return
+            case None => ()
         }
         state.page.onUnmount(LifecycleContext("", HashMap<String, String>(), None, None))
         match (RouteRegistry.global().resolve(path)) {
@@ -426,6 +551,10 @@ public class App {
         session.refreshHandlers(tree)
         session.updatePage(newPage, tree)
         session.path = path
+        // 导航后清理脏标记：旧页面实例（如登录页）的 markDirty 残留会在下次
+        // sendPatch 被误渲染并整树替换（path="" 时 replace 整个页面）。
+        // 所有渲染出口必须统一清理，否则残留脏组件污染后续增量补丁。
+        RenderContext.clearDirty()
         wsSendJson(ws, FullTreeMsg(tree, path: path))
         sendTitle(ws, path)
     }

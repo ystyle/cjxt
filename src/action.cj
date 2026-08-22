@@ -160,6 +160,16 @@ public struct ActionContext {
             case None => throw Exception("AppState not registered: ${key}")
         }
     }
+
+    /// 会话上下文写入（守卫/鉴权用）。上下文与会话绑定，可跨 HTTP 恢复
+    public func setContext(key: String, value: String): Unit {
+        this.context[key] = value
+    }
+
+    /// 会话上下文读取（守卫/鉴权用），返回与会话绑定的上下文 map
+    public func getContext(): HashMap<String, String> {
+        this.context
+    }
 }
 
 public struct Router {
@@ -276,15 +286,36 @@ public struct TitleMsg <: JsonSerializable {
 
 public struct DenyMsg <: JsonSerializable {
     let reason: String
+    let path: String
 
-    public init(reason: String) {
+    public init(reason: String, path!: String = "") {
         this.reason = reason
+        this.path = path
     }
 
     public func toJson(w: JsonWriter): Unit {
         w.startObject()
         w.writeName("kind").writeValue("deny")
         w.writeName("reason").writeValue(this.reason)
+        if (this.path != "") {
+            w.writeName("path").writeValue(this.path)
+        }
+        w.endObject()
+    }
+}
+
+/// 令牌同步消息：会话上下文 token 变化时发给前端（前端存 localStorage）
+public struct AuthMsg <: JsonSerializable {
+    let token: String
+
+    public init(token: String) {
+        this.token = token
+    }
+
+    public func toJson(w: JsonWriter): Unit {
+        w.startObject()
+        w.writeName("kind").writeValue("auth")
+        w.writeName("token").writeValue(this.token)
         w.endObject()
     }
 }

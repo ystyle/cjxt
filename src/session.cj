@@ -26,6 +26,10 @@ public class Session {
     var lastActiveAt: Int64
     let context: HashMap<String, String>
     var states: HashMap<String, AppState>
+    // HTTP 阶段守卫未通过时渲染的是登录页占位，WS 连接（令牌恢复）后需按 path 重渲
+    var deferred: Bool
+    // 已同步给前端的 token（登录/登出后 context["token"] 变化时触发 AuthMsg）
+    var syncedToken: String
 
     public init(id: String, page: IComponent, tree: IComponent) {
         this.id = id
@@ -39,6 +43,8 @@ public class Session {
         this.lastActiveAt = nowMillis()
         this.context = HashMap<String, String>()
         this.states = HashMap<String, AppState>()
+        this.deferred = false
+        this.syncedToken = ""
     }
 
     public func touch(): Unit {

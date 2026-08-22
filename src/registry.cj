@@ -46,6 +46,9 @@ private func extractParamNames(path: String): Array<String> {
 
 public type RouteFactory = () -> IComponent
 public type LayoutFn = (IComponent) -> IComponent
+/// 守卫函数：None = 放行；Some(path) = 拒绝访问并跳转到 path。
+/// 跳转目标由应用自己的守卫决定（不同页面/场景可返回不同路径），框架不感知业务。
+public type GuardFn = (HashMap<String, String>) -> Option<String>
 
 public struct RouteMatch {
     let component: IComponent
@@ -60,7 +63,7 @@ public struct RouteMatch {
 public class RouteRegistry {
     let entries = ArrayList<(RouteEntry, RouteFactory)>()
     let titles = HashMap<String, String>()
-    let guards = HashMap<String, (HashMap<String, String>) -> Bool>()
+    let guards = HashMap<String, GuardFn>()
     let layouts = HashMap<String, LayoutFn>()
 
     private static var inst: Option<RouteRegistry> = None
@@ -94,14 +97,14 @@ public class RouteRegistry {
         titles.add(path, title)
     }
 
-    public func register(path: String, factory: RouteFactory, title: String, guard: (HashMap<String, String>) -> Bool): Unit {
+    public func register(path: String, factory: RouteFactory, title: String, guard: GuardFn): Unit {
         this.removeEntry(path)
         entries.add((RouteEntry(path), factory))
         titles.add(path, title)
         guards.add(path, guard)
     }
 
-    public func register(path: String, factory: RouteFactory, title: String, guard: (HashMap<String, String>) -> Bool, layout: LayoutFn): Unit {
+    public func register(path: String, factory: RouteFactory, title: String, guard: GuardFn, layout: LayoutFn): Unit {
         this.removeEntry(path)
         entries.add((RouteEntry(path), factory))
         titles.add(path, title)
@@ -154,18 +157,22 @@ public class RouteRegistry {
         None
     }
 
-    public func checkGuard(path: String, ctx: HashMap<String, String>): Bool {
+    /**
+     * 执行路径守卫：None = 放行；Some(path) = 拒绝访问并跳转到守卫指定的路径。
+     * 守卫的跳转目标由应用自己决定（可因页面/场景而异），框架不感知业务。
+     */
+    public func resolveGuard(path: String, ctx: HashMap<String, String>): Option<String> {
         for (p in guards.keys()) {
             let entry = RouteEntry(p)
             match (entry.doMatch(path)) {
                 case Some(_) => match (guards.get(p)) {
                     case Some(fn) => return fn(ctx)
-                    case None => return true
+                    case None => return None
                 }
                 case None => ()
             }
         }
-        true
+        None
     }
 
     public func getLayout(path: String): Option<LayoutFn> {

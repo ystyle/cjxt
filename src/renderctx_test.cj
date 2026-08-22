@@ -90,6 +90,34 @@ class RenderContextTest {
 
         @Expect(dirty.size, 2)
     }
+
+    /**
+     * 回归：action 里 set 信号（如登录成功后 errorMsg.set("")）会标记组件脏；
+     * 若该次 ReRender 被导航短路（flag.done，不调 sendPatch），脏标记必须由
+     * 渲染出口（applyNav/初始渲染）的 clearDirty 清理——否则残留脏组件会在
+     * 下次 sendPatch 被误渲染并整树替换（path="" 时 replace 整个页面，表现为
+     * 页面突然变成登录页）。
+     */
+    @TestCase
+    public func testStaleDirtyClearedOnRenderExit(): Unit {
+        let probe = DirtyProbe()
+        RenderContext.expandTree(probe, "")
+        RenderContext.clearDirty()
+        @Expect(SignalTracker.dirtyComponents.size, 0)
+
+        // action 中 set 信号 → 订阅组件被标记脏
+        probe.sig.set("done")
+        @Expect(probe.isDirty(), true)
+        @Expect(SignalTracker.dirtyComponents.size, 1)
+
+        // 渲染出口清理残留（修复点）
+        RenderContext.clearDirty()
+        @Expect(probe.isDirty(), false)
+        @Expect(SignalTracker.dirtyComponents.size, 0)
+
+        // 后续增量补丁不再包含残留脏组件
+        @Expect(RenderContext.collectDirty().size, 0)
+    }
 }
 
 class TestComponent <: Component {
@@ -103,5 +131,15 @@ class TestComponent <: Component {
 
     public func render(): IComponent {
         VNode(this.tag, this.children)
+    }
+}
+
+/** 渲染时读取信号的探针组件（模拟登录页：render 读信号 → 订阅 markDirty） */
+class DirtyProbe <: Component {
+    var sig = Signal<String>("")
+
+    public func render(): IComponent {
+        let _ = this.sig.get()
+        VNode("div", [])
     }
 }

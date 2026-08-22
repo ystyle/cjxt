@@ -78,7 +78,7 @@ class CangjieUI {
     connectWS() {
         const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
         this.ws = new WebSocket(proto + '//' + location.host + '/ws');
-        this.ws.onopen = () => this.send({ type: 'connect', sessionId: this.sessionId });
+        this.ws.onopen = () => this.send({ type: 'connect', sessionId: this.sessionId, token: localStorage.getItem('cjxt_token') || '' });
         this.ws.onmessage = (e) => {
             try {
                 this.handleMsg(JSON.parse(e.data));
@@ -105,6 +105,13 @@ class CangjieUI {
                 break;
             case 'deny':
                 console.warn('Navigation denied:', msg.reason);
+                if (msg.path) {
+                    this.send({ type: 'navigate', path: msg.path, sessionId: this.sessionId });
+                }
+                break;
+            case 'auth':
+                if (msg.token) localStorage.setItem('cjxt_token', msg.token);
+                else localStorage.removeItem('cjxt_token');
                 break;
             case 'fullTree':
                 this.loadNewPage(msg);
