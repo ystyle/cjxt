@@ -144,9 +144,9 @@ public struct LifecycleContext {
 public struct ErrorContext {
     let sessionId: String
     let actionName: String
-    let error: Error
+    let error: Exception
 
-    public init(sessionId: String, actionName: String, error: Error) {
+    public init(sessionId: String, actionName: String, error: Exception) {
         this.sessionId = sessionId
         this.actionName = actionName
         this.error = error

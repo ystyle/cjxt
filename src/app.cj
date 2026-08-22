@@ -423,7 +423,7 @@ public class App {
             }
             // 登录/登出等动作可能修改上下文 token → 同步给前端（localStorage）
             this.syncAuthToken(ws, session)
-        } catch (e: Error) {
+        } catch (e: Exception) {
             state.page.onError(ErrorContext("", name, e))
         } finally {
             // 必须保证释放 execMutex：handler 抛非 Error 异常时
@@ -483,7 +483,7 @@ public class App {
                 case PatchResult.ReRender => if (!flag.done) { this.sendPatch(ws, state, session) }
                 case _ => ()
             }
-        } catch (e: Error) {
+        } catch (e: Exception) {
             state.page.onError(ErrorContext("", "push", e))
         } finally {
             SignalTracker.execMutex.unlock()
@@ -516,7 +516,7 @@ public class App {
                 case PatchResult.ReRender => if (!flag.done) { this.sendPatch(ws, state, session) }
                 case _ => ()
             }
-        } catch (e: Error) {
+        } catch (e: Exception) {
             state.page.onError(ErrorContext("", aname, e))
         }
     }
@@ -618,12 +618,11 @@ private func doReadStr(s: String, from: Int64): String {
     }
 }
 
-private func readBindValue(raw: String): String {
-    let mark = "\"value\":"
-    match (raw.indexOf(mark)) {
-        case Some(idx) => doReadBindValue(raw, idx + mark.size)
-        case None => ""
-    }
+func readBindValue(raw: String): String {
+    // 与 readField 同款解析：`"value":"<值>"`，读到值结束引号为止。
+    // （旧实现取到字符串末尾，导致值带引号/尾部字段，String 绑定靠 JSON
+    // 反序列化巧合剥掉引号，而 Int64 等强类型绑定的 parse 直接抛异常崩连接）
+    readField(raw, "value")
 }
 
 // 解析 action 消息中的 params 对象（前端所有参数值均为字符串，如按键信息）
@@ -699,8 +698,4 @@ func parseStringPairs(body: String, out: HashMap<String, String>): Unit {
             case None => break
         }
     }
-}
-
-func doReadBindValue(s: String, from: Int64): String {
-    s[from..s.size - 1]
 }

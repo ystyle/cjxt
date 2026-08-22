@@ -1,0 +1,4 @@
+/* ===== 中文注释回归测试 ===== */
+/* 按钮样式（中文描述内容） */
+.cn-btn { background: #fff; }
+.cn-btn:hover { color: #409eff; }
