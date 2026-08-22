@@ -190,6 +190,160 @@ class CangjieUI {
         // 自动消失（Message/Notification 等）：data-auto-dismiss="ms" → 到时触发点击（关闭 action）
         if (el.hasAttribute('data-auto-dismiss')) this.attachAutoDismiss(el);
     }
+
+    // ============ keyed reconciliation：原位更新 DOM，只改变化部分，避免全量重建（补丁粒度细化 P2#1） ============
+
+    // 从 node 新建 DOM 节点（插入/替换用）
+    createNode(node) {
+        const type = (node.type || '').toLowerCase();
+        if (type === 'fragment') {
+            const wrapper = document.createDocumentFragment();
+            for (const c of (node.children || [])) wrapper.appendChild(this.createNode(c));
+            return wrapper;
+        }
+        if (type === 'empty') return this.makeEmptySlot();
+        if (type === 'text') return document.createTextNode(node.attrs ? (node.attrs.text || '') : '');
+        if (type === 'style') {
+            const el = document.createElement('style');
+            el.textContent = node.attrs ? (node.attrs.text || '') : '';
+            return el;
+        }
+        if (type.startsWith('client:')) {
+            const wrapper = document.createElement('div');
+            this.renderClientComponent(node, wrapper);
+            return wrapper;
+        }
+        const el = this.createElement(type);
+        this.applyAttrs(el, node);
+        this.applyActions(el, node);
+        for (const c of (node.children || [])) el.appendChild(this.createNode(c));
+        if (el.hasAttribute('data-bind-id')) this.attachBind(el);
+        if (el.hasAttribute('data-auto-dismiss')) this.attachAutoDismiss(el);
+        return el;
+    }
+
+    // 设置元素属性（新建/reconcile 通用；bound input 的 value 更新走守卫，避免打断输入）
+    applyAttrs(el, node) {
+        const attrs = node.attrs || {};
+        for (const a of Array.from(el.attributes)) {
+            const n = a.name;
+            if (n in attrs) continue;
+            if (n === 'value') continue;
+            if (n.startsWith('data-')) continue; // data-* 由 actions/bind 等管理
+            el.removeAttribute(n);
+        }
+        for (const k in attrs) {
+            if (k === 'text') continue;
+            if (k === 'value') {
+                const composing = el.dataset.composing === '1';
+                const dirty = el.dataset.bindDirty === '1';
+                if (!composing && !dirty && el.value !== attrs[k]) el.value = attrs[k];
+                continue;
+            }
+            if (k.toLowerCase() === 'innerhtml') {
+                if (el.innerHTML !== attrs[k]) el.innerHTML = attrs[k];
+                continue;
+            }
+            if (el.getAttribute(k) !== attrs[k]) el.setAttribute(k, attrs[k]);
+        }
+    }
+
+    // 同步 data-action-* 与每元素监听器
+    applyActions(el, node) {
+        for (const a of Array.from(el.attributes)) {
+            if (a.name.startsWith('data-action-')) el.removeAttribute(a.name);
+        }
+        for (const ev in (node.actions || {})) {
+            const action = node.actions[ev];
+            el.setAttribute('data-action-' + ev, action);
+            if (ev !== 'click' && ev !== 'keydown' && ev !== 'keyup' && ev !== 'keydown_enter') {
+                if (!el['__cjxtL_' + ev]) {
+                    el.addEventListener(ev, (e) => {
+                        const name = el.getAttribute('data-action-' + ev);
+                        if (!name) return;
+                        this.send({ type: 'action', name, params: this.collectParams(el), sessionId: this.sessionId });
+                    });
+                    el['__cjxtL_' + ev] = true;
+                }
+            }
+        }
+    }
+
+    // 现有 DOM 节点能否复用来匹配 tree node
+    matchesNode(el, node) {
+        const type = (node.type || '').toLowerCase();
+        if (type === 'fragment') return false;
+        if (type === 'empty') return !!(el.dataset && el.dataset.cjxtEmpty === '1');
+        if (type === 'text') return el.nodeType === 3;
+        if (type === 'style') return el.nodeType === 1 && el.tagName === 'STYLE';
+        if (type.startsWith('client:')) return false;
+        return el.nodeType === 1 && el.tagName === type.toUpperCase();
+    }
+
+    // 原位更新已有元素 el 以匹配 node（tag 一致由 matchesNode 保证）
+    reconcileNode(el, node) {
+        const type = (node.type || '').toLowerCase();
+        if (type === 'text') {
+            const t = node.attrs ? (node.attrs.text || '') : '';
+            if (el.textContent !== t) el.textContent = t;
+            return;
+        }
+        if (type === 'style') {
+            const t = node.attrs ? (node.attrs.text || '') : '';
+            if (el.textContent !== t) el.textContent = t;
+            return;
+        }
+        if (type === 'empty') return;
+        this.applyAttrs(el, node);
+        this.applyActions(el, node);
+        this.reconcileChildren(el, node.children || []);
+        if (el.hasAttribute('data-bind-id') && !el.__cjxtBound) { this.attachBind(el); el.__cjxtBound = true; }
+        if (el.hasAttribute('data-auto-dismiss') && !el.__cjxtAutoDismiss) { this.attachAutoDismiss(el); el.__cjxtAutoDismiss = true; }
+    }
+
+    // 将 nodes 序列 reconcile 到 parentEl 的现有子节点（位置对齐 + 复用；fragment 先平铺）
+    reconcileChildren(parentEl, nodes) {
+        const flat = [];
+        const flatten = (list) => {
+            for (const n of list) {
+                if ((n.type || '').toLowerCase() === 'fragment') flatten(n.children || []);
+                else flat.push(n);
+            }
+        };
+        flatten(nodes);
+        const existing = Array.from(parentEl.childNodes);
+        let e = 0;
+        for (let i = 0; i < flat.length; i++) {
+            const node = flat[i];
+            let target = existing[e];
+            if (!target) {
+                const el = this.createNode(node);
+                if (el) parentEl.appendChild(el);
+                e++;
+                continue;
+            }
+            if (this.matchesNode(target, node)) {
+                this.reconcileNode(target, node);
+                e++;
+            } else {
+                const el = this.createNode(node);
+                if (el) {
+                    const oldComp = target.__cjxtComp;
+                    if (oldComp && typeof oldComp.destroy === 'function') oldComp.destroy(target);
+                    parentEl.replaceChild(el, target);
+                }
+                existing[e] = el || null;
+                e++;
+            }
+        }
+        while (existing.length > e) {
+            const extra = existing[existing.length - 1];
+            const oldComp = extra && extra.__cjxtComp;
+            if (oldComp && typeof oldComp.destroy === 'function') oldComp.destroy(extra);
+            if (extra && extra.parentNode === parentEl) parentEl.removeChild(extra);
+            existing.pop();
+        }
+    }
     attachAutoDismiss(el) {
         const ms = parseInt(el.getAttribute('data-auto-dismiss'), 10);
         if (!ms || ms <= 0) return;
@@ -270,9 +424,10 @@ class CangjieUI {
             const parts = (p.path || '').split('/').filter(Boolean);
             if (parts.length === 0) {
                 if (p.op === 'replace' && p.tree) {
+                    // 整页替换：keyed reconciliation 原位更新，保留根元素与匹配后代
+                    // （焦点/滚动/IME 不丢失，只改变化部分——流式/大数据不再整页重建）
                     this.tree = p.tree;
-                    this.container.innerHTML = '';
-                    this.renderTree(this.tree, this.container);
+                    this.reconcileChildren(this.container, [p.tree]);
                 }
                 continue;
             }
@@ -283,23 +438,14 @@ class CangjieUI {
             if (p.op === 'replace' && p.tree) {
                 const old = parentEl.childNodes[idx];
                 if (old) {
-                    // 绑定 input 只更新 value，保持元素引用与 IME 状态；
-                    // 服务端值有变化时（如清空命令、发送后清空）也要应用——
-                    // 但若正在 IME 组合或用户仍在输入（bindDirty 未提交）则跳过，避免覆盖。
-                    if ((old.tagName === 'INPUT' || old.tagName === 'TEXTAREA') && old.hasAttribute('data-bind-id')) {
-                        const newVal = p.tree.attrs && p.tree.attrs.value;
-                        if (newVal !== undefined && newVal !== null && old.value !== newVal) {
-                            const composing = old.dataset.composing === '1';
-                            const dirty = old.dataset.bindDirty === '1';
-                            if (!composing && !dirty) {
-                                old.value = newVal;
-                            }
-                        }
+                    if (this.matchesNode(old, p.tree)) {
+                        // 同类型：原位 reconcile（含 bound input 的 value 守卫，保留 IME/焦点）
+                        this.reconcileNode(old, p.tree);
                     } else {
-                        // 替换前销毁旧的 client 组件
+                        // 类型不匹配：替换前销毁旧的 client 组件
                         const oldComp = old.__cjxtComp;
                         if (oldComp && typeof oldComp.destroy === 'function') oldComp.destroy(old);
-                        const newEl = this.renderSubtree(p.tree);
+                        const newEl = this.createNode(p.tree);
                         if (newEl) parentEl.replaceChild(newEl, old);
                     }
                 }

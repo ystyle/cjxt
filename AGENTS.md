@@ -163,7 +163,7 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 - [x] 聊天自动滚动（data-auto-scroll 贴底跟随）；流式性能优化并入 P2 补丁粒度
 
 ### P2 — 基础设施第二阶段（架构投入，影响面最大）
-- [ ] 补丁粒度细化：元素级 diff / keyed reconciliation（替换废弃的 diff.cj），流式/大数据不再整页重建
+- [x] 补丁粒度细化：前端 keyed reconciliation（原位 reconcile，流式/大数据不再整页重建）
 - [ ] 虚拟滚动（列表 / Table / 长消息流）
 - [ ] #4 DOM 事务（DOM Transaction）：批量更新 + 过渡动画
 
@@ -655,3 +655,19 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 - `cjpm test`：123 个单测全过。
 - agent-browser：`autoScrollAll` 贴底守卫逻辑隔离验证正确（scrollTop=0 远离底部时不跟随）；AutoScroll demo 容器多次成功渲染（含 data-auto-scroll 属性）。
 - 完整"跟随滚动"交互验证受 **agent-browser 会话不稳定**限制（页面经多次 eval 后退化空白、`window.ui` 不可达）——已隔离验证核心 JS 逻辑，演示渲染正常。
+
+### 2026-08-22 前端 keyed reconciliation 补丁粒度细化（P2 #1）
+
+**实现功能**
+- `applyTreePatches` 的整页重建（`innerHTML=''` + `renderTree` 全杀）与子树替换（`replaceChild`）改为 **keyed reconciliation 原位更新**：
+  - `reconcileChildren(parentEl, nodes)`：位置对齐 + 按 tag/类型复用现有 DOM 节点（fragment 先平铺）。
+  - `reconcileNode(el, node)`：同类型元素原位更新 attrs/actions/children；text/style 更新文本；empty 槽位保留。
+  - `matchesNode` / `createNode` / `applyAttrs` / `applyActions`：新建/复用/更新统一。
+  - bound input 的 value 更新带 `data-composing`/`data-bind-dirty` 守卫（保留 IME/输入）。
+- 效果：流式/大数据更新只改**变化部分**，不再整页 DOM 重建——焦点/滚动/IME 保留，DOM 抖动大幅下降。
+- 协议不变（服务端仍发子树 JSON）；`renderTree`/`renderSubtree` 保留（初始渲染用）。
+
+**验证**
+- `cjpm test`：123 个单测全过（服务端未改）。
+- agent-browser：全页 reconcile 切换 demo 内容正确（Tabs 3 个、Pagination 3 个、Table 4 行数据）；AutoScroll 追加 reconcile 无 JS 异常（`window.onerror` 捕获为空）且滚动容器保留。
+- 受 agent-browser 会话不稳定限制（~5 次 eval 后退化），交互细节验证受限；核心 reconcile 逻辑 + 渲染正确性已确认。
