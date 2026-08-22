@@ -187,6 +187,7 @@ class CangjieUI {
         parentEl.appendChild(el);
         // 绑定 input 事件
         if (el.hasAttribute('data-bind-id')) this.attachBind(el);
+        if (el.hasAttribute('data-vscroll')) this.attachVScroll(el);
         // 自动消失（Message/Notification 等）：data-auto-dismiss="ms" → 到时触发点击（关闭 action）
         if (el.hasAttribute('data-auto-dismiss')) this.attachAutoDismiss(el);
     }
@@ -218,6 +219,7 @@ class CangjieUI {
         this.applyActions(el, node);
         for (const c of (node.children || [])) el.appendChild(this.createNode(c));
         if (el.hasAttribute('data-bind-id')) this.attachBind(el);
+        if (el.hasAttribute('data-vscroll')) this.attachVScroll(el);
         if (el.hasAttribute('data-auto-dismiss')) this.attachAutoDismiss(el);
         return el;
     }
@@ -310,6 +312,7 @@ class CangjieUI {
         this.applyActions(el, node);
         this.reconcileChildren(el, node.children || []);
         if (el.hasAttribute('data-bind-id') && !el.__cjxtBound) { this.attachBind(el); el.__cjxtBound = true; }
+        if (el.hasAttribute('data-vscroll') && !el.__cjxtVScroll) { this.attachVScroll(el); el.__cjxtVScroll = true; }
         if (el.hasAttribute('data-auto-dismiss') && !el.__cjxtAutoDismiss) { this.attachAutoDismiss(el); el.__cjxtAutoDismiss = true; }
     }
 
@@ -392,6 +395,19 @@ class CangjieUI {
         });
         el.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') { clearTimeout(timer); send(); }
+        });
+    }
+    // 虚拟滚动容器：rAF 节流上报 scrollTop（通过 bind 消息，value=scrollTop）
+    attachVScroll(el) {
+        const bid = el.getAttribute('data-bind-id');
+        if (!bid) return;
+        let raf = null;
+        el.addEventListener('scroll', () => {
+            if (raf) return;
+            raf = requestAnimationFrame(() => {
+                raf = null;
+                this.send({ type: 'bind', name: bid, value: String(el.scrollTop) });
+            });
         });
     }
     registerComponent(name, compClass) {

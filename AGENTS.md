@@ -164,7 +164,7 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 
 ### P2 — 基础设施第二阶段（架构投入，影响面最大）
 - [x] 补丁粒度细化：前端 keyed reconciliation（原位 reconcile，流式/大数据不再整页重建）
-- [ ] 虚拟滚动（列表 / Table / 长消息流）
+- [x] 虚拟滚动（VirtualList：列表/长消息流；Table 待接入）
 - [ ] #4 DOM 事务（DOM Transaction）：批量更新 + 过渡动画
 
 ### P3 — ERP/Chat 第三批（体验完整）
@@ -730,3 +730,19 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 
 **验证**
 - `cjpm test`：155 个单测全过。
+
+### 2026-08-22 虚拟滚动 VirtualList（P2 #2）
+
+**实现功能**
+- `src/virtual.cj` 纯逻辑：`computeVirtualWindow(total, scrollTop, containerHeight, itemHeight, buffer)` → `VirtualWindow(startIndex, endIndex, topSpacer, bottomSpacer)`（固定行高，对齐 EP VirtualList itemHeight 模式）+ `virtualTotalHeight`——8 个单测。
+- `VirtualList<T>` 组件：只渲染可视窗口行 `[start-buffer, visible+buffer]` + 顶部/底部占位（保持总滚动高度）；`itemHeight/height/buffer` 可配。
+- **滚动上报复用 bind 链路（服务端零改动）**：容器 div `data-vscroll=1` + 自定义 bind handler（`Int64.parse`，对齐 InputNumber——通用 `VNode.bind` 的 JSON readValue 对 Int64 解析字符串会失败）；id 由 expandTree 稳定为 `b:path:bind`。
+- 客户端 `attachVScroll`：rAF 节流 scroll 监听 → 发 `{type:'bind', name, value: scrollTop}` → dispatchBind → scrollTopSignal → ReRender → 窗口重算。
+
+**关键点**
+- 滚动位置是客户端状态：通过 bind 消息回传服务端（每帧节流），配合 keyed reconciliation 每次滚动只 patch 窗口行变化。
+- **通用 `VNode.bind` 的 `readValue<Int64>` 对 JSON 字符串 "2000" 解析失败**——数值 bind 须自定义 handler + `Int64.parse(raw, radix:10)`（InputNumber 先例）。
+
+**验证**
+- `cjpm test`：163 个单测全过（+8 虚拟窗口）。
+- 端到端：10000 项只渲染 14 行（8 可见 + 6 buffer）；总高度 400000px（占位）；WS 驱动 bind(value=2000) → 窗口切到第 48 项（下标 47）。

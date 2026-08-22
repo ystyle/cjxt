@@ -11,7 +11,7 @@ let componentNames: Array<String> = [
     "Input", "InputNumber", "Switch", "Radio", "Checkbox",
     "Rate", "Select", "Slider", "Form", "Table", "Dialog", "Drawer", "Tooltip", "Popover",
     "Progress", "Avatar", "Empty", "Descriptions", "Statistic", "Result", "Pagination",
-    "DatePicker", "DateRangePicker", "Message", "Notification", "Loading", "Skeleton", "Tabs", "Markdown", "AutoScroll", "Reactive"
+    "DatePicker", "DateRangePicker", "Message", "Notification", "Loading", "Skeleton", "Tabs", "Markdown", "AutoScroll", "Reactive", "VirtualList"
 ]
 
 class ShowcaseState <: AppState {
@@ -42,6 +42,8 @@ class ShowcaseState <: AppState {
     var reactiveEffCount = Signal<Int64>(0)
     var reactiveDouble: Computed<Int64>
     var reactiveEff: Effect
+    var virtualItems: Signal<ArrayList<Int64>>
+    var virtualScrollTop = Signal<Int64>(0)
     var formUsername = Signal<String>("")
     var formPassword = Signal<String>("")
     var formUserError = Signal<String>("")
@@ -64,6 +66,9 @@ class ShowcaseState <: AppState {
     public init() {
         this.reactiveDouble = makeReactiveDouble(this.reactiveCount)
         this.reactiveEff = makeReactiveEff(this.reactiveCount, this.reactiveEffCount)
+        let vitems = ArrayList<Int64>()
+        for (i in 1..=10000) { vitems.add(i) }
+        this.virtualItems = Signal<ArrayList<Int64>>(vitems)
         let noneRow: Option<HashMap<String, String>> = None
         this.tableCurrentRow = Signal<Option<HashMap<String, String>>>(noneRow)
     }
@@ -164,6 +169,7 @@ class ShowcasePage <: Component {
             case "Markdown" => this.demoMarkdown()
             case "AutoScroll" => this.demoAutoScroll()
             case "Reactive" => this.demoReactive()
+            case "VirtualList" => this.demoVirtualList()
             case _ => text("选择左侧组件查看示例")
         }
     }
@@ -962,6 +968,26 @@ class ShowcasePage <: Component {
             ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
             div([text("说明：computed 惰性缓存仅在依赖变化时重算；effect 随依赖自动重跑；batch 内多次 set 只触发一次重渲染")], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
         ], attrs: Some(HashMap<String, String>([("class", cls("reactive-demo"))])))
+    }
+
+    func demoVirtualList(): IComponent {
+        let st = this.state
+        div([
+            div([text("虚拟滚动（VirtualList：10000 项只渲染可视窗口）")], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
+            div([
+                VirtualList<Int64>(st.virtualItems, { idx, item => this.virtualRow(idx, item) }, st.virtualScrollTop)
+                    .itemHeight(40).height(320).buffer(3),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([text("总项数：${st.virtualItems.get().size}；滚动位置：${st.virtualScrollTop.get()}px（滚到中间验证窗口行号切换）")], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([text("原理：客户端 rAF 节流上报 scrollTop（bind 消息）→ 服务端 computeVirtualWindow 只渲染可视行 + 占位保持总高度；配合 keyed reconciliation 每次滚动只 patch 窗口变化")], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+        ], attrs: Some(HashMap<String, String>([("class", cls("vlist-demo"))])))
+    }
+
+    func virtualRow(idx: Int64, item: Int64): IComponent {
+        let a = HashMap<String, String>()
+        a["class"] = "vlist-row"
+        a["style"] = "height:40px;padding:0 12px;display:flex;align-items:center;border-bottom:1px solid #f0f2f5;font-size:13px"
+        VNode("div", [text("第 ${item} 项（下标 ${idx}）")], attrs: Some(a))
     }
 
     func demoMarkdown(): IComponent {
