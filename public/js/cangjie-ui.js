@@ -320,6 +320,15 @@ class CangjieUI {
                 }
             }
         }
+
+        // 自动滚动（data-auto-scroll）：内容更新后贴底跟随（仅当用户接近底部时，避免打断回看）
+        this.autoScrollAll();
+    }
+    autoScrollAll() {
+        document.querySelectorAll('[data-auto-scroll]').forEach((el) => {
+            const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+            if (dist < 80) el.scrollTop = el.scrollHeight;
+        });
     }
     navigateTo(parts, parent) {
         let el = parent.firstElementChild;

@@ -11,7 +11,7 @@ let componentNames: Array<String> = [
     "Input", "InputNumber", "Switch", "Radio", "Checkbox",
     "Rate", "Select", "Slider", "Form", "Table", "Dialog", "Drawer", "Tooltip", "Popover",
     "Progress", "Avatar", "Empty", "Descriptions", "Statistic", "Result", "Pagination",
-    "DatePicker", "DateRangePicker", "Message", "Notification", "Loading", "Skeleton", "Tabs", "Markdown"
+    "DatePicker", "DateRangePicker", "Message", "Notification", "Loading", "Skeleton", "Tabs", "Markdown", "AutoScroll"
 ]
 
 class ShowcaseState <: AppState {
@@ -36,6 +36,8 @@ class ShowcaseState <: AppState {
     var notificationItems = Signal<ArrayList<NotificationItem>>(ArrayList<NotificationItem>())
     var loadingVisible = Signal<Bool>(false)
     var activeTab = Signal<String>("tab1")
+    var chatMessages = Signal<ArrayList<String>>(ArrayList<String>())
+    var chatCounter = Signal<Int64>(0)
     var formUsername = Signal<String>("")
     var formPassword = Signal<String>("")
     var formUserError = Signal<String>("")
@@ -154,6 +156,7 @@ class ShowcasePage <: Component {
             case "Skeleton" => this.demoSkeleton()
             case "Tabs" => this.demoTabs()
             case "Markdown" => this.demoMarkdown()
+            case "AutoScroll" => this.demoAutoScroll()
             case _ => text("选择左侧组件查看示例")
         }
     }
@@ -904,6 +907,26 @@ class ShowcasePage <: Component {
         ], attrs: Some(HashMap<String, String>([("class", cls("tabs-demo"))])))
     }
 
+    func demoAutoScroll(): IComponent {
+        let st = this.state
+        let appendH: ActionHandler = { ctx =>
+            let n = st.chatCounter.get() + 1
+            st.chatCounter.set(n)
+            st.chatMessages.update({ list => let c = ArrayList<String>(list); c.add("这是第 ${n} 条模拟流式消息，内容会持续追加，用于测试自动滚动贴底跟随的行为是否正常。"); c })
+            PatchResult.ReRender
+        }
+        let clearH: ActionHandler = { ctx => st.chatMessages.set(ArrayList<String>()); PatchResult.ReRender }
+        div([
+            div([text("自动滚动（data-auto-scroll：贴近底部时随内容贴底，回看历史时不打断）")], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
+            div([
+                PrimaryButton("追加消息").onClick(appendH),
+                DangerButton("清空").onClick(clearH),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            VNode("div", buildAutoScrollItems(st.chatMessages.get()), attrs: Some(HashMap<String, String>([("data-auto-scroll", ""), ("style", "height:240px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:8px;padding:12px;background:#fafafa")]))),
+            div([text("当前消息数：${st.chatMessages.get().size}")], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+        ], attrs: Some(HashMap<String, String>([("class", cls("autoscroll-demo"))])))
+    }
+
     func demoMarkdown(): IComponent {
         let sample = """
 # 欢迎使用 Markdown 组件
@@ -1224,4 +1247,14 @@ func propRow(name: String, typ: String, desc: String): IComponent {
             div([text(desc)], attrs: Some(HashMap<String, String>([("class", cls("showcase-prop-desc"))]))),
         ], attrs: Some(HashMap<String, String>([("class", cls("showcase-prop-row"))])))
     }
+}
+
+func buildAutoScrollItems(items: ArrayList<String>): Array<IComponent> {
+    let list = ArrayList<IComponent>()
+    for (item in items) {
+        let attrs = HashMap<String, String>()
+        attrs["style"] = "padding:8px 12px;margin-bottom:8px;background:#ffffff;border-radius:6px"
+        list.add(VNode("div", [text(item)], attrs: Some(attrs)))
+    }
+    list.toArray()
 }

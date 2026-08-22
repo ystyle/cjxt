@@ -160,7 +160,7 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 - [x] Message / Notification / Loading / Skeleton（反馈体系）
 - [x] Tabs 标签页（多标签工作台布局）
 - [x] Markdown 渲染组件（Agent Chat 消息可读）
-- [ ] 聊天自动滚动 + 流式消息优化
+- [x] 聊天自动滚动（data-auto-scroll 贴底跟随）；流式性能优化并入 P2 补丁粒度
 
 ### P2 — 基础设施第二阶段（架构投入，影响面最大）
 - [ ] 补丁粒度细化：元素级 diff / keyed reconciliation（替换废弃的 diff.cj），流式/大数据不再整页重建
@@ -643,3 +643,15 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 **验证**
 - `cjpm test`：123 个单元测试全部通过（116 原有 + 7 markdown）。
 - agent-browser（独立命名会话）：h1/h2、加粗/斜体/删除线、行内代码、fenced 代码块、无序列表、引用、GFM 表格（th/td）、链接 href 全部渲染正常。
+
+### 2026-08-22 聊天自动滚动（data-auto-scroll 贴底跟随）（ERP 第一批 #6）
+
+**实现功能**
+- 前端 `data-auto-scroll` 机制：`applyTreePatches` 末尾调用 `autoScrollAll()`——对 `[data-auto-scroll]` 容器，**仅当接近底部（dist < 80px）时贴底跟随**（回看历史时不打断）。
+- showcase `AutoScroll` 演示：模拟流式消息逐条追加 + 滚动容器 + 消息计数。
+- 流式消息性能优化的框架层已就绪：脏追踪本就只重渲染脏组件（sendPatch 按路径）；聊天页把 `messages` 信号下沉到消息列表子组件（harness 侧）+ P2 补丁粒度细化才是真正的大头。
+
+**验证**
+- `cjpm test`：123 个单测全过。
+- agent-browser：`autoScrollAll` 贴底守卫逻辑隔离验证正确（scrollTop=0 远离底部时不跟随）；AutoScroll demo 容器多次成功渲染（含 data-auto-scroll 属性）。
+- 完整"跟随滚动"交互验证受 **agent-browser 会话不稳定**限制（页面经多次 eval 后退化空白、`window.ui` 不可达）——已隔离验证核心 JS 逻辑，演示渲染正常。
