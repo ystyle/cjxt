@@ -413,7 +413,7 @@ public class App {
         let flag = NavFlag()
         let router = Router("", { path => this.execNavAction(ws, state, session, flag, path) })
         let keyEvent = parseKeyEvent(params)
-        let ctx = ActionContext("", session.context, params, router, pushFn: { patches =>
+        let ctx = ActionContext(session.id, session.context, params, router, pushFn: { patches =>
             wsSendJson(ws, PushMsg(patches))
         }, sessionStates: session.states, keyEvent: keyEvent)
         try {
@@ -508,7 +508,7 @@ public class App {
         params["value"] = value
         let flag = NavFlag()
         let router = Router("", { path => this.execNavAction(ws, state, session, flag, path) })
-        let ctx = ActionContext("", session.context, params, router, pushFn: { patches =>
+        let ctx = ActionContext(session.id, session.context, params, router, pushFn: { patches =>
             wsSendJson(ws, PushMsg(patches))
         }, sessionStates: session.states)
         try {
@@ -573,7 +573,13 @@ public class App {
 
         for (component in dirty) {
             let path = component.getPath()
-            let newSubtree = component.renderWithScope(path)
+            // renderWithScope 直接返回渲染结果 VNode，嵌套组件的组件级事件
+            // （Component.on）由 expandTree 的 Component 分支挂载；根组件的事件
+            // 需在此挂载，否则 patch 后 data-action-* 丢失（如输入框回车失效）
+            let newSubtree = match (component) {
+                case c: Component => attachComponentEvents(c, c.renderWithScope(path), path)
+                case _ => component.renderWithScope(path)
+            }
             let expanded = RenderContext.expandTree(newSubtree, path)
             let json = serializeSubtree(expanded, HashMap<String, ActionHandler>())
             session.tree = RenderContext.replaceTreeAtPath(session.tree, path, expanded)

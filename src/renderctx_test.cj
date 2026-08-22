@@ -134,6 +134,97 @@ class TestComponent <: Component {
     }
 }
 
+@Test
+public class ComponentEventTest {
+    @TestCase
+    public func testComponentOnAttachedToRootVNode(): Unit {
+        // Component.on(ev, h) 的事件必须挂到渲染结果根 VNode 的 actions/handlers
+        // （此前 _events 只存不接，组件级事件全部失效）
+        let clicked = EventProbe()
+        let comp = EventComponent(clicked)
+        let expanded = RenderContext.expandTree(comp, "")
+        match (expanded) {
+            case v: VNode =>
+                match (v._actions) {
+                    case Some(a) =>
+                        @Expect(a.get("click").isSome(), true)
+                        let id = a.get("click").getOrThrow()
+                        @Expect(id.contains("click"), true)
+                        match (v._handlers) {
+                            case Some(h) =>
+                                @Expect(h.get(id).isSome(), true)
+                            case None => @Fail("no handlers")
+                        }
+                    case None => @Fail("no actions")
+                }
+            case _ => @Fail("expected VNode")
+        }
+        @Expect(clicked.count, 0)
+    }
+
+    @TestCase
+    public func testComponentEventStableIdAcrossRenders(): Unit {
+        // 重渲染（同一路径展开两次）后事件 id 不变（路径派生）
+        let clicked = EventProbe()
+        let comp = EventComponent(clicked)
+        let first = RenderContext.expandTree(comp, "")
+        let second = RenderContext.expandTree(comp, "")
+        let id1 = extractClickId(first)
+        let id2 = extractClickId(second)
+        @Expect(id1 != "", true)
+        @Expect(id1 == id2, true)
+    }
+
+    func extractClickId(node: IComponent): String {
+        match (node) {
+            case v: VNode =>
+                match (v._actions) {
+                    case Some(a) =>
+                        match (a.get("click")) {
+                            case Some(id) => id
+                            case None => ""
+                        }
+                    case None => ""
+                }
+            case _ => ""
+        }
+    }
+
+    @TestCase
+    public func testNoEventsKeepsNodeUntouched(): Unit {
+        let comp = TestComponent("div", [text("x")])
+        let expanded = RenderContext.expandTree(comp, "")
+        match (expanded) {
+            case v: VNode => @Expect(v._actions.isNone(), true)
+            case _ => @Fail("expected VNode")
+        }
+    }
+}
+
+class EventProbe {
+    var count: Int64 = 0
+
+    public func bump(): Unit {
+        this.count++
+    }
+}
+
+class EventComponent <: Component {
+    let probe: EventProbe
+
+    public init(probe: EventProbe) {
+        this.probe = probe
+        this.on("click", { ctx =>
+            this.probe.bump()
+            PatchResult.ReRender
+        })
+    }
+
+    public func render(): IComponent {
+        VNode("div", [text("evt")])
+    }
+}
+
 /** 渲染时读取信号的探针组件（模拟登录页：render 读信号 → 订阅 markDirty） */
 class DirtyProbe <: Component {
     var sig = Signal<String>("")

@@ -161,6 +161,11 @@ public struct ActionContext {
         }
     }
 
+    /// 会话 id（服务端推送等场景用，如 App.pushUpdate 指定目标会话）
+    public func getSessionId(): String {
+        this.sessionId
+    }
+
     /// 会话上下文写入（守卫/鉴权用）。上下文与会话绑定，可跨 HTTP 恢复
     public func setContext(key: String, value: String): Unit {
         this.context[key] = value

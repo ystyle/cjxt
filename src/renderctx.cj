@@ -2,6 +2,7 @@ package cjxt
 
 import std.collection.{ArrayList, HashMap}
 import std.convert.*
+import std.reflect.*
 
 func doReplace(c: IComponent, parts: Array<String>, idx: Int64, newSubtree: IComponent): IComponent {
     if (idx >= parts.size) { return newSubtree }
@@ -118,6 +119,33 @@ func doCloneAttrMap(m: HashMap<String, String>): HashMap<String, String> {
     c
 }
 
+/// 组件级事件挂载：Component.on(ev, h) 注册的事件合并到渲染结果根 VNode。
+/// id 用路径派生（h:${path}:${ev}），与 stabilizeVNodeHandlers 的稳定 id 一致，
+/// 重渲染后不变。非 VNode 渲染结果（text/fragment 等）不支持挂事件，原样返回。
+func attachComponentEvents(comp: Component, rendered: IComponent, path: String): IComponent {
+    if (comp._events.size == 0) {
+        return rendered
+    }
+    match (rendered) {
+        case v: VNode =>
+            var actions = match (v._actions) {
+                case Some(a) => a
+                case None => HashMap<String, String>()
+            }
+            var handlers = match (v._handlers) {
+                case Some(h) => h
+                case None => HashMap<String, ActionHandler>()
+            }
+            for ((ev, h) in comp._events) {
+                let id = makeStableHandlerId(path, ev)
+                actions[ev] = id
+                handlers[id] = h
+            }
+            VNode(v._tag, v._children, attrs: v._attrs, key: v._key, actions: Some(actions), handlers: Some(handlers))
+        case _ => rendered
+    }
+}
+
 func hasDirtyParent(c: IComponent, all: ArrayList<IComponent>): Bool {
     let cp = c.getPath()
     for (other in all) {
@@ -153,7 +181,9 @@ public class RenderContext {
             case b: Component =>
                 b.setPath(path)
                 let rendered = b.renderWithScope(path)
-                expandTree(rendered, path)
+                // 组件级事件（Component.on(ev, h)）挂到渲染结果根节点：
+                // 用路径派生稳定 id（h:path:ev），重渲染后 id 不变
+                expandTree(attachComponentEvents(b, rendered, path), path)
             case t: TextNode => t
             case e: EmptyNode => e
             case cc: ClientComponentNode => cc
