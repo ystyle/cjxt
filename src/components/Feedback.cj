@@ -81,6 +81,9 @@ public class MessageHost <: Component {
         let content = VNode("p", [text(item.text)], attrs: Some(HashMap<String, String>([("class", "el-message__content")])))
         let closeBtn = VNode("span", [Icon("close").render()], attrs: Some(HashMap<String, String>([("class", "el-message__closeBtn")])))
         let attrs = HashMap<String, String>([("class", "el-message ${typeCls}"), ("role", "alert"), ("data-auto-dismiss", "3000"), ("data-id", item.id.toString())])
+        // EP scss 的 .el-message 本身 position:fixed（官方挂 body）——
+        // 我们的架构是 host 容器 fixed + items 进流，用 relative 覆盖（同 Notification）
+        attrs["style"] = "position:relative"
         var el = VNode("div", [iconEl, content, closeBtn], attrs: Some(attrs))
         el = el.onClick({ ctx => this.dismiss(ctx) })
         el
@@ -169,6 +172,10 @@ public class NotificationHost <: Component {
         let closeBtn = VNode("span", [Icon("close").render()], attrs: Some(HashMap<String, String>([("class", "el-notification__closeBtn")])))
         let group = VNode("div", [titleEl, contentEl], attrs: Some(HashMap<String, String>([("class", "el-notification__group")])))
         let attrs = HashMap<String, String>([("class", "el-notification ${typeCls}"), ("data-auto-dismiss", "4500"), ("data-id", item.id.toString())])
+        // EP scss 的 .el-notification 本身 position:fixed（官方挂 body）——
+        // 我们的架构是 host 容器 fixed + items 进流，这里用 relative 覆盖，否则
+        // 双 fixed + 零宽容器会把通知推到视口外（x≈1264 不可见）
+        attrs["style"] = "position:relative"
         var el = VNode("div", [iconEl, group, closeBtn], attrs: Some(attrs))
         el = el.onClick({ ctx => this.dismiss(ctx) })
         el

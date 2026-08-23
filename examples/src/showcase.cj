@@ -170,6 +170,7 @@ class ShowcasePage <: Component {
             case "Result" => this.demoResult()
             case "Pagination" => this.demoPagination()
             case "DatePicker" => this.demoDatePicker()
+            case "DateRangePicker" => this.demoDatePicker()
             case "Message" => this.demoMessage()
             case "Notification" => this.demoNotification()
             case "Loading" => this.demoLoading()

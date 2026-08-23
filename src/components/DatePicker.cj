@@ -184,7 +184,7 @@ public class DateRangePicker <: Component {
             children.add(VNode("span", [Icon("circle-close").render()], attrs: Some(HashMap<String, String>([("class", "el-range__close-icon"), ("style", "position:absolute;right:8px;top:50%;transform:translateY(-50%);cursor:pointer;z-index:2")]))).onClick({ ctx => this.onClear(ctx) }))
         }
         if (isOpen) { children.add(this.buildPanel()) }
-        VNode("div", children.toArray(), attrs: Some(HashMap<String, String>([("style", "position:relative;display:inline-block")])))
+        VNode("div", children.toArray(), attrs: Some(HashMap<String, String>([("class", "el-date-editor"), ("style", "position:relative;display:inline-block")])))
     }
 
     private func buildEditor(): IComponent {
@@ -196,7 +196,9 @@ public class DateRangePicker <: Component {
         let endAttrs = HashMap<String, String>([("class", "el-range-input"), ("placeholder", this._endPlaceholder), ("readonly", "true")])
         if (this.displayEnd() != "") { endAttrs["value"] = this.displayEnd() }
         children.add(VNode("input", [], attrs: Some(endAttrs)))
-        var cls = "el-date-editor el-range-editor el-input__wrapper"
+        // editor 只负责输入框（el-range-editor）；el-date-editor 在外层容器上，
+        // 否则 .el-date-editor .el-range__close-icon 后代选择器不命中 → 清除图标黑
+        var cls = "el-range-editor el-input__wrapper"
         if (this._disabled) { cls = "${cls} is-disabled" }
         if (this._open.get()) { cls = "${cls} is-focused" }
         var editor = VNode("div", children.toArray(), attrs: Some(HashMap<String, String>([("class", cls)])))

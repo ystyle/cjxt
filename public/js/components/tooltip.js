@@ -1,6 +1,7 @@
 (function() {
-    if (!window.CJXT) return;
-    window.CJXT.registerComponent('Tooltip', class {
+    function register() {
+        if (!window.CJXT) return false;
+        window.CJXT.registerComponent('Tooltip', class {
         create(props, container) {
             const trigger = document.createElement('span');
             trigger.textContent = props.triggerText || '?';
@@ -101,5 +102,13 @@
             if (this._cleanup) { this._cleanup(); this._cleanup = null; }
             if (this._popper) this._popper.remove();
         }
-    });
+        });
+        return true;
+    }
+    // 页面 script 顺序：组件 JS 先于 new CangjieUI() 执行，此时 window.CJXT 未设置
+    // → 挂到待注册队列，构造函数创建 CJXT 后统一 flush
+    if (!register()) {
+        window.__CJXT_PENDING__ = window.__CJXT_PENDING__ || [];
+        window.__CJXT_PENDING__.push(register);
+    }
 })();

@@ -11,6 +11,8 @@ class CangjieUI {
         this._uploadWaiters = new Map();
         this.init();
         window.CJXT = { registerComponent: this.registerComponent.bind(this) };
+        // 组件 JS（tooltip/popover）先于构造执行，注册函数已挂入待注册队列 → 统一 flush
+        (window.__CJXT_PENDING__ || []).forEach((fn) => { try { fn(); } catch (e) { console.error('cjxt register:', e); } });
     }
     init() {
         if (this.tree) this.renderTree(this.tree, this.container);

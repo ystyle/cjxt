@@ -1,6 +1,7 @@
 (function() {
-    if (!window.CJXT) return;
-    window.CJXT.registerComponent('Popover', class {
+    function register() {
+        if (!window.CJXT) return false;
+        window.CJXT.registerComponent('Popover', class {
         create(props, container) {
             container.style.cssText = 'position:relative;display:inline-block;';
             const trigger = document.createElement('span');
@@ -81,4 +82,11 @@
             if (this._popper) this._popper.remove();
         }
     });
+        return true;
+    }
+    // 页面 script 顺序：组件 JS 先于 new CangjieUI() 执行 → 延迟注册（同 tooltip.js）
+    if (!register()) {
+        window.__CJXT_PENDING__ = window.__CJXT_PENDING__ || [];
+        window.__CJXT_PENDING__.push(register);
+    }
 })();

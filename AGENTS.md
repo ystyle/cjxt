@@ -846,3 +846,33 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 - 浏览器 `ws.send(ArrayBuffer)` 大消息可能分段（fin=false + Continuation），服务端必须拼接（只支持穿插 Ping/Pong；其他帧中止）。
 
 **验证**：196 单测全过（+6 协议纯逻辑 +1 e2e）；浏览器端注入文件 → 列表出现（落盘内容一致）→ 点 × 删除 → 列表清空。
+
+### 2026-08-23 全组件视觉审查（45 组件截图）——发现并修复 5 处
+
+**发现（从组件列表尾部向前截图，发现问题清单）**
+
+**问题 1：Notification / Message 完全不可见（零宽容器双 fixed）**
+- 根因：EP scss 里 `.el-notification`/`.el-message` 自身就是 `position: fixed; z-index: 9999`（官方挂 body 的定位方式）；我们的 host 容器也是 fixed（top/right 定位）。item 脱离容器流 → **容器宽 0** → 通知被推到视口右缘外（rect x=1264，视口 1280）。
+- 修复：host 容器 fixed + item 加 inline `position: relative` 回流（Feedback.cj buildMessage/buildNotification）。
+- 排查方法：`getBoundingClientRect()` 定位 rect 异常 → 查 EP scss 的 position 规则。
+
+**问题 2：客户端组件（Tooltip/Popover）从未注册 → 演示空白**
+- 根因：组件 JS（tooltip.js/popover.js）头部 `if (!window.CJXT) return;`，而 `window.CJXT` 由 **inline `new CangjieUI()` 设置**——HTML 顺序是组件 script 在前、构造在后 → 全部静默跳过注册（`window.__CJXT_COMPONENTS__` 为空，触发元素不渲染）。
+- 修复：**延迟注册队列**——组件 JS 改为 `function register(){...}` + 失败时 push `window.__CJXT_PENDING__`；CangjieUI 构造函数设置 CJXT 后统一 flush。
+- 排查：curl 每个 `/_cjxt/js/*.js` 看内容 + `window.__CJXT_COMPONENTS__` 为空对象而非含 Tooltip。
+
+**问题 3：DateRangePicker 清除图标是黑色实心圆**
+- 根因：close icon 渲染为 editor 的**兄弟**，而 `.el-date-editor` class 在 editor 自己身上 → EP 后代选择器 `.el-date-editor .el-range__close-icon` 不命中 → color 继承黑色（placeholder 灰丢失）。且 a) 完全脱离定位规则，二重错。单例 DatePicker 正确（clear 在 el-date-editor 内）。
+- 修复：`.el-date-editor` 移到**外层容器**，editor 只留 `el-range-editor el-input__wrapper`（对齐 EP DOM 层级）。
+- 排查：`c.matches('.el-date-editor .el-range__close-icon')` 为 false + 祖先链 `DIV.`（无 class）。
+
+**问题 4：showcase 菜单 "DateRangePicker" 点击显示空示例**
+- renderDemo 缺 case "DateRangePicker"（demo 合并进 DatePicker 页）→ 补 case 复用 demoDatePicker()。
+
+**问题 5：属性面板长属性名溢出（CheckboxGroup.bind(signal)）**
+- showcase-prop-name/type 固定宽 160/260 无断词 → 加 `word-break: break-all`（style.css；bundle.css 由构建生成）。
+
+**验证**
+- 196 单测全过；重建后浏览器验证：Tooltip hover 黑泡出现、Popover 注册（comps=[Tooltip,Popover]）、Notification rect=[934,16,330]（右上可见）、Message 顶部居中、DateRangePicker 图标灰 #a8abb2 且 matches=true、DateRangePicker 菜单页面正常。
+- 其余 40 组件重查无问题（Drawer/Table/Form/Select/Rate/Slider/Checkbox/Switch/InputNumber/Icon/Space/Badge/Tag/Card/ButtonGroup/Empty/Result/Statistic/Descriptions/Avatar/Progress/VirtualList/Markdown/Tabs/Skeleton/Loading/AutoScroll/Reactive/DomTx/Pagination/DatePicker 等均对齐 EP）。
+- 排查经验：agent-browser 交互 eval 后 screenshot 需 ≤4 命令/会话（含 eval 内等待），否则截图打到旧 target；`--full` 对 fixed 元素截图不可靠，用 rect/getComputedStyle 断言更稳。
