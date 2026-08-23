@@ -15,6 +15,7 @@ public class TableColumn {
     var _showOverflowTooltip: Bool = false
     var _className: String = ""
     var _formatter: Option<(String) -> String> = None
+    var _render: Option<(HashMap<String, String>, Int64) -> IComponent> = None
     var _sortBy: String = ""
     var _reserveSelection: Bool = false
     var _selectable: Option<(HashMap<String, String>) -> Bool> = None
@@ -32,6 +33,8 @@ public class TableColumn {
     public func showOverflowTooltip(): TableColumn { this._showOverflowTooltip = true; this }
     public func className(v: String): TableColumn { this._className = v; this }
     public func formatter(f: (String) -> String): TableColumn { this._formatter = Some(f); this }
+    // 自定义单元格渲染（row, rowIndex）→ IComponent；优先于 formatter
+    public func render(fn: (HashMap<String, String>, Int64) -> IComponent): TableColumn { this._render = Some(fn); this }
     public func sortBy(v: String): TableColumn { this._sortBy = v; this }
     public func reserveSelection(): TableColumn { this._reserveSelection = true; this }
     public func selectable(f: (HashMap<String, String>) -> Bool): TableColumn { this._selectable = Some(f); this }
@@ -68,6 +71,9 @@ public class Table <: Component {
     var _sortOrderSignal: Option<Signal<SortOrder>> = None
     var _selectedRowsSignal: Option<Signal<ArrayList<HashMap<String, String>>>> = None
     var _currentRowSignal: Option<Signal<Option<HashMap<String, String>>>> = None
+
+    // 行点击回调（row, rowIndex）→ PatchResult；与 highlight()（仅高亮当前行）并存
+    var _onRowClick: Option<(HashMap<String, String>, Int64) -> PatchResult> = None
 
     // 内部 fallback 信号
     var _sortColumn: Signal<String>
@@ -132,6 +138,7 @@ public class Table <: Component {
     public func sortOrder(signal: Signal<SortOrder>): Table { this._sortOrderSignal = Some(signal); this }
     public func selectedRows(signal: Signal<ArrayList<HashMap<String, String>>>): Table { this._selectedRowsSignal = Some(signal); this }
     public func currentRow(signal: Signal<Option<HashMap<String, String>>>): Table { this._currentRowSignal = Some(signal); this }
+    public func onRowClick(fn: (HashMap<String, String>, Int64) -> PatchResult): Table { this._onRowClick = Some(fn); this }
 
     private func getSortColumn(): String {
         match (this._sortColumnSignal) {
@@ -514,9 +521,19 @@ public class Table <: Component {
             case None => ()
         }
         var tr = VNode("tr", cells.toArray(), attrs: Some(rowAttrs))
-        if (this._highlight) {
+        let hasRowClick = match (this._onRowClick) {
+            case Some(_) => true
+            case None => false
+        }
+        if (this._highlight || hasRowClick) {
             let r = row
-            let wrapped: ActionHandler = { ctx => this.setCurrentRow(r); PatchResult.ReRender }
+            let wrapped: ActionHandler = { ctx =>
+                if (this._highlight) { this.setCurrentRow(r) }
+                match (this._onRowClick) {
+                    case Some(fn) => fn(r, index)
+                    case None => PatchResult.ReRender
+                }
+            }
             tr = tr.onClick(wrapped)
         }
         tr
@@ -562,7 +579,7 @@ public class Table <: Component {
         } else if (isIndexType(col._colType)) {
             this.buildIndexCell(index, content)
         } else {
-            this.buildDefaultCell(col, row, content)
+            this.buildDefaultCell(col, row, index, content)
         }
 
         let cell = VNode("div", content.toArray(), attrs: Some(HashMap<String, String>([("class", "cell")])))
@@ -580,17 +597,20 @@ public class Table <: Component {
         content.add(text("${index + 1}"))
     }
 
-    private func buildDefaultCell(col: TableColumn, row: HashMap<String, String>, content: ArrayList<IComponent>): Unit {
-        let raw = getRowVal(row, col._colProp)
-        let display = match (col._formatter) {
-            case Some(f) => f(raw)
-            case None => raw
-        }
-        if (col._showOverflowTooltip && display.size > 30) {
-            let td = text(display[0..27] + "...")
-            content.add(td)
-        } else {
-            content.add(text(display))
+    private func buildDefaultCell(col: TableColumn, row: HashMap<String, String>, index: Int64, content: ArrayList<IComponent>): Unit {
+        match (col._render) {
+            case Some(fn) => content.add(fn(row, index))
+            case None =>
+                let raw = getRowVal(row, col._colProp)
+                let display = match (col._formatter) {
+                    case Some(f) => f(raw)
+                    case None => raw
+                }
+                if (col._showOverflowTooltip && display.size > 30) {
+                    content.add(text(display[0..27] + "..."))
+                } else {
+                    content.add(text(display))
+                }
         }
     }
 
