@@ -69,6 +69,12 @@ public class FormItem <: Component {
         this
     }
 
+    // 通用取值 getter：Int64/Bool 等非 String 信号可经调用方包装接入校验
+    public func bindValue(getter: () -> String): FormItem {
+        this._getValue = Some(getter)
+        this
+    }
+
     public func validate(): Bool {
         let value = match (this._getValue) {
             case Some(fn) => fn()
