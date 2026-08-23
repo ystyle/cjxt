@@ -208,7 +208,9 @@ func collectRefsFromTree(node: IComponent, path: String, map: HashMap<String, St
             }
             var i = 0
             for (c in v._children) {
-                collectRefsFromTree(c, "${path}children/${i}", map)
+                // 根节点 path="" 时首段无前导斜杠（客户端 split('/') 解析），后续段用 "/" 分隔
+                let childPath = if (path == "") { "children/${i}" } else { "${path}/children/${i}" }
+                collectRefsFromTree(c, childPath, map)
                 i += 1
             }
         case _ => ()

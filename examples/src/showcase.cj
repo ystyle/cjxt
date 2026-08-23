@@ -1535,9 +1535,10 @@ public func main() {
                 this.propRow("buffer", "Int64", "上下缓冲行数（默认 6）"),
             ])
             case "DomTx" => div([
-                this.propRow("ctx.dom.command([...])", "domFocus/ScrollIntoView/SetProperty", "fire-and-forget 命令"),
-                this.propRow("ctx.dom.query / queryAs<T> / queryInt64", "ref + prop", "查询（dom_result 驱动续体）"),
-                this.propRow("DomSeq", "顺序步骤 + timeout/cancel", "命令/查询编排（不阻塞）"),
+                this.propRow("ctx.dom.command", "[domFocus/domScrollIntoView/domSetProperty]", "fire-and-forget 命令"),
+                this.propRow("ctx.dom.query / queryAs", "ref + prop → String/JSON", "单查询（dom_result 驱动续体）"),
+                this.propRow("ctx.dom.queryInt64", "ref + prop → Int64", "数值查询（解析字符串）"),
+                this.propRow("ctx.dom.seq()", "DomSeq + timeout/cancel", "顺序命令/查询编排（不阻塞）"),
             ])
             case "Breadcrumb" => div([
                 this.propRow("BreadcrumbItem.content", "String", "面包屑文本"),
@@ -1657,13 +1658,18 @@ class DomTxWidget <: Component {
         }
         let attrs = HashMap<String, String>()
         attrs["class"] = "domtx-widget"
-        attrs["style"] = "padding:12px;border:1px solid #e4e7ed;border-radius:8px;background:#fff"
+        attrs["style"] = "padding:12px;border:1px solid #e4e7ed;border-radius:8px;background:#fff;display:flex;gap:12px;align-items:center;flex-wrap:wrap"
+        // 输入框需要 ref（domFocus 的目标必须是真实 input 元素），用 EP 输入框结构美化；
+        // 按钮统一走组件库 Button（EP 主题色）
+        let inputInner = VNode("input", [], attrs: Some(HashMap<String, String>([("type", "text"), ("placeholder", "这是一个输入框"), ("class", "el-input__inner")]))).ref("domtx-input")
+        let inputWrapper = VNode("div", [inputInner], attrs: Some(HashMap<String, String>([("class", "el-input__wrapper")])))
+        let inputBox = VNode("div", [inputWrapper], attrs: Some(HashMap<String, String>([("class", "el-input"), ("style", "width:220px")])))
         let root = VNode("div", [
-            VNode("input", [], attrs: Some(HashMap<String, String>([("type", "text"), ("placeholder", "这是一个输入框")]))).ref("domtx-input"),
+            inputBox,
             VNode("span", [text("状态")], attrs: Some(HashMap<String, String>([("class", "domtx-status")]))).ref("domtx-status"),
-            VNode("button", [text("聚焦输入框")], attrs: Some(HashMap<String, String>([("type", "button")]))).onClick(focusH),
-            VNode("button", [text("查询组件高度")], attrs: Some(HashMap<String, String>([("type", "button")]))).onClick(queryH),
-            VNode("button", [text("序列查询 高+宽")], attrs: Some(HashMap<String, String>([("type", "button")]))).onClick(seqH),
+            PrimaryButton("聚焦输入框").onClick(focusH),
+            PrimaryButton("查询组件高度").onClick(queryH),
+            PrimaryButton("序列查询 高+宽").onClick(seqH),
         ], attrs: Some(attrs)).ref("domtx-widget")
         root
     }

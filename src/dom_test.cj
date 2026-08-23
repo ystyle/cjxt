@@ -85,3 +85,46 @@ public class DomParseResultTest {
 func parseInt64Result(raw: String): Int64 {
     if (raw == "") { 0 } else { Int64.parse(raw, radix: 10) }
 }
+
+
+// ============ ref 路径收集（collectRefsFromTree）——粘合客户端 navigateTo 的路径格式 ============
+// 回归：曾把路径拼成 "children/0children/1"（缺分隔斜杠），客户端 split('/') 解析失败
+// → dom_command 定位不到元素（查询返回 ?、setProperty 不生效）
+
+@Test
+public class DomRefPathTest {
+    @TestCase
+    public func testRefPathRootChild(): Unit {
+        let tree = div([
+            VNode("input", [], attrs: Some(HashMap<String, String>([("data-ref", "a")]))),
+        ])
+        let m = HashMap<String, String>()
+        collectRefsFromTree(tree, "", m)
+        @Expect(m.get("a"), "children/0")
+    }
+
+    @TestCase
+    public func testRefPathNested(): Unit {
+        let tree = div([
+            div([
+                VNode("input", [], attrs: Some(HashMap<String, String>([("data-ref", "b")]))),
+            ]),
+        ])
+        let m = HashMap<String, String>()
+        collectRefsFromTree(tree, "", m)
+        @Expect(m.get("b"), "children/0/children/0")
+    }
+
+    @TestCase
+    public func testRefPathMultiSegments(): Unit {
+        let tree = div([
+            VNode("div", []),
+            div([
+                VNode("input", [], attrs: Some(HashMap<String, String>([("data-ref", "c")]))),
+            ]),
+        ])
+        let m = HashMap<String, String>()
+        collectRefsFromTree(tree, "", m)
+        @Expect(m.get("c"), "children/1/children/0")
+    }
+}
