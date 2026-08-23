@@ -3,7 +3,7 @@ package examples
 import cjxt.*
 import cjxt.macros.*
 import cjxt.components.*
-import std.collection.{HashMap, ArrayList}
+import std.collection.{ArrayList, HashMap}
 
 let componentNames: Array<String> = [
     "Button", "ButtonGroup", "Card", "RowCol", "Divider",
@@ -11,7 +11,7 @@ let componentNames: Array<String> = [
     "Input", "InputNumber", "Switch", "Radio", "Checkbox",
     "Rate", "Select", "Slider", "Form", "Table", "Dialog", "Drawer", "Tooltip", "Popover",
     "Progress", "Avatar", "Empty", "Descriptions", "Statistic", "Result", "Pagination",
-    "DatePicker", "DateRangePicker", "Message", "Notification", "Loading", "Skeleton", "Tabs", "Markdown", "AutoScroll", "Reactive", "VirtualList", "DomTx"
+    "DatePicker", "DateRangePicker", "Message", "Notification", "Loading", "Skeleton", "Tabs", "Markdown", "AutoScroll", "Reactive", "VirtualList", "DomTx", "Breadcrumb", "Steps", "Dropdown", "Tree", "Cascader", "Upload"
 ]
 
 class ShowcaseState <: AppState {
@@ -45,6 +45,14 @@ class ShowcaseState <: AppState {
     var virtualItems: Signal<ArrayList<Int64>>
     var virtualScrollTop = Signal<Int64>(0)
     var domTxResult = Signal<String>("未查询")
+    var stepsActive = Signal<Int64>(1)
+    var dropdownResult = Signal<String>("未选择")
+    var treeCurrent = Signal<String>("")
+    var treeNodeLabel = Signal<String>("未选节点")
+    var treeExpanded = Signal<HashMap<String, Bool>>(HashMap<String, Bool>())
+    var cascaderSelected = Signal<ArrayList<String>>(ArrayList<String>())
+    var cascaderText = Signal<String>("未选择")
+    var uploadFiles = Signal<ArrayList<UploadFile>>(ArrayList<UploadFile>())
     var formUsername = Signal<String>("")
     var formPassword = Signal<String>("")
     var formUserError = Signal<String>("")
@@ -172,6 +180,12 @@ class ShowcasePage <: Component {
             case "Reactive" => this.demoReactive()
             case "VirtualList" => this.demoVirtualList()
             case "DomTx" => this.demoDomTx()
+            case "Breadcrumb" => this.demoBreadcrumb()
+            case "Steps" => this.demoSteps()
+            case "Dropdown" => this.demoDropdown()
+            case "Tree" => this.demoTree()
+            case "Cascader" => this.demoCascader()
+            case "Upload" => this.demoUpload()
             case _ => text("选择左侧组件查看示例")
         }
     }
@@ -920,6 +934,156 @@ class ShowcasePage <: Component {
             ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
             div([text("当前激活标签：${st.activeTab.get()}（三个 Tabs 共享信号联动）")], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
         ], attrs: Some(HashMap<String, String>([("class", cls("tabs-demo"))])))
+    }
+
+    func demoBreadcrumb(): IComponent {
+        div([
+            div([text("面包屑导航（Breadcrumb）")], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
+            div([
+                Breadcrumb([
+                    BreadcrumbItem().content("首页").to("/"),
+                    BreadcrumbItem().content("组件库").to("/showcase"),
+                    BreadcrumbItem().content("面包屑"),
+                ]),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([text("自定义分隔符")], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
+            div([
+                Breadcrumb([
+                    BreadcrumbItem().content("用户管理"),
+                    BreadcrumbItem().content("角色管理"),
+                    BreadcrumbItem().content("权限配置"),
+                ]).separator(">"),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+        ], attrs: Some(HashMap<String, String>([("class", cls("breadcrumb-demo"))])))
+    }
+
+    func demoSteps(): IComponent {
+        let st = this.state
+        let stepBack: ActionHandler = { ctx =>
+            let cur = st.stepsActive.get()
+            if (cur > 1) { st.stepsActive.set(cur - 1) }
+            PatchResult.ReRender
+        }
+        let stepNext: ActionHandler = { ctx =>
+            let cur = st.stepsActive.get()
+            if (cur < 4) { st.stepsActive.set(cur + 1) }
+            PatchResult.ReRender
+        }
+        div([
+            div([text("步骤条（Steps）——当前第 ${st.stepsActive.get()} 步")], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
+            div([
+                Steps([
+                    StepItem().title("填写信息").description("基本信息与联系方式"),
+                    StepItem().title("上传附件").description("证明文件与资料"),
+                    StepItem().title("确认提交").description("核对后提交申请"),
+                ], st.stepsActive),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([
+                Button("上一步").onClick(stepBack),
+                Button("下一步").onClick(stepNext),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([text("垂直方向")], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
+            div([
+                Steps([
+                    StepItem().title("创建订单"),
+                    StepItem().title("等待审批").status("error"),
+                    StepItem().title("完成"),
+                ], st.stepsActive).direction("vertical"),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+        ], attrs: Some(HashMap<String, String>([("class", cls("steps-demo"))])))
+    }
+
+    func demoDropdown(): IComponent {
+        let st = this.state
+        div([
+            div([text("下拉菜单（Dropdown）")], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
+            div([
+                Dropdown(Button("更多操作")).menu([
+                    DropdownItem().content("编辑").command("edit"),
+                    DropdownItem().content("复制").command("copy"),
+                    DropdownItem().content("删除").command("delete").divided(),
+                    DropdownItem().content("禁用项").command("disabled").disabled(true),
+                ]).onCommand { cmd =>
+                    st.dropdownResult.set("选择了：${cmd}")
+                    PatchResult.ReRender
+                },
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([text("结果：${st.dropdownResult.get()}")], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([text("触发方式：点击触发面板；菜单项点击回传 command 并关闭面板；divided 分隔线；disabled 禁点")], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+        ], attrs: Some(HashMap<String, String>([("class", cls("dropdown-demo"))])))
+    }
+
+    func demoTree(): IComponent {
+        let st = this.state
+        // 组织架构
+        let org = ArrayList<TreeNode>([
+            TreeNode("产品部", ArrayList<TreeNode>([
+                TreeNode("前端组", ArrayList<TreeNode>([
+                    TreeNode("框架组"),
+                    TreeNode("业务组"),
+                ])),
+                TreeNode("后端组"),
+            ])),
+            TreeNode("设计部", ArrayList<TreeNode>([
+                TreeNode("UI 组"),
+                TreeNode("交互组"),
+            ])),
+            TreeNode("市场部"),
+        ])
+        div([
+            div([text("树形控件（Tree）")], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
+            div([
+                Tree(org).expanded(st.treeExpanded).currentKey(st.treeCurrent).onNodeClick { path, label =>
+                    st.treeNodeLabel.set(label)
+                    PatchResult.ReRender
+                },
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([text("当前选中：${st.treeNodeLabel.get()}（${st.treeCurrent.get()}）")], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([text("点 ▶ 展开/收起子节点；点标签选中高亮并回传路径与标签")], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+        ], attrs: Some(HashMap<String, String>([("class", cls("tree-demo"))])))
+    }
+
+    func demoCascader(): IComponent {
+        let st = this.state
+        let regions = ArrayList<CascaderNode>([
+            CascaderNode("浙江", "zj", ArrayList<CascaderNode>([
+                CascaderNode("杭州", "hz", ArrayList<CascaderNode>([
+                    CascaderNode("西湖区", "xh"),
+                    CascaderNode("滨江区", "bj"),
+                ])),
+                CascaderNode("宁波", "nb"),
+            ])),
+            CascaderNode("江苏", "js", ArrayList<CascaderNode>([
+                CascaderNode("南京", "nj"),
+            ])),
+        ])
+        div([
+            div([text("级联选择器（Cascader）")], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
+            div([
+                Cascader(regions, st.cascaderSelected).onChange { sel =>
+                    let labels = cascaderPathLabels(regions, sel)
+                    var t = "未选择"
+                    var i = 0
+                    for (l in labels) { if (i == 0) { t = l } else { t = "${t}/${l}" }; i += 1 }
+                    st.cascaderText.set(t)
+                    PatchResult.ReRender
+                },
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([text("已选择：${st.cascaderText.get()}")], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([text("点输入框开面板；点父节点展开下一列；点叶子选中并关闭")], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+        ], attrs: Some(HashMap<String, String>([("class", cls("cascader-demo"))])))
+    }
+
+    func demoUpload(): IComponent {
+        let st = this.state
+        div([
+            div([text("上传（Upload）")], attrs: Some(HashMap<String, String>([("class", cls("showcase-section-title"))]))),
+            div([
+                Upload().url("/_cjxt/uploads").files(st.uploadFiles),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([text("已上传 ${st.uploadFiles.get().size} 个文件")], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([text("点上传区选文件 → 客户端 XHR 上传到 /_cjxt/uploads → 服务端存盘并回传 → 列表出现；点 × 删除")], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+        ], attrs: Some(HashMap<String, String>([("class", cls("upload-demo"))])))
     }
 
     func demoAutoScroll(): IComponent {

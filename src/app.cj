@@ -1,11 +1,16 @@
 package cjxt
 
 import std.collection.{ArrayList, HashMap}
+import std.fs.{File, OpenMode}
+import std.io.ByteBuffer
+import opencj::ulid.nextId
 import std.reflect.*
 import std.sync.Mutex
 import std.time.*
 import stdx.net.http.{WebSocket, WebSocketFrameType}
 import tang.{Tang, TangHttpContext}
+import stdx.encoding.json.stream.{JsonWriter, JsonSerializable}
+import stdx.encoding.base64.fromBase64String
 import tang.middleware.staticfile.{staticFiles, withPrefix, staticMiddleware}
 
 class SessionState {
@@ -87,6 +92,37 @@ public class App {
     public func serveStatic(prefix: String, dir: String): App {
         this.staticRoutes.add((prefix, dir))
         this.tangApp.get("${prefix}/*", staticFiles(dir, [withPrefix(prefix)]))
+        this
+    }
+
+    // 上传端点：POST prefix → JSON {name, data(base64)} → 解码存盘 → 返回 {name,url,size}
+    // 同时把 dir 静态暴露在 prefix 下供访问。
+    // 说明：客户端用 FileReader 读为 base64 后 POST JSON（绕开 tang multipartForm 的挂起问题）。
+    public func serveUpload(prefix: String, dir: String): App {
+        this.serveStatic(prefix, dir)
+        this.tangApp.post(prefix) { ctx =>
+            try {
+                let raw = String.fromUtf8(ctx.bodyRaw())
+                let name = extractQuotedAfter(raw, "\"name\":\"")
+                let data = extractQuotedAfter(raw, "\"data\":\"")
+                if (name == "" || data == "") {
+                    ctx.jsonWithCode(400, UploadResult("", "", 0))
+                } else {
+                    match (fromBase64String(data)) {
+                        case Some(bytes) =>
+                            let stored = "${nextId()}-${name}"
+                            let out = File("${dir}/${stored}", OpenMode.Write)
+                            out.write(bytes)
+                            out.close()
+                            ctx.json(UploadResult(name, "${prefix}/${stored}", bytes.size))
+                        case None =>
+                            ctx.jsonWithCode(400, UploadResult("", "", 0))
+                    }
+                }
+            } catch (e: Exception) {
+                ctx.jsonWithCode(500, UploadResult("", "", 0))
+            }
+        }
         this
     }
 
@@ -813,5 +849,43 @@ func parseStringPairs(body: String, out: HashMap<String, String>): Unit {
                 }
             case None => break
         }
+    }
+}
+
+
+// 上传结果（JSON 响应）
+public struct UploadResult <: JsonSerializable {
+    public let name: String
+    public let url: String
+    public let size: Int64
+
+    public init(name: String, url: String, size: Int64) {
+        this.name = name
+        this.url = url
+        this.size = size
+    }
+
+    public func toJson(w: JsonWriter): Unit {
+        w.startObject()
+        w.writeName("name").writeValue(this.name)
+        w.writeName("url").writeValue(this.url)
+        w.writeName("size").writeValue(this.size)
+        w.endObject()
+    }
+}
+
+
+// 提取 key 后带引号的值（键以 \" 结尾，值到下一个 \" 为止）
+func extractQuotedAfter(text: String, key: String): String {
+    match (text.indexOf(key)) {
+        case Some(start) =>
+            let after = text[start + key.size..]
+            var end = 0
+            var found = false
+            for (i in 0..after.size) {
+                if (after[i] == 34u8) { end = i; found = true; break }
+            }
+            if (found) { after[0..end] } else { "" }
+        case None => ""
     }
 }

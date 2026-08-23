@@ -168,7 +168,7 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 - [x] #4 回调式 DOM 事务（事件驱动：命令/查询/顺序/超时——比原"批量+动画"设计更贴合服务端模型）
 
 ### P3 — ERP/Chat 第三批（体验完整）
-- [ ] Upload 附件、Tree/TreeTable、Dropdown、Cascader、Steps、Breadcrumb
+- [x] Breadcrumb / Steps / Dropdown / Tree / Cascader / Upload（TreeTable 待接入 Table）
 - [ ] 图表集成、Excel/CSV 导出
 - [ ] 无障碍（ARIA）、i18n、主题 token
 
@@ -772,3 +772,25 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 - `cjpm test`：172 全过（DomLogic 4 + DomParseResult 3 + DomTx e2e + DomTimeout e2e）。
 - DomSeq 顺序流经 Node WS 驱动验证（两个顺序 dom_command + 延迟 then + 最终补丁）；超时经 e2e（客户端不回 → 300ms 触发 → 补丁）。
 - 移除挂起的 DomSeq e2e（ws.read 无超时 + 测试输出缓冲；机制经真实 WS 驱动证明）。
+
+### 2026-08-23 P3 第一批：Breadcrumb / Steps / Dropdown / Tree / Cascader / Upload（导航+选择+上传）
+
+**实现（对齐 Element Plus）**
+- `Breadcrumb` + `BreadcrumbItem`：el-breadcrumb__item/inner/separator；末项 aria-current=page；separator 可配；is-link 跳转（ctx.route.push）。
+- `Steps` + `StepItem`：el-steps--horizontal/vertical；active(Signal, 1 起) 外置；状态推导（stepsStatus/mapStepStatus 纯逻辑抽 src/steps_logic.cj + 5 单测）；status 强制覆盖。
+- `Dropdown`：服务端驱动（内部 _open 信号脏追踪自渲染）；trigger 点击开面板；菜单项 command 回传 + 关面板；divided/disabled。
+- `Tree`：递归渲染 el-tree--highlight-current + el-tree-node(is-expanded/is-current/is-leaf)；**展开状态外置**（父重渲染 new 新实例丢内部信号——Table 经验）；currentKey 外置 + onNodeClick 回传路径/标签；纯逻辑 src/tree_logic.cj + 2 单测。
+- `Cascader`：多列面板（activePath 驱动列数）；点父节点追加列、点叶子选中+关闭；selected 外置；纯逻辑 src/cascader_logic.cj（columns/pathLabels/append）+ 4 单测。
+- `Upload`：**base64-JSON 通道**（绕开 tang multipartForm 挂起）；App.serveUpload(prefix, dir) 存盘返回 {name,url,size}；客户端 attachUpload（FileReader→XHR→按 data-action-uploaded dispatch action）；files 外置；纯逻辑 src/upload_logic.cj + 2 单测。
+
+**关键坑（本轮踩）**
+- **tang multipartForm() 挂起**：POST multipart 到端点，ctx.multipartForm() 阻塞不返回（bodyRaw 能读出字节，但 MulitpartReader 集成挂）。务实转向 base64-JSON（FileReader→dataURL→XHR POST JSON→服务端 fromBase64String 解码），绕开第三方库集成问题。
+- **onClick 返回值未接收**（Cascader 节点、Tree 图标同款）：`VNode(...).onClick(h)` 不赋值 → 节点无 action → 点击无响应。必须 `let node = VNode(...); node.onClick(h)` 或 `x = x.onClick(h)`。
+- **组件内部信号父重渲染丢失**（Tree 展开/Upload files）：父重渲染 new 新实例 → 内部信号重置 → 必须外置为调用方 Signal（Table 经验复用）。
+- `ctx.multipartForm()`/`ctx.json()` 在 **TangHttpContext** 上（不是 ctx.request）；`json<T>` 在 TangHttpContext 扩展。
+- OpenMode 无 CreateNew（只有 Write/Read/ReadWrite/Append）；ulid 顶层 `nextId()`（ULID() 无公开零参构造）。
+- 服务端文件、子 shell 启动的服务器 agent-browser 够不到（要用 run_in_background 受管后台任务）。
+
+**验证**
+- `cjpm test`：185 全过（steps 5 + tree 2 + cascader 4 + upload 2 + 既有 172）。
+- Node WS 驱动：Breadcrumb 结构/aria/自定义分隔符；Steps active 推进 success,process,wait→success,success,process；Dropdown 开面板+command+关面板；Tree 展开+is-current 高亮；Cascader 三级列+选中回显；Upload 加文件 count=1→删除 count=0。上传端点 curl 存盘内容验证。

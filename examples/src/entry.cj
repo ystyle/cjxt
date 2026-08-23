@@ -8,6 +8,7 @@ main() {
         .configure(AppConfig(cssBundle: "/css/bundle.css?v=2"))
         .UseComponent()
         .serveStatic("/css", "public/css")
+        .serveUpload("/_cjxt/uploads", "uploads")
         .state<CounterState>({ => CounterState() })
         .state<InputsState>({ => InputsState() })
         .state<TodoState>({ => TodoState() })

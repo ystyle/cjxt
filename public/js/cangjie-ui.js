@@ -193,6 +193,8 @@ class CangjieUI {
         if (el.hasAttribute('data-vscroll')) this.attachVScroll(el);
         // 自动消失（Message/Notification 等）：data-auto-dismiss="ms" → 到时触发点击（关闭 action）
         if (el.hasAttribute('data-auto-dismiss')) this.attachAutoDismiss(el);
+        // 上传：data-upload-trigger（点触发 file input）+ data-upload-input（change 后 XHR 上传）
+        if (el.hasAttribute('data-upload-trigger') || el.hasAttribute('data-upload-input')) this.attachUpload(el);
     }
 
     // ============ keyed reconciliation：原位更新 DOM，只改变化部分，避免全量重建（补丁粒度细化 P2#1） ============
@@ -317,6 +319,61 @@ class CangjieUI {
         if (el.hasAttribute('data-bind-id') && !el.__cjxtBound) { this.attachBind(el); el.__cjxtBound = true; }
         if (el.hasAttribute('data-vscroll') && !el.__cjxtVScroll) { this.attachVScroll(el); el.__cjxtVScroll = true; }
         if (el.hasAttribute('data-auto-dismiss') && !el.__cjxtAutoDismiss) { this.attachAutoDismiss(el); el.__cjxtAutoDismiss = true; }
+        if ((el.hasAttribute('data-upload-trigger') || el.hasAttribute('data-upload-input')) && !el.__cjxtUpload) { this.attachUpload(el); el.__cjxtUpload = true; }
+    }
+
+    // 上传：触发区点击 → 打开 file input；file change → XHR multipart 上传 → 成功后按
+    // data-action-uploaded（稳定 handler id）dispatch action（服务端 handler 加文件到列表）
+    attachUpload(el) {
+        if (el.hasAttribute('data-upload-trigger') && !el.__cjxtUploadTrigger) {
+            el.__cjxtUploadTrigger = true;
+            el.addEventListener('click', (ev) => {
+                ev.preventDefault();
+                const input = el.parentElement && el.parentElement.querySelector('[data-upload-input]');
+                if (input) input.click();
+            });
+        }
+        if (el.hasAttribute('data-upload-input') && !el.__cjxtUploadInput) {
+            el.__cjxtUploadInput = true;
+            el.addEventListener('change', () => {
+                const file = el.files && el.files[0];
+                if (!file) return;
+                const url = el.getAttribute('data-upload');
+                const action = el.getAttribute('data-action-uploaded');
+                if (!url || !action) return;
+                // FileReader → base64 data URL → POST JSON（绕开 multipart 服务端解析问题）
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const dataUrl = String(reader.result || '');
+                    const comma = dataUrl.indexOf(',');
+                    const b64 = comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl;
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', url);
+                    xhr.setRequestHeader('Content-Type', 'application/json');
+                    xhr.onload = () => {
+                        let res = {};
+                        try { res = JSON.parse(xhr.responseText); } catch (e) {}
+                        if (window.ui) {
+                            window.ui.send({
+                                type: 'action',
+                                name: action,
+                                params: {
+                                    name: res.name || file.name,
+                                    url: res.url || '',
+                                    size: String(res.size != null ? res.size : file.size)
+                                },
+                                sessionId: window.ui.sessionId
+                            });
+                        }
+                    };
+                    xhr.onerror = () => {};
+                    xhr.send(JSON.stringify({ name: file.name, data: b64 }));
+                };
+                reader.onerror = () => {};
+                reader.readAsDataURL(file);
+                el.value = ''; // 允许重复选同一文件
+            });
+        }
     }
 
     // 将 nodes 序列 reconcile 到 parentEl 的现有子节点（位置对齐 + 复用；fragment 先平铺）
