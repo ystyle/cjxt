@@ -876,3 +876,18 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 - 196 单测全过；重建后浏览器验证：Tooltip hover 黑泡出现、Popover 注册（comps=[Tooltip,Popover]）、Notification rect=[934,16,330]（右上可见）、Message 顶部居中、DateRangePicker 图标灰 #a8abb2 且 matches=true、DateRangePicker 菜单页面正常。
 - 其余 40 组件重查无问题（Drawer/Table/Form/Select/Rate/Slider/Checkbox/Switch/InputNumber/Icon/Space/Badge/Tag/Card/ButtonGroup/Empty/Result/Statistic/Descriptions/Avatar/Progress/VirtualList/Markdown/Tabs/Skeleton/Loading/AutoScroll/Reactive/DomTx/Pagination/DatePicker 等均对齐 EP）。
 - 排查经验：agent-browser 交互 eval 后 screenshot 需 ≤4 命令/会话（含 eval 内等待），否则截图打到旧 target；`--full` 对 fixed 元素截图不可靠，用 rect/getComputedStyle 断言更稳。
+
+## 演示站部署（Docker + Caddy 统一管理）
+
+- **域名**：`cjxt.mini.ystyle.top` / `cjxt.ystyle.top`（Caddyfile: `~/docker/caddy/Caddyfile` → `reverse_proxy 192.168.3.6:8062`）
+- **compose**：`~/docker/cjxt-demo/docker-compose.yml`（统一 `~/docker` 管理；容器名 `cjxt-demo`，`8062:8080`，restart unless-stopped）
+- **构建**：`Dockerfile` 在项目 `examples/`（Ubuntu 26.04 + 拷贝 `target/release/bin/main` + `public/`）；`examples/.dockerignore` 只放行 public 与 release/bin/main（控制 context 体积）
+- **网络**：复用 `examples_default`（external，避免 docker 子网池耗尽——本机 40+ compose 项目）
+- **更新流程**：
+  ```bash
+  cd ~/Projects/Cangjie/cjxt/examples && cjpm build    # 宿主机最新二进制（入口必须是 8080！）
+  docker compose -f ~/docker/cjxt-demo/docker-compose.yml build
+  docker compose -f ~/docker/cjxt-demo/docker-compose.yml up -d
+  ```
+- **访问统计**：`~/docker/caddy/stat_cjxt.sh`（caddy 日志解析，含 OpenHarmony 设备 UA 识别）
+- 教训：**发布构建前确认 examples/src/entry.cj 端口为 8080**（本地 dev 用 18090 的临时改动不能让进发布二进制）。
