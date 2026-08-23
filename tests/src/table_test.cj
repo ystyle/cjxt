@@ -69,7 +69,7 @@ public class TableRenderTest {
         let data = makeData([oneRow()])
         let table = Table()
             .data(data)
-            .onRowClick({ r, i => PatchResult.ReRender })
+            .onRowClick({ r, i, ctx => PatchResult.ReRender })
         let (json, handlerMap) = renderTableJson(table)
         @Expect(json.contains("\"type\":\"tr\""), true)
         @Expect(json.contains("\"click\""), true)

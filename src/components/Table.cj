@@ -72,8 +72,8 @@ public class Table <: Component {
     var _selectedRowsSignal: Option<Signal<ArrayList<HashMap<String, String>>>> = None
     var _currentRowSignal: Option<Signal<Option<HashMap<String, String>>>> = None
 
-    // 行点击回调（row, rowIndex）→ PatchResult；与 highlight()（仅高亮当前行）并存
-    var _onRowClick: Option<(HashMap<String, String>, Int64) -> PatchResult> = None
+    // 行点击回调（row, rowIndex, ctx）→ PatchResult；与 highlight()（仅高亮当前行）并存
+    var _onRowClick: Option<(HashMap<String, String>, Int64, ActionContext) -> PatchResult> = None
 
     // 内部 fallback 信号
     var _sortColumn: Signal<String>
@@ -138,7 +138,7 @@ public class Table <: Component {
     public func sortOrder(signal: Signal<SortOrder>): Table { this._sortOrderSignal = Some(signal); this }
     public func selectedRows(signal: Signal<ArrayList<HashMap<String, String>>>): Table { this._selectedRowsSignal = Some(signal); this }
     public func currentRow(signal: Signal<Option<HashMap<String, String>>>): Table { this._currentRowSignal = Some(signal); this }
-    public func onRowClick(fn: (HashMap<String, String>, Int64) -> PatchResult): Table { this._onRowClick = Some(fn); this }
+    public func onRowClick(fn: (HashMap<String, String>, Int64, ActionContext) -> PatchResult): Table { this._onRowClick = Some(fn); this }
 
     private func getSortColumn(): String {
         match (this._sortColumnSignal) {
@@ -530,7 +530,7 @@ public class Table <: Component {
             let wrapped: ActionHandler = { ctx =>
                 if (this._highlight) { this.setCurrentRow(r) }
                 match (this._onRowClick) {
-                    case Some(fn) => fn(r, index)
+                    case Some(fn) => fn(r, index, ctx)
                     case None => PatchResult.ReRender
                 }
             }
