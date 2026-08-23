@@ -1070,6 +1070,23 @@ class ShowcasePage <: Component {
                     PatchResult.ReRender
                 },
             ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([
+                text("自定义分隔符（>）"),
+                Cascader(regions, st.cascaderSelected).separator(" > ").onChange { sel =>
+                    let labels = cascaderPathLabels(regions, sel)
+                    var t = "未选择"
+                    var i = 0
+                    for (l in labels) { if (i == 0) { t = l } else { t = "${t} > ${l}" }; i += 1 }
+                    st.cascaderText.set(t)
+                    PatchResult.ReRender
+                },
+                text("末级显示"),
+                Cascader(regions, st.cascaderSelected).showAllLevels(false),
+                text("可清除"),
+                Cascader(regions, st.cascaderSelected).clearable(),
+                text("禁用"),
+                Cascader(regions, st.cascaderSelected).disabled(true),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
             div([text("已选择：${st.cascaderText.get()}")], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
             div([text("点输入框开面板；点父节点展开下一列；点叶子选中并关闭")], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
         ], attrs: Some(HashMap<String, String>([("class", cls("cascader-demo"))])))
@@ -1564,8 +1581,13 @@ public func main() {
                 this.propRow("onNodeClick(path, label)", "(String, String) -> Unit", "节点点击回调"),
             ])
             case "Cascader" => div([
-                this.propRow("CascaderNode(label, value, children)", "String·String·Array", "级联选项"),
+                this.propRow("CascaderNode(label, value, children)", "String·String·Array", "级联选项（children 可级联）"),
                 this.propRow("Cascader(options, selected)", "Array·Signal<ArrayList<String>>", "选项 + 选中值外置"),
+                this.propRow("placeholder", "String", "占位文本（默认 请选择）"),
+                this.propRow("disabled", "Bool", "禁用状态"),
+                this.propRow("clearable", "Bool", "可清除（选中后显示 ×）"),
+                this.propRow("separator", "String", "路径分隔符（默认 ' / '）"),
+                this.propRow("showAllLevels", "Bool", "显示全部层级（false 只显示末级）"),
                 this.propRow("onChange", "(ArrayList<String>) -> Unit", "选择完成回调"),
             ])
             case "Upload" => div([

@@ -73,3 +73,20 @@ public func cascaderAppend(path: ArrayList<String>, v: String): ArrayList<String
     next.add(v)
     next
 }
+
+// 已选路径的展示文本：默认全路径用 separator 连接；showAllLevels=false 只显示末级
+public func cascaderDisplay(labels: ArrayList<String>, separator: String, showAllLevels: Bool): String {
+    if (labels.size == 0) {
+        return ""
+    }
+    if (!showAllLevels) {
+        return labels[labels.size - 1]
+    }
+    var display = ""
+    var i = 0
+    for (l in labels) {
+        if (i == 0) { display = l } else { display = "${display}${separator}${l}" }
+        i += 1
+    }
+    display
+}

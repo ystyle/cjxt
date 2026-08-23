@@ -72,3 +72,33 @@ public class CascaderLogicTest {
         @Expect(opts[1].isLeaf(), true)   // 江苏叶子
     }
 }
+
+// ============ 展示文本（separator 连接 / showAllLevels 末级） ============
+
+@Test
+public class CascaderDisplayTest {
+    @TestCase
+    public func testDefaultSeparator(): Unit {
+        let labels = ArrayList<String>(["浙江", "杭州", "西湖区"])
+        @Expect(cascaderDisplay(labels, " / ", true), "浙江 / 杭州 / 西湖区")
+    }
+
+    @TestCase
+    public func testCustomSeparator(): Unit {
+        let labels = ArrayList<String>(["浙江", "杭州"])
+        @Expect(cascaderDisplay(labels, " > ", true), "浙江 > 杭州")
+    }
+
+    @TestCase
+    public func testLastLevelOnly(): Unit {
+        let labels = ArrayList<String>(["浙江", "杭州", "西湖区"])
+        @Expect(cascaderDisplay(labels, " / ", false), "西湖区")
+    }
+
+    @TestCase
+    public func testSingleAndEmpty(): Unit {
+        let one = ArrayList<String>(["江苏"])
+        @Expect(cascaderDisplay(one, " / ", true), "江苏")
+        @Expect(cascaderDisplay(ArrayList<String>(), " / ", true), "")
+    }
+}
