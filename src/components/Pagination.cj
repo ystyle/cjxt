@@ -206,10 +206,18 @@ public class Pagination <: Component {
     }
 
     // ── jumper（回车跳页，值通过 action params.value 携带）──
+    // 对齐 EP 结构（jumper.vue）：.el-pagination__jump
+    //   > __goto（前往）+ el-input.el-pagination__editor.is-in-pagination（56px，同一元素双 class
+    //     才能命中 .el-pagination__editor.el-input 规则）+ __classifier（页）
+    // 之前裸 input（无 editor 包装）→ 无 56px 约束 → 输入框撑爆整行
     private func buildJumper(cp: Int64, pc: Int64): IComponent {
         let inputAttrs = HashMap<String, String>([("class", "el-input__inner"), ("type", "text"), ("value", cp.toString())])
-        let inputBox = input(attrs: Some(inputAttrs)).onKeydown({ ctx => this.onJumperEnter(ctx) })
-        VNode("span", [text("前往 "), inputBox, text(" 页")], attrs: Some(HashMap<String, String>([("class", "el-pagination__jump")])))
+        let inner = VNode("input", [], attrs: Some(inputAttrs)).onKeydown({ ctx => this.onJumperEnter(ctx) })
+        let wrapper = VNode("div", [inner], attrs: Some(HashMap<String, String>([("class", "el-input__wrapper")])))
+        let editor = VNode("div", [wrapper], attrs: Some(HashMap<String, String>([("class", "el-input el-pagination__editor is-in-pagination")])))
+        let goto = VNode("span", [text("前往")], attrs: Some(HashMap<String, String>([("class", "el-pagination__goto")])))
+        let classifier = VNode("span", [text("页")], attrs: Some(HashMap<String, String>([("class", "el-pagination__classifier")])))
+        VNode("span", [goto, editor, classifier], attrs: Some(HashMap<String, String>([("class", "el-pagination__jump")])))
     }
 
     private func onJumperEnter(ctx: ActionContext): PatchResult {
