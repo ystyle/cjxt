@@ -2,6 +2,7 @@ package examples
 
 import cjxt.*
 import cjxt.macros.*
+import examples.showcase.*
 import std.collection.{ArrayList, HashMap}
 
 class TodoState <: AppState {

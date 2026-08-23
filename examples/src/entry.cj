@@ -2,6 +2,7 @@ package examples
 
 import cjxt.*
 import cjxt.components.*
+import examples.showcase.ShowcaseState
 
 main() {
     App()

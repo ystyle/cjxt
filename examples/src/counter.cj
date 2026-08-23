@@ -3,10 +3,8 @@ package examples
 import cjxt.*
 import cjxt.macros.*
 import cjxt.components.*
+import examples.showcase.*
 import std.collection.HashMap
-
-let css = @importCSS("style.css")
-func cls(name: String): String { css.get(name) }
 
 class CounterState <: AppState {
     var value = Signal<Int64>(0)
