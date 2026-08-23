@@ -81,6 +81,10 @@ public class MenuItem <: Component {
         if (this._active) { cls = "${cls} is-active" }
         if (this._disabled) { cls = "${cls} is-disabled" }
         let attrs = HashMap<String, String>([("class", cls)])
+        // EP vertical 菜单用 calc(base-padding + level*padding) 计算左内边距，
+        // 但 level 变量由 Vue 组件设置、服务端渲染未设置 → calc 失效 padding 归零。
+        // 内联兜底：显式设置 level=0 与左右内边距。
+        attrs["style"] = "--el-menu-level: 0; padding-left: 20px; padding-right: 20px"
         if (this._disabled) { attrs["disabled"] = "true" }
 
         let el = VNode("li", this._children, attrs: Some(attrs))
