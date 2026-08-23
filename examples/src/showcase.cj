@@ -1465,6 +1465,113 @@ public func main() {
                 this.propRow("icon", "Primary | Success | Warning | Info | Error", "图标类型"),
                 this.propRow("slotIcon / slotTitle / slotSubTitle", "Array<IComponent>", "自定义图标/标题/副标题"),
             ])
+            case "Pagination" => div([
+                this.propRow("total", "Int64", "总条数"),
+                this.propRow("pagerCount", "Int64", "页码按钮数量（奇数）"),
+                this.propRow("layout", "String", "布局：prev,pager,next,total,sizes,jumper"),
+                this.propRow("pageSizes", "Array<Int64>", "每页条数选项"),
+                this.propRow("background / small", "Bool", "背景色 / 小尺寸"),
+                this.propRow("disabled / hideOnSinglePage", "Bool", "禁用 / 单页时隐藏"),
+                this.propRow("prevText / nextText", "String", "上/下一页文本"),
+                this.propRow("currentPage / pageSize", "Signal<Int64>", "外置信号（跨渲染持久化）"),
+                this.propRow("onCurrentChange / onSizeChange / onChange", "ActionHandler", "页码/条数/变更事件"),
+            ])
+            case "DatePicker" => div([
+                this.propRow("bind(signal)", "Signal<String>", "值绑定（yyyy-MM-dd）"),
+                this.propRow("placeholder", "String", "占位文本"),
+                this.propRow("disabled", "Bool", "禁用状态"),
+                this.propRow("clearable", "Bool", "可清除"),
+                this.propRow("onChange", "ActionHandler", "选择变化事件"),
+            ])
+            case "DateRangePicker" => div([
+                this.propRow("start / end", "Signal<String>", "起止值绑定"),
+                this.propRow("startPlaceholder / endPlaceholder", "String", "起止占位文本"),
+                this.propRow("disabled", "Bool", "禁用状态"),
+                this.propRow("clearable", "Bool", "可清除"),
+                this.propRow("onChange", "ActionHandler", "区间变化事件"),
+            ])
+            case "Message" => div([
+                this.propRow("MessageQueue.success/warning/error/info(text)", "Unit", "服务端入队消息（3s 自动消失）"),
+                this.propRow("MessageHost.bind", "Signal<ArrayList<MessageItem>>", "消息列表信号绑定"),
+            ])
+            case "Notification" => div([
+                this.propRow("NotificationQueue.success/warning/error/info(title, text)", "Unit", "服务端入队通知（4.5s 自动消失）"),
+                this.propRow("NotificationHost.bind", "Signal<ArrayList<NotificationItem>>", "通知列表信号绑定"),
+            ])
+            case "Loading" => div([
+                this.propRow("bind(signal)", "Signal<Bool>", "加载遮罩绑定"),
+                this.propRow("label", "String", "加载文案"),
+                this.propRow("fullscreen", "Bool", "全屏遮罩"),
+            ])
+            case "Skeleton" => div([
+                this.propRow("rows", "Int64", "段落行数"),
+                this.propRow("animated / noAnimated", "Bool", "动画 / 静态骨架"),
+            ])
+            case "Tabs" => div([
+                this.propRow("TabPane(name / label)", "String", "标签标识 / 显示文本"),
+                this.propRow("TabPane.disabled", "Bool", "禁用标签"),
+                this.propRow("Tabs.tabType", "line | card | border-card", "标签页类型"),
+                this.propRow("Tabs.position", "top | bottom | left | right", "标签位置"),
+                this.propRow("Tabs.bind(signal)", "Signal<String>", "激活标签外置信号"),
+                this.propRow("Tabs.onChange", "ActionHandler", "切换事件"),
+            ])
+            case "Markdown" => div([
+                this.propRow("content", "String", "Markdown 原文"),
+                this.propRow("bind(src)", "Readable<String>", "信号/计算值绑定（服务端 markit GFM 解析）"),
+            ])
+            case "AutoScroll" => div([
+                this.propRow("data-auto-scroll", "容器属性", "贴底跟随：接近底部（<80px）时自动滚到底；回看历史不打断"),
+            ])
+            case "Reactive" => div([
+                this.propRow("Signal<T>", "响应式状态", "get/set、相等性守卫、batch 合并"),
+                this.propRow("Computed<T>", "惰性派生值", "依赖变化自动失效，链条式"),
+                this.propRow("Effect", "自动副作用", "依赖变化自动重跑（重入保护）"),
+                this.propRow("batch / untracked", "顶层 API", "批量通知 / 不追踪读取"),
+            ])
+            case "VirtualList" => div([
+                this.propRow("VirtualList(items)", "Signal<ArrayList<T>>", "数据源"),
+                this.propRow("height", "Int64", "容器高度（px）"),
+                this.propRow("itemHeight", "Int64", "行高（px）"),
+                this.propRow("buffer", "Int64", "上下缓冲行数（默认 6）"),
+            ])
+            case "DomTx" => div([
+                this.propRow("ctx.dom.command([...])", "domFocus/ScrollIntoView/SetProperty", "fire-and-forget 命令"),
+                this.propRow("ctx.dom.query / queryAs<T> / queryInt64", "ref + prop", "查询（dom_result 驱动续体）"),
+                this.propRow("DomSeq", "顺序步骤 + timeout/cancel", "命令/查询编排（不阻塞）"),
+            ])
+            case "Breadcrumb" => div([
+                this.propRow("BreadcrumbItem.content", "String", "面包屑文本"),
+                this.propRow("BreadcrumbItem.to / onClick", "String·ActionHandler", "跳转路径 / 点击事件"),
+                this.propRow("Breadcrumb.separator", "String", "分隔符（默认 /）"),
+            ])
+            case "Steps" => div([
+                this.propRow("StepItem.title / description", "String", "步骤标题 / 描述"),
+                this.propRow("StepItem.status", "finish|process|wait|error", "强制状态"),
+                this.propRow("Steps(children, active)", "Signal<Int64>", "激活步骤（1 起）外置"),
+                this.propRow("direction", "horizontal | vertical", "方向"),
+                this.propRow("processStatus / finishStatus", "String", "进行/完成状态映射"),
+            ])
+            case "Dropdown" => div([
+                this.propRow("DropdownItem.content / command", "String", "菜单文本 / 回传命令"),
+                this.propRow("DropdownItem.disabled / divided", "Bool", "禁用 / 分隔线"),
+                this.propRow("Dropdown(trigger).menu / onCommand", "Array<IComponent>", "菜单项 + 命令回调"),
+            ])
+            case "Tree" => div([
+                this.propRow("TreeNode(label, children, disabled)", "String·Array·Bool", "节点数据"),
+                this.propRow("Tree.expanded", "Signal<HashMap<String, Bool>>", "展开状态外置"),
+                this.propRow("Tree.currentKey", "Signal<String>", "选中节点外置"),
+                this.propRow("onNodeClick(path, label)", "(String, String) -> Unit", "节点点击回调"),
+            ])
+            case "Cascader" => div([
+                this.propRow("CascaderNode(label, value, children)", "String·String·Array", "级联选项"),
+                this.propRow("Cascader(options, selected)", "Array·Signal<ArrayList<String>>", "选项 + 选中值外置"),
+                this.propRow("onChange", "(ArrayList<String>) -> Unit", "选择完成回调"),
+            ])
+            case "Upload" => div([
+                this.propRow("url", "String", "上传端点（App.serveUpload 注册）"),
+                this.propRow("files", "Signal<ArrayList<UploadFile>>", "文件列表外置信号"),
+                this.propRow("onUploaded", "(UploadFile) -> Unit", "上传成功回调"),
+            ])
             case _ => text("选择左侧组件查看属性")
         }
     }

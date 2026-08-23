@@ -169,6 +169,7 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 
 ### P3 — ERP/Chat 第三批（体验完整）
 - [x] Breadcrumb / Steps / Dropdown / Tree / Cascader / Upload（TreeTable 待接入 Table）
+- [x] 属性面板补全：Pagination/DatePicker/反馈/Tabs/Markdown/AutoScroll/Reactive/VirtualList/DomTx/Breadcrumb/Steps/Dropdown/Tree/Cascader/Upload 共 19 个组件（其余 31 个已有）
 - [ ] 图表集成、Excel/CSV 导出
 - [ ] 无障碍（ARIA）、i18n、主题 token
 
