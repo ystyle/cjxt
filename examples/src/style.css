@@ -48,3 +48,28 @@ select.input { appearance: auto; }
 .statistic-demo { align-self: stretch; }
 .statistic-row { display: flex; gap: 48px; flex-wrap: wrap; justify-content: center; }
 .descriptions-demo { align-self: stretch; display: flex; flex-direction: column; gap: 24px; }
+
+/* ============ 演示项垂直间隔（≥20px）——从 Pagination 起的 demo 统一 ============
+   各 demo 根容器为 flex column + gap 20，section 之间保持至少 20px 呼吸空间；
+   align-items:center 保持原有水平居中（子项按内容宽居中，同名 demo 类自带
+   stretch 的（如 descriptions-demo）其旧规则同类名同特异性按文件序覆盖，不受影响） */
+.pagination-demo,
+.datepicker-demo,
+.feedback-demo,
+.tabs-demo,
+.markdown-demo,
+.autoscroll-demo,
+.reactive-demo,
+.vlist-demo,
+.domtx-demo,
+.breadcrumb-demo,
+.steps-demo,
+.dropdown-demo,
+.tree-demo,
+.cascader-demo,
+.upload-demo {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  align-items: center;
+}

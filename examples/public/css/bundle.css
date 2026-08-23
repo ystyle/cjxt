@@ -1,50 +1,75 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif; background: #f0f2f5; color: #333; min-height: 100vh; }
-.container_0278240904791075010 { max-width: 640px; margin: 0 auto; padding: 24px 16px; }
-.tabs_0278240904791075010 { display: flex; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 20px; }
-.tab_0278240904791075010 { flex: 1; padding: 14px 20px; text-align: center; border: none; background: transparent; font-size: 15px; font-weight: 500; cursor: pointer; color: #666; }
-.tab_0278240904791075010.active_0278240904791075010 { color: #4f46e5; background: #f5f3ff; box-shadow: inset 0 -2px 0 #4f46e5; }
-.card_0278240904791075010 { background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 16px; }
-.card-title_0278240904791075010 { font-size: 16px; font-weight: 600; color: #111; margin-bottom: 16px; }
-.counter-value_0278240904791075010 { font-size: 48px; font-weight: 700; color: #4f46e5; text-align: center; padding: 20px 0; }
-.row_0278240904791075010 { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; }
-.btn_0278240904791075010 { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; }
-.btn-primary_0278240904791075010 { background: #4f46e5; color: #fff; }
-.btn-outline_0278240904791075010 { background: transparent; border: 1px solid #d1d5db; color: #374151; }
-.btn-sm_0278240904791075010 { padding: 6px 12px; font-size: 13px; }
-.btn-danger_0278240904791075010 { background: #fee2e2; color: #dc2626; }
-.input_0278240904791075010 { flex: 1; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; outline: none; min-width: 120px; }
-.input_0278240904791075010:focus { border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,0.1); }
-.label_0278240904791075010 { font-size: 13px; font-weight: 500; color: #6b7280; margin-bottom: 6px; }
-.desc_0278240904791075010 { font-size: 13px; color: #9ca3af; margin-top: 4px; }
-.todo-item_0278240904791075010 { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f3f4f6; }
-.todo-text_0278240904791075010 { flex: 1; font-size: 14px; color: #333; }
-.todo-empty_0278240904791075010 { text-align: center; color: #9ca3af; padding: 40px 0; font-size: 14px; }
-.footer_0278240904791075010 { text-align: center; font-size: 12px; color: #d1d5db; margin-top: 24px; }
-.input-group_0278240904791075010 { margin-bottom: 14px; }
-select.input_0278240904791075010 { appearance: auto; }
+.container_9041655340806493473 { max-width: 640px; margin: 0 auto; padding: 24px 16px; }
+.tabs_9041655340806493473 { display: flex; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 20px; }
+.tab_9041655340806493473 { flex: 1; padding: 14px 20px; text-align: center; border: none; background: transparent; font-size: 15px; font-weight: 500; cursor: pointer; color: #666; }
+.tab_9041655340806493473.active_9041655340806493473 { color: #4f46e5; background: #f5f3ff; box-shadow: inset 0 -2px 0 #4f46e5; }
+.card_9041655340806493473 { background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 16px; }
+.card-title_9041655340806493473 { font-size: 16px; font-weight: 600; color: #111; margin-bottom: 16px; }
+.counter-value_9041655340806493473 { font-size: 48px; font-weight: 700; color: #4f46e5; text-align: center; padding: 20px 0; }
+.row_9041655340806493473 { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; }
+.btn_9041655340806493473 { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; }
+.btn-primary_9041655340806493473 { background: #4f46e5; color: #fff; }
+.btn-outline_9041655340806493473 { background: transparent; border: 1px solid #d1d5db; color: #374151; }
+.btn-sm_9041655340806493473 { padding: 6px 12px; font-size: 13px; }
+.btn-danger_9041655340806493473 { background: #fee2e2; color: #dc2626; }
+.input_9041655340806493473 { flex: 1; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; outline: none; min-width: 120px; }
+.input_9041655340806493473:focus { border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,0.1); }
+.label_9041655340806493473 { font-size: 13px; font-weight: 500; color: #6b7280; margin-bottom: 6px; }
+.desc_9041655340806493473 { font-size: 13px; color: #9ca3af; margin-top: 4px; }
+.todo-item_9041655340806493473 { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f3f4f6; }
+.todo-text_9041655340806493473 { flex: 1; font-size: 14px; color: #333; }
+.todo-empty_9041655340806493473 { text-align: center; color: #9ca3af; padding: 40px 0; font-size: 14px; }
+.footer_9041655340806493473 { text-align: center; font-size: 12px; color: #d1d5db; margin-top: 24px; }
+.input-group_9041655340806493473 { margin-bottom: 14px; }
+select.input_9041655340806493473 { appearance: auto; }
 
 /* ============ Showcase ============ */
-.showcase-wrap_0278240904791075010 { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
-.showcase-body_0278240904791075010 { display: flex; gap: 20px; margin-top: 20px; align-items: flex-start; }
-.showcase-sidebar_0278240904791075010 { width: 200px; flex-shrink: 0; position: fixed; top: 90px; left: max(16px, calc(50% - 534px)); height: calc(100vh - 90px); overflow-y: auto; }
-.showcase-content_0278240904791075010 { flex: 1; min-width: 0; margin-left: 220px; }
-.showcase-demo_0278240904791075010 { background: #fff; border-radius: 12px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 16px; min-height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
-.showcase-props_0278240904791075010 { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
-.showcase-props-title_0278240904791075010 { font-size: 14px; font-weight: 600; color: #111; margin-bottom: 12px; }
-.showcase-prop-row_0278240904791075010 { display: flex; padding: 8px 0; border-bottom: 1px solid #f9fafb; font-size: 13px; gap: 12px; }
-.showcase-prop-name_0278240904791075010 { width: 160px; color: #6b7280; font-weight: 500; flex-shrink: 0; word-break: break-all; }
-.showcase-prop-type_0278240904791075010 { width: 260px; color: #111; flex-shrink: 0; word-break: break-all; }
-.showcase-prop-desc_0278240904791075010 { flex: 1; color: #6b7280; }
+.showcase-wrap_9041655340806493473 { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+.showcase-body_9041655340806493473 { display: flex; gap: 20px; margin-top: 20px; align-items: flex-start; }
+.showcase-sidebar_9041655340806493473 { width: 200px; flex-shrink: 0; position: fixed; top: 90px; left: max(16px, calc(50% - 534px)); height: calc(100vh - 90px); overflow-y: auto; }
+.showcase-content_9041655340806493473 { flex: 1; min-width: 0; margin-left: 220px; }
+.showcase-demo_9041655340806493473 { background: #fff; border-radius: 12px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 16px; min-height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+.showcase-props_9041655340806493473 { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.showcase-props-title_9041655340806493473 { font-size: 14px; font-weight: 600; color: #111; margin-bottom: 12px; }
+.showcase-prop-row_9041655340806493473 { display: flex; padding: 8px 0; border-bottom: 1px solid #f9fafb; font-size: 13px; gap: 12px; }
+.showcase-prop-name_9041655340806493473 { width: 160px; color: #6b7280; font-weight: 500; flex-shrink: 0; word-break: break-all; }
+.showcase-prop-type_9041655340806493473 { width: 260px; color: #111; flex-shrink: 0; word-break: break-all; }
+.showcase-prop-desc_9041655340806493473 { flex: 1; color: #6b7280; }
 
-.divider-demo_0278240904791075010 { align-self: stretch; width: 100%; }
-.divider-section-title_0278240904791075010 { font-size: 13px; color: #909399; margin-bottom: 8px; }
-.divider-group_0278240904791075010 { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.divider-demo_9041655340806493473 { align-self: stretch; width: 100%; }
+.divider-section-title_9041655340806493473 { font-size: 13px; color: #909399; margin-bottom: 8px; }
+.divider-group_9041655340806493473 { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 
-.progress-demo_0278240904791075010 { align-self: stretch; display: flex; flex-direction: column; gap: 20px; }
-.progress-line-group_0278240904791075010 { display: flex; flex-direction: column; gap: 18px; width: 100%; }
-.progress-circle-group_0278240904791075010 { display: flex; flex-wrap: wrap; justify-content: center; gap: 32px; }
-.showcase-section-title_0278240904791075010 { font-size: 14px; font-weight: 600; color: #111; margin-bottom: 8px; }
-.statistic-demo_0278240904791075010 { align-self: stretch; }
-.statistic-row_0278240904791075010 { display: flex; gap: 48px; flex-wrap: wrap; justify-content: center; }
-.descriptions-demo_0278240904791075010 { align-self: stretch; display: flex; flex-direction: column; gap: 24px; }
+.progress-demo_9041655340806493473 { align-self: stretch; display: flex; flex-direction: column; gap: 20px; }
+.progress-line-group_9041655340806493473 { display: flex; flex-direction: column; gap: 18px; width: 100%; }
+.progress-circle-group_9041655340806493473 { display: flex; flex-wrap: wrap; justify-content: center; gap: 32px; }
+.showcase-section-title_9041655340806493473 { font-size: 14px; font-weight: 600; color: #111; margin-bottom: 8px; }
+.statistic-demo_9041655340806493473 { align-self: stretch; }
+.statistic-row_9041655340806493473 { display: flex; gap: 48px; flex-wrap: wrap; justify-content: center; }
+.descriptions-demo_9041655340806493473 { align-self: stretch; display: flex; flex-direction: column; gap: 24px; }
+
+/* ============ 演示项垂直间隔（≥20px）——从 Pagination 起的 demo 统一 ============
+   各 demo 根容器为 flex column + gap 20，section 之间保持至少 20px 呼吸空间；
+   align-items:center 保持原有水平居中（子项按内容宽居中，同名 demo 类自带
+   stretch 的（如 descriptions-demo）其旧规则同类名同特异性按文件序覆盖，不受影响） */
+.pagination-demo_9041655340806493473,
+.datepicker-demo_9041655340806493473,
+.feedback-demo_9041655340806493473,
+.tabs-demo_9041655340806493473,
+.markdown-demo_9041655340806493473,
+.autoscroll-demo_9041655340806493473,
+.reactive-demo_9041655340806493473,
+.vlist-demo_9041655340806493473,
+.domtx-demo_9041655340806493473,
+.breadcrumb-demo_9041655340806493473,
+.steps-demo_9041655340806493473,
+.dropdown-demo_9041655340806493473,
+.tree-demo_9041655340806493473,
+.cascader-demo_9041655340806493473,
+.upload-demo_9041655340806493473 {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  align-items: center;
+}
