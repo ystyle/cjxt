@@ -1,0 +1,8 @@
+# 构建上下文只打包运行必需内容（public 静态资源 + release 二进制）
+target/*
+!target/release/
+target/release/*
+!target/release/bin/
+target/release/bin/*
+!target/release/bin/main
+uploads/
