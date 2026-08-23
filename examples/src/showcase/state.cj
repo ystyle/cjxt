@@ -16,6 +16,23 @@ func makeReactiveEff(s: Signal<Int64>, out: Signal<Int64>): Effect {
     Effect({ => out.set(s.get()) })
 }
 
+// Table 泛型演示行类型
+public struct TableRow {
+    public let date: String
+    public let name: String
+    public let state: String
+    public let city: String
+    public let address: String
+
+    public init(date: String, name: String, state: String, city: String, address: String) {
+        this.date = date
+        this.name = name
+        this.state = state
+        this.city = city
+        this.address = address
+    }
+}
+
 public class ShowcaseState <: AppState {
     public var selected = Signal<String>("Button")
     var radioValue = Signal<String>("a")
@@ -68,11 +85,11 @@ public class ShowcaseState <: AppState {
     var drawerVisible = Signal<Bool>(false)
     var drawerDirection = Signal<String>("rtl")
     var formLayout = Signal<String>("")
-    var tableData = Signal<ArrayList<HashMap<String, String>>>(ArrayList<HashMap<String, String>>())
+    var tableData = Signal<ArrayList<TableRow>>(ArrayList<TableRow>())
     var tableSortColumn = Signal<String>("")
     var tableSortOrder = Signal<SortOrder>(SortOrder.None)
-    var tableSelectedRows = Signal<ArrayList<HashMap<String, String>>>(ArrayList<HashMap<String, String>>())
-    var tableCurrentRow: Signal<Option<HashMap<String, String>>>
+    var tableSelectedRows = Signal<ArrayList<TableRow>>(ArrayList<TableRow>())
+    var tableCurrentRow: Signal<Option<TableRow>>
 
     public init() {
         this.reactiveDouble = makeReactiveDouble(this.reactiveCount)
@@ -80,7 +97,7 @@ public class ShowcaseState <: AppState {
         let vitems = ArrayList<Int64>()
         for (i in 1..=10000) { vitems.add(i) }
         this.virtualItems = Signal<ArrayList<Int64>>(vitems)
-        let noneRow: Option<HashMap<String, String>> = None
-        this.tableCurrentRow = Signal<Option<HashMap<String, String>>>(noneRow)
+        let noneRow: Option<TableRow> = None
+        this.tableCurrentRow = Signal<Option<TableRow>>(noneRow)
     }
 }

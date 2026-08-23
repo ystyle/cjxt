@@ -10,34 +10,33 @@ public func demoTable(st: ShowcaseState): Array<IComponent> {
     if (d.get().size == 0) {
         d.set(initTableData())
     }
-    let columns = ArrayList<TableColumn>()
-    columns.add(TableColumn().colType(TableColumnType.Selection).width(50))
-    columns.add(TableColumn().colType(TableColumnType.Index).label("#").width(60))
-    columns.add(TableColumn().colProp("date").label("Date").width(120).sortable())
-    columns.add(TableColumn().colProp("name").label("Name").width(120).sortable())
-    columns.add(TableColumn().colProp("state").label("State").width(120))
-    columns.add(TableColumn().colProp("city").label("City").width(120))
-    columns.add(TableColumn().colProp("address").label("Address").width(200).showOverflowTooltip())
-    let tbl = Table()
+    let table = Table<TableRow>()
         .data(d)
         .border()
         .stripe()
         .highlight()
         .height("300px")
+        .rowKey({ r => r.name })
         .sortColumn(st.tableSortColumn)
         .sortOrder(st.tableSortOrder)
         .selectedRows(st.tableSelectedRows)
         .currentRow(st.tableCurrentRow)
-    for (c in columns) { tbl.add(c) }
+        .add(TableColumn<TableRow>().colType(TableColumnType.Selection).width(50))
+        .add(TableColumn<TableRow>().colType(TableColumnType.Index).label("#").width(60))
+        .add(TableColumn<TableRow>().accessor({ r => r.date }).label("Date").width(120).sortable())
+        .add(TableColumn<TableRow>().accessor({ r => r.name }).label("Name").width(120).sortable())
+        .add(TableColumn<TableRow>().accessor({ r => r.state }).label("State").width(120))
+        .add(TableColumn<TableRow>().accessor({ r => r.city }).label("City").width(120))
+        .add(TableColumn<TableRow>().accessor({ r => r.address }).label("Address").width(200).showOverflowTooltip())
     [
         demoSection("带边框 / 斑马纹 / 高亮当前行 / 排序 / 多选", [
-            tbl.render(),
+            table.render(),
         ]),
         demoSection("空数据表格", [
-            Table()
-                .data(Signal<ArrayList<HashMap<String, String>>>(ArrayList<HashMap<String, String>>()))
-                .add(TableColumn().colProp("name").label("Name").width(120))
-                .add(TableColumn().colProp("email").label("Email").width(200))
+            Table<TableRow>()
+                .data(Signal<ArrayList<TableRow>>(ArrayList<TableRow>()))
+                .add(TableColumn<TableRow>().accessor({ r => r.name }).label("Name").width(120))
+                .add(TableColumn<TableRow>().accessor({ r => r.city }).label("City").width(200))
                 .render(),
         ]),
     ]
@@ -206,33 +205,36 @@ public func demoUpload(st: ShowcaseState): Array<IComponent> {
 
 public func propsTable(): IComponent {
     div([
-        propRow("Table.data(signal)", "Signal<ArrayList<HashMap<String, String>>>", "表格数据源"),
-        propRow("Table.add(TableColumn)", "Chain", "添加列配置"),
+        propRow("Table<T>.data(signal)", "Signal<ArrayList<T>>", "表格数据源（泛型行类型）"),
+        propRow("Table<T>.add(TableColumn<T>)", "Chain", "添加列配置"),
         propRow("stripe / border / highlight", "false", "斑马纹 / 边框 / 高亮当前行"),
         propRow("height / maxHeight", "String", "表格高度 / 最大高度"),
         propRow("size", "Large | Default | Small", "表格尺寸"),
         propRow("showSummary", "false", "是否在表尾显示汇总行"),
         propRow("Table.sortColumn(signal)", "Signal<String>", "当前排序列，外置信号可持久化"),
         propRow("Table.sortOrder(signal)", "Signal<SortOrder>", "当前排序方向，外置信号可持久化"),
-        propRow("Table.selectedRows(signal)", "Signal<ArrayList<HashMap<String, String>>>", "选中的行集合，外置信号可持久化"),
-        propRow("Table.currentRow(signal)", "Signal<Option<HashMap<String, String>>>", "当前高亮行，外置信号可持久化"),
-        propRow("Table.rowClassName(fn)", "(HashMap<String,String>, Int64) -> String", "自定义行 class 回调"),
-        propRow("Table.rowStyle(fn)", "(HashMap<String,String>, Int64) -> String", "自定义行 style 回调"),
-        propRow("Table.cellClassName(fn)", "(HashMap<String,String>, TableColumn, Int64, Int64) -> String", "自定义单元格 class 回调"),
-        propRow("Table.cellStyle(fn)", "(HashMap<String,String>, TableColumn, Int64, Int64) -> String", "自定义单元格 style 回调"),
-        propRow("Table.headerCellClassName(fn)", "(TableColumn, Int64) -> String", "自定义表头 cell class 回调"),
+        propRow("Table.selectedRows(signal)", "Signal<ArrayList<T>>", "选中的行集合，外置信号可持久化"),
+        propRow("Table.currentRow(signal)", "Signal<Option<T>>", "当前高亮行，外置信号可持久化"),
+        propRow("Table.rowKey(fn)", "(T) -> String", "行唯一键（选择/当前行功能需提供）"),
+        propRow("Table.onRowClick(fn)", "(T, Int64, ActionContext) -> PatchResult", "行点击回调"),
+        propRow("Table.rowClassName(fn)", "(T, Int64) -> String", "自定义行 class 回调"),
+        propRow("Table.rowStyle(fn)", "(T, Int64) -> String", "自定义行 style 回调"),
+        propRow("Table.cellClassName(fn)", "(T, TableColumn<T>, Int64, Int64) -> String", "自定义单元格 class 回调"),
+        propRow("Table.cellStyle(fn)", "(T, TableColumn<T>, Int64, Int64) -> String", "自定义单元格 style 回调"),
+        propRow("Table.headerCellClassName(fn)", "(TableColumn<T>, Int64) -> String", "自定义表头 cell class 回调"),
         propRow("Table.headerRowStyle(fn)", "(Int64) -> String", "自定义表头行 style 回调"),
-        propRow("Table.headerCellStyle(fn)", "(TableColumn, Int64) -> String", "自定义表头 cell style 回调"),
+        propRow("Table.headerCellStyle(fn)", "(TableColumn<T>, Int64) -> String", "自定义表头 cell style 回调"),
         propRow("Table.headerRowClassName(fn)", "(Int64) -> String", "自定义表头行 class 回调"),
-        propRow("TableColumn.colProp", "String", "列对应数据字段名"),
-        propRow("TableColumn.label", "String", "列标题"),
-        propRow("TableColumn.width / minWidth", "Int64", "列宽 / 最小列宽"),
-        propRow("TableColumn.fixed", "Left | Right", "固定列位置"),
-        propRow("TableColumn.sortable", "false", "该列是否可排序"),
-        propRow("TableColumn.align", "Left | Center | Right", "单元格对齐方式"),
-        propRow("TableColumn.colType", "Default | Selection | Index", "列类型：默认 / 多选 / 序号"),
-        propRow("TableColumn.showOverflowTooltip", "false", "内容溢出时显示 tooltip"),
-        propRow("TableColumn.formatter", "(String) -> String", "单元格内容格式化函数"),
+        propRow("TableColumn<T>.accessor", "(T) -> String", "列取值器（文本列 + 排序依据）"),
+        propRow("TableColumn<T>.label", "String", "列标题"),
+        propRow("TableColumn<T>.width / minWidth", "Int64", "列宽 / 最小列宽"),
+        propRow("TableColumn<T>.fixed", "Left | Right", "固定列位置"),
+        propRow("TableColumn<T>.sortable", "false", "该列是否可排序（需配 accessor）"),
+        propRow("TableColumn<T>.align", "Left | Center | Right", "单元格对齐方式"),
+        propRow("TableColumn<T>.colType", "Default | Selection | Index", "列类型：默认 / 多选 / 序号"),
+        propRow("TableColumn<T>.showOverflowTooltip", "false", "内容溢出时显示 tooltip"),
+        propRow("TableColumn<T>.formatter", "(String) -> String", "对 accessor 结果的格式化函数"),
+        propRow("TableColumn<T>.render", "(T, Int64) -> IComponent", "自定义单元格渲染（优先于 accessor）"),
     ])
 }
 

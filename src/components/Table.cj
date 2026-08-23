@@ -3,9 +3,10 @@ package cjxt.components
 import cjxt.*
 import std.collection.{HashMap, ArrayList}
 
-public class TableColumn {
+/// 泛型列配置：文本取值用 accessor（支持排序），富渲染用 render
+public class TableColumn<T> {
     var _colType: TableColumnType = TableColumnType.Default
-    var _colProp: String = ""
+    var _accessor: Option<(T) -> String> = None
     var _label: String = ""
     var _width: Int64 = 0
     var _minWidth: Int64 = 0
@@ -15,34 +16,33 @@ public class TableColumn {
     var _showOverflowTooltip: Bool = false
     var _className: String = ""
     var _formatter: Option<(String) -> String> = None
-    var _render: Option<(HashMap<String, String>, Int64) -> IComponent> = None
-    var _sortBy: String = ""
+    var _render: Option<(T, Int64) -> IComponent> = None
     var _reserveSelection: Bool = false
-    var _selectable: Option<(HashMap<String, String>) -> Bool> = None
+    var _selectable: Option<(T) -> Bool> = None
 
     public init() {}
 
-    public func colType(v: TableColumnType): TableColumn { this._colType = v; this }
-    public func colProp(v: String): TableColumn { this._colProp = v; this }
-    public func label(v: String): TableColumn { this._label = v; this }
-    public func width(v: Int64): TableColumn { this._width = v; this }
-    public func minWidth(v: Int64): TableColumn { this._minWidth = v; this }
-    public func fixed(v: TableFixed): TableColumn { this._fixed = Some(v); this }
-    public func sortable(): TableColumn { this._sortable = true; this }
-    public func align(v: TableAlign): TableColumn { this._align = v; this }
-    public func showOverflowTooltip(): TableColumn { this._showOverflowTooltip = true; this }
-    public func className(v: String): TableColumn { this._className = v; this }
-    public func formatter(f: (String) -> String): TableColumn { this._formatter = Some(f); this }
-    // 自定义单元格渲染（row, rowIndex）→ IComponent；优先于 formatter
-    public func render(fn: (HashMap<String, String>, Int64) -> IComponent): TableColumn { this._render = Some(fn); this }
-    public func sortBy(v: String): TableColumn { this._sortBy = v; this }
-    public func reserveSelection(): TableColumn { this._reserveSelection = true; this }
-    public func selectable(f: (HashMap<String, String>) -> Bool): TableColumn { this._selectable = Some(f); this }
+    public func colType(v: TableColumnType): TableColumn<T> { this._colType = v; this }
+    public func accessor(fn: (T) -> String): TableColumn<T> { this._accessor = Some(fn); this }
+    public func label(v: String): TableColumn<T> { this._label = v; this }
+    public func width(v: Int64): TableColumn<T> { this._width = v; this }
+    public func minWidth(v: Int64): TableColumn<T> { this._minWidth = v; this }
+    public func fixed(v: TableFixed): TableColumn<T> { this._fixed = Some(v); this }
+    public func sortable(): TableColumn<T> { this._sortable = true; this }
+    public func align(v: TableAlign): TableColumn<T> { this._align = v; this }
+    public func showOverflowTooltip(): TableColumn<T> { this._showOverflowTooltip = true; this }
+    public func className(v: String): TableColumn<T> { this._className = v; this }
+    public func formatter(f: (String) -> String): TableColumn<T> { this._formatter = Some(f); this }
+    // 自定义单元格渲染（row, rowIndex）→ IComponent；优先于 accessor/formatter
+    public func render(fn: (T, Int64) -> IComponent): TableColumn<T> { this._render = Some(fn); this }
+    public func reserveSelection(): TableColumn<T> { this._reserveSelection = true; this }
+    public func selectable(f: (T) -> Bool): TableColumn<T> { this._selectable = Some(f); this }
 }
 
-public class Table <: Component {
-    var _data: Signal<ArrayList<HashMap<String, String>>>
-    var _columns: ArrayList<TableColumn>
+/// 泛型表格：行类型 T，列值经 accessor/render 回调访问
+public class Table<T> <: Component {
+    var _data: Signal<ArrayList<T>>
+    var _columns: ArrayList<TableColumn<T>>
     var _stripe: Bool = false
     var _border: Bool = false
     var _height: String = ""
@@ -56,89 +56,101 @@ public class Table <: Component {
     var _sumText: String = "Sum"
 
     // 行/单元格/表头自定义 class 与 style 回调
-    var _rowClassName: Option<(HashMap<String, String>, Int64) -> String> = None
-    var _rowStyle: Option<(HashMap<String, String>, Int64) -> String> = None
-    var _cellClassName: Option<(HashMap<String, String>, TableColumn, Int64, Int64) -> String> = None
-    var _cellStyle: Option<(HashMap<String, String>, TableColumn, Int64, Int64) -> String> = None
+    var _rowClassName: Option<(T, Int64) -> String> = None
+    var _rowStyle: Option<(T, Int64) -> String> = None
+    var _cellClassName: Option<(T, TableColumn<T>, Int64, Int64) -> String> = None
+    var _cellStyle: Option<(T, TableColumn<T>, Int64, Int64) -> String> = None
     var _headerRowClassName: Option<(Int64) -> String> = None
-    var _headerCellClassName: Option<(TableColumn, Int64) -> String> = None
+    var _headerCellClassName: Option<(TableColumn<T>, Int64) -> String> = None
     var _headerRowStyle: Option<(Int64) -> String> = None
-    var _headerCellStyle: Option<(TableColumn, Int64) -> String> = None
+    var _headerCellStyle: Option<(TableColumn<T>, Int64) -> String> = None
+
+    // 行唯一键（selection/currentRow 用；必须提供才能启用选择/当前行功能）
+    var _rowKey: Option<(T) -> String> = None
 
     // 外部状态信号（可选）。Table 内部信号在父组件重渲染时会丢失状态，
     // 因此需要持久化的状态（排序、选中、当前行）建议通过外部 Signal 传入。
     var _sortColumnSignal: Option<Signal<String>> = None
     var _sortOrderSignal: Option<Signal<SortOrder>> = None
-    var _selectedRowsSignal: Option<Signal<ArrayList<HashMap<String, String>>>> = None
-    var _currentRowSignal: Option<Signal<Option<HashMap<String, String>>>> = None
+    var _selectedRowsSignal: Option<Signal<ArrayList<T>>> = None
+    var _currentRowSignal: Option<Signal<Option<T>>> = None
 
     // 行点击回调（row, rowIndex, ctx）→ PatchResult；与 highlight()（仅高亮当前行）并存
-    var _onRowClick: Option<(HashMap<String, String>, Int64, ActionContext) -> PatchResult> = None
+    var _onRowClick: Option<(T, Int64, ActionContext) -> PatchResult> = None
 
     // 内部 fallback 信号
     var _sortColumn: Signal<String>
     var _sortOrder: Signal<SortOrder>
-    var _selectedRows: Signal<ArrayList<HashMap<String, String>>>
-    var _currentRow: Signal<Option<HashMap<String, String>>>
+    var _selectedRows: Signal<ArrayList<T>>
+    var _currentRow: Signal<Option<T>>
 
     public init() {
-        this._data = Signal<ArrayList<HashMap<String, String>>>(ArrayList<HashMap<String, String>>())
-        this._columns = ArrayList<TableColumn>()
+        this._data = Signal<ArrayList<T>>(ArrayList<T>())
+        this._columns = ArrayList<TableColumn<T>>()
         this._sortColumn = Signal<String>("")
         this._sortOrder = Signal<SortOrder>(SortOrder.None)
-        this._selectedRows = Signal<ArrayList<HashMap<String, String>>>(ArrayList<HashMap<String, String>>())
-        let noneVal: Option<HashMap<String, String>> = None
-        this._currentRow = Signal<Option<HashMap<String, String>>>(noneVal)
+        this._selectedRows = Signal<ArrayList<T>>(ArrayList<T>())
+        let noneVal: Option<T> = None
+        this._currentRow = Signal<Option<T>>(noneVal)
     }
 
-    public func data(signal: Signal<ArrayList<HashMap<String, String>>>): Table {
+    public func data(signal: Signal<ArrayList<T>>): Table<T> {
         this._data = signal
         this
     }
 
-    public func add(col: TableColumn): Table { this._columns.add(col); this }
-    public func stripe(): Table { this._stripe = true; this }
-    public func border(): Table { this._border = true; this }
-    public func height(v: String): Table { this._height = v; this }
-    public func maxHeight(v: String): Table { this._maxHeight = v; this }
-    public func size(v: ComponentSize2): Table { this._size = v; this }
-    public func fit(v: Bool): Table { this._fit = v; this }
-    public func showHeader(v: Bool): Table { this._showHeader = v; this }
-    public func highlight(): Table { this._highlight = true; this }
-    public func emptyText(v: String): Table { this._emptyText = v; this }
-    public func showSummary(): Table { this._showSummary = true; this }
-    public func sumText(v: String): Table { this._sumText = v; this }
+    public func add(col: TableColumn<T>): Table<T> { this._columns.add(col); this }
+    public func stripe(): Table<T> { this._stripe = true; this }
+    public func border(): Table<T> { this._border = true; this }
+    public func height(v: String): Table<T> { this._height = v; this }
+    public func maxHeight(v: String): Table<T> { this._maxHeight = v; this }
+    public func size(v: ComponentSize2): Table<T> { this._size = v; this }
+    public func fit(v: Bool): Table<T> { this._fit = v; this }
+    public func showHeader(v: Bool): Table<T> { this._showHeader = v; this }
+    public func highlight(): Table<T> { this._highlight = true; this }
+    public func emptyText(v: String): Table<T> { this._emptyText = v; this }
+    public func showSummary(): Table<T> { this._showSummary = true; this }
+    public func sumText(v: String): Table<T> { this._sumText = v; this }
 
-    public func rowClassName(fn: (HashMap<String, String>, Int64) -> String): Table {
+    public func rowClassName(fn: (T, Int64) -> String): Table<T> {
         this._rowClassName = Some(fn); this
     }
-    public func rowStyle(fn: (HashMap<String, String>, Int64) -> String): Table {
+    public func rowStyle(fn: (T, Int64) -> String): Table<T> {
         this._rowStyle = Some(fn); this
     }
-    public func cellClassName(fn: (HashMap<String, String>, TableColumn, Int64, Int64) -> String): Table {
+    public func cellClassName(fn: (T, TableColumn<T>, Int64, Int64) -> String): Table<T> {
         this._cellClassName = Some(fn); this
     }
-    public func cellStyle(fn: (HashMap<String, String>, TableColumn, Int64, Int64) -> String): Table {
+    public func cellStyle(fn: (T, TableColumn<T>, Int64, Int64) -> String): Table<T> {
         this._cellStyle = Some(fn); this
     }
-    public func headerRowClassName(fn: (Int64) -> String): Table {
+    public func headerRowClassName(fn: (Int64) -> String): Table<T> {
         this._headerRowClassName = Some(fn); this
     }
-    public func headerCellClassName(fn: (TableColumn, Int64) -> String): Table {
+    public func headerCellClassName(fn: (TableColumn<T>, Int64) -> String): Table<T> {
         this._headerCellClassName = Some(fn); this
     }
-    public func headerRowStyle(fn: (Int64) -> String): Table {
+    public func headerRowStyle(fn: (Int64) -> String): Table<T> {
         this._headerRowStyle = Some(fn); this
     }
-    public func headerCellStyle(fn: (TableColumn, Int64) -> String): Table {
+    public func headerCellStyle(fn: (TableColumn<T>, Int64) -> String): Table<T> {
         this._headerCellStyle = Some(fn); this
     }
 
-    public func sortColumn(signal: Signal<String>): Table { this._sortColumnSignal = Some(signal); this }
-    public func sortOrder(signal: Signal<SortOrder>): Table { this._sortOrderSignal = Some(signal); this }
-    public func selectedRows(signal: Signal<ArrayList<HashMap<String, String>>>): Table { this._selectedRowsSignal = Some(signal); this }
-    public func currentRow(signal: Signal<Option<HashMap<String, String>>>): Table { this._currentRowSignal = Some(signal); this }
-    public func onRowClick(fn: (HashMap<String, String>, Int64, ActionContext) -> PatchResult): Table { this._onRowClick = Some(fn); this }
+    public func rowKey(fn: (T) -> String): Table<T> { this._rowKey = Some(fn); this }
+
+    public func sortColumn(signal: Signal<String>): Table<T> { this._sortColumnSignal = Some(signal); this }
+    public func sortOrder(signal: Signal<SortOrder>): Table<T> { this._sortOrderSignal = Some(signal); this }
+    public func selectedRows(signal: Signal<ArrayList<T>>): Table<T> { this._selectedRowsSignal = Some(signal); this }
+    public func currentRow(signal: Signal<Option<T>>): Table<T> { this._currentRowSignal = Some(signal); this }
+    public func onRowClick(fn: (T, Int64, ActionContext) -> PatchResult): Table<T> { this._onRowClick = Some(fn); this }
+
+    private func getRowKey(row: T): String {
+        match (this._rowKey) {
+            case Some(f) => f(row)
+            case None => ""
+        }
+    }
 
     private func getSortColumn(): String {
         match (this._sortColumnSignal) {
@@ -164,89 +176,67 @@ public class Table <: Component {
             case None => this._sortOrder.set(v)
         }
     }
-    private func getSelectedRows(): ArrayList<HashMap<String, String>> {
+    private func getSelectedRows(): ArrayList<T> {
         match (this._selectedRowsSignal) {
             case Some(s) => s.get()
             case None => this._selectedRows.get()
         }
     }
-    private func setSelectedRows(v: ArrayList<HashMap<String, String>>): Unit {
+    private func setSelectedRows(v: ArrayList<T>): Unit {
         match (this._selectedRowsSignal) {
             case Some(s) => s.set(v)
             case None => this._selectedRows.set(v)
         }
     }
-    private func getCurrentRow(): Option<HashMap<String, String>> {
+    private func getCurrentRow(): Option<T> {
         match (this._currentRowSignal) {
             case Some(s) => s.get()
             case None => this._currentRow.get()
         }
     }
-    private func setCurrentRowValue(v: Option<HashMap<String, String>>): Unit {
+    private func setCurrentRowValue(v: Option<T>): Unit {
         match (this._currentRowSignal) {
             case Some(s) => s.set(v)
             case None => this._currentRow.set(v)
         }
     }
 
-    private func sortRows(rows: ArrayList<HashMap<String, String>>, col: String, order: SortOrder): ArrayList<HashMap<String, String>> {
-        if (col == "" || isNoneOrder(order)) { return rows }
-        // convert to array for indexed sorting
-        let arr = rows.toArray()
-        let n = arr.size
-        // simple bubble sort (small tables)
-        var i: Int64 = 0
-        while (i < n) {
-            var j: Int64 = i + 1
-            while (j < n) {
-                let av = getRowVal(arr[i], col)
-                let bv = getRowVal(arr[j], col)
-                let cmp = compareStr(av, bv)
-                let needSwap = if (isAscending(order)) { cmp > 0 } else { cmp < 0 }
-                if (needSwap) {
-                    let tmp = arr[i]
-                    arr[i] = arr[j]
-                    arr[j] = tmp
-                }
-                j++
-            }
-            i++
-        }
-        let result = ArrayList<HashMap<String, String>>()
-        for (r in arr) { result.add(r) }
-        result
-    }
-
-    private func toggleSort(col: String): Unit {
+    // 按列 accessor 排序并写回数据信号
+    private func toggleSort(col: TableColumn<T>): Unit {
         let currentCol = this.getSortColumn()
         let currentOrder = this.getSortOrder()
-        if (currentCol != col) {
-            this.setSortColumn(col)
+        if (currentCol != col._label) {
+            this.setSortColumn(col._label)
             this.setSortOrder(SortOrder.Ascending)
         } else {
             this.setSortOrder(nextOrder(currentOrder))
         }
         let order = this.getSortOrder()
-        if (!isNoneOrder(order)) {
-            let sorted = this.sortRows(this._data.get(), col, order)
-            this._data.set(sorted)
+        match (col._accessor) {
+            case Some(get) =>
+                if (!isNoneOrder(order)) {
+                    let sorted = sortByAccessor<T>(this._data.get(), get, order)
+                    this._data.set(sorted)
+                }
+            case None => ()
         }
     }
 
-    private func toggleRowSelection(row: HashMap<String, String>, selected: Bool): Unit {
+    private func toggleRowSelection(row: T, selected: Bool): Unit {
         let current = this.getSelectedRows()
         if (selected) {
             current.add(row)
         } else {
-            let idx = findRowIndex(current, row)
+            let idx = findRowIndex<T>(current, row, getRowKey)
             if (idx >= 0) { current.remove(idx..idx + 1) }
         }
         this.setSelectedRows(current)
     }
 
-    private func isRowSelected(row: HashMap<String, String>): Bool {
+    private func isRowSelected(row: T): Bool {
+        let key = this.getRowKey(row)
         for (r in this.getSelectedRows()) {
-            if (rowsEqual(r, row)) { return true }
+            if (this.getRowKey(r) == key) { return true }
         }
         false
     }
@@ -256,9 +246,9 @@ public class Table <: Component {
         let selected = this.getSelectedRows()
         let allSelected = data.size > 0 && selected.size == data.size
         if (allSelected) {
-            this.setSelectedRows(ArrayList<HashMap<String, String>>())
+            this.setSelectedRows(ArrayList<T>())
         } else {
-            let newSel = ArrayList<HashMap<String, String>>()
+            let newSel = ArrayList<T>()
             for (r in data) { newSel.add(r) }
             this.setSelectedRows(newSel)
         }
@@ -369,7 +359,7 @@ public class Table <: Component {
         scroll
     }
 
-    private func renderHeaderCell(col: TableColumn, ci: Int64): IComponent {
+    private func renderHeaderCell(col: TableColumn<T>, ci: Int64): IComponent {
         var cls = "el-table__cell"
         if (isSelectionType(col._colType)) { cls = "${cls} el-table-column--selection" }
         if (col._className != "") { cls = "${cls} ${col._className}" }
@@ -386,7 +376,7 @@ public class Table <: Component {
 
         let currentSortCol = this.getSortColumn()
         let currentOrder = this.getSortOrder()
-        let sortActive = col._sortable && currentSortCol == col._colProp && !isNoneOrder(currentOrder)
+        let sortActive = col._sortable && currentSortCol == col._label && !isNoneOrder(currentOrder)
         if (sortActive) { cls = "${cls} ${currentOrder.asClass()}" }
 
         let cellAttrs = HashMap<String, String>([("class", cls)])
@@ -421,15 +411,15 @@ public class Table <: Component {
 
         let cell = VNode("div", content.toArray(), attrs: Some(HashMap<String, String>([("class", "cell")])))
         var th = VNode("th", [cell], attrs: Some(cellAttrs))
-        if (col._sortable) {
-            let p = col._colProp
-            let wrapped: ActionHandler = { ctx => this.toggleSort(p); PatchResult.ReRender }
+        if (col._sortable && col._accessor.isSome()) {
+            let c = col
+            let wrapped: ActionHandler = { ctx => this.toggleSort(c); PatchResult.ReRender }
             th = th.onClick(wrapped)
         }
         th
     }
 
-    private func applyFixedStyle(col: TableColumn, attrs: HashMap<String, String>): Unit {
+    private func applyFixedStyle(col: TableColumn<T>, attrs: HashMap<String, String>): Unit {
         match (col._fixed) {
             case Some(f) => this.applyFixedStyleInner(f, attrs)
             case None => ()
@@ -464,7 +454,7 @@ public class Table <: Component {
         VNode("label", [inputSpan], attrs: Some(HashMap<String, String>([("class", labelCls)]))).onClick(onClick)
     }
 
-    private func buildSortableHeader(col: TableColumn, content: ArrayList<IComponent>): Unit {
+    private func buildSortableHeader(col: TableColumn<T>, content: ArrayList<IComponent>): Unit {
         content.add(text(col._label))
         // EP caret wrapper rendered after label
         let caretCls = "caret-wrapper"
@@ -474,9 +464,9 @@ public class Table <: Component {
         content.add(caret)
     }
 
-    private func renderBody(data: ArrayList<HashMap<String, String>>): IComponent {
+    private func renderBody(data: ArrayList<T>): IComponent {
         let rows = ArrayList<IComponent>()
-        var idx = 0
+        var idx: Int64 = 0
         for (row in data) {
             rows.add(this.renderRow(row, idx))
             idx++
@@ -495,7 +485,7 @@ public class Table <: Component {
         scroll
     }
 
-    private func renderRow(row: HashMap<String, String>, index: Int64): IComponent {
+    private func renderRow(row: T, index: Int64): IComponent {
         let cells = ArrayList<IComponent>()
         for (col in this._columns) {
             cells.add(this.renderCell(col, row, index))
@@ -539,7 +529,7 @@ public class Table <: Component {
         tr
     }
 
-    private func renderCell(col: TableColumn, row: HashMap<String, String>, index: Int64): IComponent {
+    private func renderCell(col: TableColumn<T>, row: T, index: Int64): IComponent {
         var cls = "el-table__cell"
         if (isSelectionType(col._colType)) { cls = "${cls} el-table-column--selection" }
         if (col._className != "") { cls = "${cls} ${col._className}" }
@@ -586,7 +576,7 @@ public class Table <: Component {
         VNode("td", [cell], attrs: Some(cellAttrs))
     }
 
-    private func buildSelectionCell(row: HashMap<String, String>, content: ArrayList<IComponent>): Unit {
+    private func buildSelectionCell(row: T, content: ArrayList<IComponent>): Unit {
         let selected = this.isRowSelected(row)
         let r = row
         let wrapped: ActionHandler = { ctx => this.toggleRowSelection(r, !selected); PatchResult.ReRender }
@@ -597,11 +587,11 @@ public class Table <: Component {
         content.add(text("${index + 1}"))
     }
 
-    private func buildDefaultCell(col: TableColumn, row: HashMap<String, String>, index: Int64, content: ArrayList<IComponent>): Unit {
+    private func buildDefaultCell(col: TableColumn<T>, row: T, index: Int64, content: ArrayList<IComponent>): Unit {
         match (col._render) {
             case Some(fn) => content.add(fn(row, index))
             case None =>
-                let raw = getRowVal(row, col._colProp)
+                let raw = getColVal<T>(col, row)
                 let display = match (col._formatter) {
                     case Some(f) => f(raw)
                     case None => raw
@@ -621,7 +611,7 @@ public class Table <: Component {
             attrs: Some(HashMap<String, String>([("class", "el-table__body-wrapper el-table__empty-block")])))
     }
 
-    private func renderSummary(data: ArrayList<HashMap<String, String>>): IComponent {
+    private func renderSummary(data: ArrayList<T>): IComponent {
         let cells = ArrayList<IComponent>()
         var first = true
         for (col in this._columns) {
@@ -650,16 +640,45 @@ public class Table <: Component {
         summaryRow
     }
 
-    private func setCurrentRow(row: HashMap<String, String>): Unit {
+    private func setCurrentRow(row: T): Unit {
         this.setCurrentRowValue(Some(row))
     }
 
-    private func isCurrentRow(row: HashMap<String, String>): Bool {
+    private func isCurrentRow(row: T): Bool {
         match (this.getCurrentRow()) {
-            case Some(r) => rowsEqual(r, row)
+            case Some(r) => this.getRowKey(r) == this.getRowKey(row)
             case None => false
         }
     }
+}
+
+// --- 泛型排序（纯逻辑，可单测） ---
+
+/// 按 accessor 取值排序（稳定冒泡；None 保持原序）
+public func sortByAccessor<T>(rows: ArrayList<T>, get: (T) -> String, order: SortOrder): ArrayList<T> {
+    if (isNoneOrder(order)) { return rows }
+    let arr = rows.toArray()
+    let n = arr.size
+    var i: Int64 = 0
+    while (i < n) {
+        var j: Int64 = i + 1
+        while (j < n) {
+            let av = get(arr[i])
+            let bv = get(arr[j])
+            let cmp = compareStr(av, bv)
+            let needSwap = if (isAscending(order)) { cmp > 0 } else { cmp < 0 }
+            if (needSwap) {
+                let tmp = arr[i]
+                arr[i] = arr[j]
+                arr[j] = tmp
+            }
+            j++
+        }
+        i++
+    }
+    let result = ArrayList<T>()
+    for (r in arr) { result.add(r) }
+    result
 }
 
 // --- 枚举辅助函数（代替 ==/!=） ---
@@ -708,30 +727,19 @@ func compareStr(a: String, b: String): Int64 {
     else { 0 }
 }
 
-func getRowVal(row: HashMap<String, String>, key: String): String {
-    match (row.get(key)) {
-        case Some(v) => v
+func getColVal<T>(col: TableColumn<T>, row: T): String {
+    match (col._accessor) {
+        case Some(f) => f(row)
         case None => ""
     }
 }
 
-func findRowIndex(rows: ArrayList<HashMap<String, String>>, target: HashMap<String, String>): Int64 {
+func findRowIndex<T>(rows: ArrayList<T>, target: T, keyOf: (T) -> String): Int64 {
+    let targetKey = keyOf(target)
     var idx: Int64 = 0
     for (r in rows) {
-        if (rowsEqual(r, target)) { return idx }
+        if (keyOf(r) == targetKey) { return idx }
         idx++
     }
     -1
-}
-
-func rowsEqual(a: HashMap<String, String>, b: HashMap<String, String>): Bool {
-    let sizeCheck = a.size == b.size
-    if (!sizeCheck) { return false }
-    for ((k, v) in a) {
-        match (b.get(k)) {
-            case Some(v2) => if (v != v2) { return false }
-            case None => return false
-        }
-    }
-    true
 }

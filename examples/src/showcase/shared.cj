@@ -44,12 +44,12 @@ func propRow(name: String, typ: String, desc: String): IComponent {
 
 // ============ 共享数据 ============
 
-func initTableData(): ArrayList<HashMap<String, String>> {
-    let data = ArrayList<HashMap<String, String>>()
-    data.add(HashMap<String, String>([("date", "2016-05-03"), ("name", "Tom"), ("state", "California"), ("city", "Los Angeles"), ("address", "No. 189, Grove St, Los Angeles")]))
-    data.add(HashMap<String, String>([("date", "2016-05-02"), ("name", "Jerry"), ("state", "California"), ("city", "San Francisco"), ("address", "742 Evergreen Terrace, San Francisco")]))
-    data.add(HashMap<String, String>([("date", "2016-05-04"), ("name", "Alice"), ("state", "New York"), ("city", "New York City"), ("address", "350 Fifth Avenue, New York City, NY 10118")]))
-    data.add(HashMap<String, String>([("date", "2016-05-01"), ("name", "Bob"), ("state", "Texas"), ("city", "Austin"), ("address", "1100 Congress Ave, Austin, TX 78701")]))
+func initTableData(): ArrayList<TableRow> {
+    let data = ArrayList<TableRow>()
+    data.add(TableRow("2016-05-03", "Tom", "California", "Los Angeles", "No. 189, Grove St, Los Angeles"))
+    data.add(TableRow("2016-05-02", "Jerry", "California", "San Francisco", "742 Evergreen Terrace, San Francisco"))
+    data.add(TableRow("2016-05-04", "Alice", "New York", "New York City", "350 Fifth Avenue, New York City, NY 10118"))
+    data.add(TableRow("2016-05-01", "Bob", "Texas", "Austin", "1100 Congress Ave, Austin, TX 78701"))
     data
 }
 
