@@ -31,11 +31,20 @@ public func mapStepStatus(s: String): String {
 // ============ 步骤布局（对齐 EP item.vue 的 style 计算） ============
 //
 // EP 无 space 时：每步 flex-basis = 100/(n-1)%（末步由 is-flex 类覆盖为 auto），
-// 末步 max-width = 100/n%；垂直方向不设置布局样式。
+// 末步 max-width = 100/n%；space 非空（如 "33%" / "100px"）时每步均分该值 + 末步 max-width。
+// 垂直方向不设置布局样式。
 // 参考：element-plus steps/src/item.vue style computed。
-public func stepFlexStyle(total: Int64, isLast: Bool, isVertical: Bool): String {
+public func stepFlexStyle(total: Int64, isLast: Bool, isVertical: Bool, space: String): String {
     if (isVertical) {
         return ""
+    }
+    if (space != "") {
+        var style = "flex-basis: ${space}"
+        if (isLast) {
+            let maxW = 100.0 / Float64(total)
+            style = "${style}; max-width: ${maxW}%"
+        }
+        return style
     }
     if (total <= 1) {
         if (isLast) {

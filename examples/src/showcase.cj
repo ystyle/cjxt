@@ -977,8 +977,8 @@ class ShowcasePage <: Component {
                     StepItem().title("填写信息").description("基本信息与联系方式"),
                     StepItem().title("上传附件").description("证明文件与资料"),
                     StepItem().title("确认提交").description("核对后提交申请"),
-                ], st.stepsActive),
-            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+                ], st.stepsActive).space("33%"),
+            ], attrs: Some(HashMap<String, String>([("style", "width:100%")]))),
             div([
                 Button("上一步").onClick(stepBack),
                 Button("下一步").onClick(stepNext),

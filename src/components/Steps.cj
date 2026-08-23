@@ -26,6 +26,7 @@ public class Steps <: Component {
     var _direction: String = "horizontal"
     var _processStatus: String = "process"
     var _finishStatus: String = "finish"
+    var _space: String = ""              // 步骤均分宽度（如 "33%" / "100px"；空 = EP 默认内容自适应）
 
     public init(children: Array<IComponent>, active: Signal<Int64>) {
         this._children = children
@@ -35,6 +36,7 @@ public class Steps <: Component {
     public func direction(v: String): Steps { this._direction = v; this }
     public func processStatus(v: String): Steps { this._processStatus = v; this }
     public func finishStatus(v: String): Steps { this._finishStatus = v; this }
+    public func space(v: String): Steps { this._space = v; this }
 
     public func render(): IComponent {
         let items = this.collectItems()
@@ -72,10 +74,10 @@ public class Steps <: Component {
         let rootAttrs = HashMap<String, String>()
         var stepCls = "el-step is-${status}"
         if (isVertical) { stepCls = "${stepCls} is-vertical" }
-        // 末步：EP 用 is-flex 让 flex-basis 回退为内容自适应（不伸展）
-        if (isLast) { stepCls = "${stepCls} is-flex" }
+        // 末步：EP 用 is-flex 让 flex-basis 回退为内容自适应（不伸展）——仅无 space 时
+        if (isLast && this._space == "") { stepCls = "${stepCls} is-flex" }
         rootAttrs["class"] = stepCls
-        let style = stepFlexStyle(total, isLast, isVertical)
+        let style = stepFlexStyle(total, isLast, isVertical, this._space)
         if (style != "") { rootAttrs["style"] = style }
         // head
         let headAttrs = HashMap<String, String>()

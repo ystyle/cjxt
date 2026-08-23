@@ -73,3 +73,4 @@ select.input { appearance: auto; }
   gap: 20px;
   align-items: center;
 }
+.steps-demo { align-self: stretch; width: 100%; }
