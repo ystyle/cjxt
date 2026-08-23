@@ -226,6 +226,7 @@ class CangjieUI {
         if (el.hasAttribute('data-bind-id')) this.attachBind(el);
         if (el.hasAttribute('data-vscroll')) this.attachVScroll(el);
         if (el.hasAttribute('data-auto-dismiss')) this.attachAutoDismiss(el);
+        if (el.hasAttribute('data-upload-trigger') || el.hasAttribute('data-upload-input')) this.attachUpload(el);
         return el;
     }
 

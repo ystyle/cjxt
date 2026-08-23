@@ -794,3 +794,28 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 **验证**
 - `cjpm test`：185 全过（steps 5 + tree 2 + cascader 4 + upload 2 + 既有 172）。
 - Node WS 驱动：Breadcrumb 结构/aria/自定义分隔符；Steps active 推进 success,process,wait→success,success,process；Dropdown 开面板+command+关面板；Tree 展开+is-current 高亮；Cascader 三级列+选中回显；Upload 加文件 count=1→删除 count=0。上传端点 curl 存盘内容验证。
+
+### 2026-08-23 P3 第一批视觉审查修复（截图验证闭环）
+
+**起因**：切视觉模型后对演示站 6 个新组件逐项截图审查，发现大量"结构对但样子不对"的问题——之前只用 Node WS 驱动验证过 DOM 结构/类名，**从未做过视觉验证**。教训：**组件对齐 EP 必须截图对照，只有结构断言不够**。
+
+**问题 1：steps / breadcrumb / upload 的 SCSS 文件缺失（编译产物 0 规则）**
+- 根因：只拷了容器层（steps.scss 22 行/breadcrumb.scss 9 行与 EP 一致，但**子层文件没拷**）。EP theme-chalk 按文件拆分：`step.scss`(320 行，`.el-step__*` 全部内部样式)、`breadcrumb-item.scss`(58 行)、`upload.scss`(660 行)。三者缺失 → 步骤无圆形图标/状态色/连接线、面包屑无链接色分隔符、上传无拖拽框。
+- 修复：从 ~/Projects/element-plus/packages/theme-chalk/src/ 拷贝 3 个文件 + element-plus.scss 补 `@use`。副作用：`el-cascader` 的输入框无边框——Cascader.cj 缺 `el-input__wrapper`（对齐 Input.cj 结构）。
+
+**问题 2：Dropdown 类名非 EP**：用 `el-dropdown__menu / el-dropdown__menu__item`，EP 是 `el-dropdown-menu / el-dropdown-menu__item`（dropdown.scss 208 行是单文件全量，类名不匹配 → 0 样式，菜单显示为带圆点的裸 `<ul>`）。改为 EP 类名后白卡/分隔线/disabled 全部生效。
+
+**问题 3（功能 bug）：createNode 漏 attachUpload → 上传链路全断**
+- 前端 createNode（reconcile 插入新节点路径）只挂了 attachBind/attachVScroll/attachAutoDismiss，**漏 attachUpload**；renderTree 路径有。演示切换（patch 重建子树）后 file input 永远绑定不上 change → 选文件无反应。
+- 修复：createNode 补齐 attachUpload。浏览器端 E2E（DataTransfer 注入 File + dispatch change）验证 upload-items=1 且文件落盘。此前 Node WS 驱动只是直发 action 模拟，掩盖了此问题。
+
+**问题 4：Steps 布局不齐 EP（item.vue style 算法）**
+- 之前硬编码 `flex-basis: 50%`×每步（3 步=150% 溢出挤压、描述换行错乱）。
+- EP 算法（steps/src/item.vue）：无 space 时 `flex-basis = 100/(n-1)%`（alignCenter=false 默认）；**末步加 `is-flex` 类**（CSS `flex-basis:auto!important` + `max-width:100/n%`——末步不伸展、内容自适应）；垂直方向 step 加 `is-vertical`（`.el-step.is-vertical{display:flex}` 才触发图标左文案右）；横向 `is-center` 仅当 alignCenter（默认 false，标题左对齐）。
+- 实现：`stepFlexStyle(total, isLast, isVertical)` 抽入 steps_logic.cj + 4 单测；Float64 格式确认 6 位小数（"50.000000%"），`Float64(Int64)` 显式转换（Int64 无 toFloat64）。
+
+**问题 5：Tree demo 回显索引路径**「当前选中：前端组（0/0）」——onNodeClick 的 path 是索引路径，对用户无意义，demo 只显示 label。
+
+**验证**：189 单测全过（steps +4 布局）；agent-browser 截图逐组件对照 EP（Breadcrumb 蓝链接灰分隔 / Steps 均分+圆形图标+状态色+垂直左右 / Dropdown 白卡+分隔线+disabled / Tree 展开高亮 / Cascader 边框+三列+值回显 / Upload 拖拽框+列表右侧 inline-flex 同 EP）。CSS 重建顺序：`bash scripts/build-css.sh` → `rm -rf examples/target/release/cjxt` → `cd examples && cjpm build`。
+
+**后续计划**：Upload 改为 **WS 二进制帧流式上传**（base64 膨胀 33% + FileReader 绕路）——stdx WebSocket 支持 BinaryWebFrame 读写（read→frame.frameType/payload，write(BinaryWebFrame, bytes) 自动分段；单帧 >20M 断连 → 256KB 分块 + 块级 ack 背压）；协议：upload_begin(JSON 帧 name/size/action-id) → 二进制帧流（File.slice().arrayBuffer()）→ 服务端边收边写（OpenMode.Append 不存在会创建）→ 收满 dispatach 现有 uploaded action（列表照旧出现）。复用 serveUpload 的 dir 配置，Upload.cj 组件不改。

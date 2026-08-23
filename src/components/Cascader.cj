@@ -47,7 +47,8 @@ public class Cascader <: Component {
         }
         // 输入框（只读显示路径）
         let inputInner = VNode("input", [], attrs: Some(HashMap<String, String>([("type", "text"), ("readonly", "readonly"), ("placeholder", "请选择"), ("value", display), ("class", "el-input__inner")])))
-        let input = VNode("div", [inputInner], attrs: Some(HashMap<String, String>([("class", "el-input el-cascader__input")]))).onClick(toggle)
+        let wrapper = VNode("div", [inputInner], attrs: Some(HashMap<String, String>([("class", "el-input__wrapper")])))
+        let input = VNode("div", [wrapper], attrs: Some(HashMap<String, String>([("class", "el-input el-cascader__input")]))).onClick(toggle)
 
         let parts = ArrayList<IComponent>()
         parts.add(input)

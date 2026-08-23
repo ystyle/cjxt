@@ -61,7 +61,7 @@ public class Dropdown <: Component {
         let menuItems = ArrayList<IComponent>()
         for (item in items) {
             if (item._divided) {
-                menuItems.add(VNode("li", [], attrs: Some(HashMap<String, String>([("class", "el-dropdown__menu__item--divided"), ("role", "separator")]))))
+                menuItems.add(VNode("li", [], attrs: Some(HashMap<String, String>([("class", "el-dropdown-menu__item--divided"), ("role", "separator")]))))
             }
             let itemH: ActionHandler = { ctx =>
                 this._open.set(false)
@@ -71,12 +71,12 @@ public class Dropdown <: Component {
                 }
                 PatchResult.ReRender
             }
-            var liCls = "el-dropdown__menu__item"
+            var liCls = "el-dropdown-menu__item"
             if (item._disabled) { liCls = "${liCls} is-disabled" }
             let li = VNode("li", [text(item._content)], attrs: Some(HashMap<String, String>([("class", liCls)]))).onClick(itemH)
             menuItems.add(li)
         }
-        let menuUl = VNode("ul", menuItems.toArray(), attrs: Some(HashMap<String, String>([("class", "el-dropdown__menu")])))
+        let menuUl = VNode("ul", menuItems.toArray(), attrs: Some(HashMap<String, String>([("class", "el-dropdown-menu")])))
         let open = this._open.get()
         let popperStyle = "position:absolute;top:100%;left:0;z-index:2000;margin-top:4px${if (open) { "" } else { ";display:none" }}"
         let popper = VNode("div", [menuUl], attrs: Some(HashMap<String, String>([("class", "el-dropdown__popper el-popper"), ("style", popperStyle)])))

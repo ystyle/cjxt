@@ -1038,7 +1038,7 @@ class ShowcasePage <: Component {
                     PatchResult.ReRender
                 },
             ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
-            div([text("当前选中：${st.treeNodeLabel.get()}（${st.treeCurrent.get()}）")], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([text("当前选中：${st.treeNodeLabel.get()}")], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
             div([text("点 ▶ 展开/收起子节点；点标签选中高亮并回传路径与标签")], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
         ], attrs: Some(HashMap<String, String>([("class", cls("tree-demo"))])))
     }

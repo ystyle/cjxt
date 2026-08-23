@@ -39,11 +39,12 @@ public class Steps <: Component {
     public func render(): IComponent {
         let items = this.collectItems()
         let active = this._active.get()
+        let total = items.size
         let children = ArrayList<IComponent>()
         var i = 0
         for (item in items) {
             let status = this.stepStatus(item, i, active)
-            children.add(this.buildStep(item, i, status))
+            children.add(this.buildStep(item, i, status, total, i == total - 1))
             i += 1
         }
         let cls = "el-steps el-steps--${this._direction}"
@@ -66,10 +67,16 @@ public class Steps <: Component {
         stepsStatus(item._status, idx, active, this._processStatus, this._finishStatus)
     }
 
-    func buildStep(item: StepItem, idx: Int64, status: String): IComponent {
+    func buildStep(item: StepItem, idx: Int64, status: String, total: Int64, isLast: Bool): IComponent {
+        let isVertical = this._direction == "vertical"
         let rootAttrs = HashMap<String, String>()
-        rootAttrs["class"] = "el-step is-${status}"
-        rootAttrs["style"] = "flex-basis: 50%; flex-shrink: 1; flex-grow: 1"
+        var stepCls = "el-step is-${status}"
+        if (isVertical) { stepCls = "${stepCls} is-vertical" }
+        // 末步：EP 用 is-flex 让 flex-basis 回退为内容自适应（不伸展）
+        if (isLast) { stepCls = "${stepCls} is-flex" }
+        rootAttrs["class"] = stepCls
+        let style = stepFlexStyle(total, isLast, isVertical)
+        if (style != "") { rootAttrs["style"] = style }
         // head
         let headAttrs = HashMap<String, String>()
         headAttrs["class"] = "el-step__head is-${status}"
