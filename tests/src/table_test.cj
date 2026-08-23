@@ -121,6 +121,26 @@ public class TableGenericRenderTest {
         // alice 行选中（checkbox is-checked），bob 行未选
         @Expect(json.contains("is-checked"), true)
     }
+
+    @TestCase
+    public func testTableWidthMaxOfTotalAndFull(): Unit {
+        let table = Table<PersonRow>()
+            .data(peopleData())
+            .add(TableColumn<PersonRow>().label("姓名").accessor({ r => r.name }).width(200))
+        let (json, _) = renderTableJson(table)
+        // 内层表格宽度 = max(列宽总和, 100%)，列宽不足时铺满容器
+        @Expect(json.contains("width: max(200px, 100%)"), true)
+    }
+
+    @TestCase
+    public func testTableCellNowrap(): Unit {
+        let table = Table<PersonRow>()
+            .data(peopleData())
+            .add(TableColumn<PersonRow>().label("姓名").accessor({ r => r.name }))
+        let (json, _) = renderTableJson(table)
+        // 单元格单行（防止窄列长文本换行成竖排）
+        @Expect(json.contains("white-space: nowrap"), true)
+    }
 }
 
 @Test

@@ -7,11 +7,18 @@ import std.collection.ArrayList
 public class Menu <: Component {
     var _mode: MenuMode = MenuMode.Vertical
     var _items = ArrayList<MenuItem>()
+    // 暗色主题：通过 EP CSS 变量驱动（:root 默认浅色，元素级变量覆盖）
+    var _dark: Bool = false
 
     public init() {}
 
     public func mode(v: MenuMode): Menu {
         this._mode = v
+        this
+    }
+
+    public func dark(): Menu {
+        this._dark = true
         this
     }
 
@@ -26,6 +33,9 @@ public class Menu <: Component {
             case MenuMode.Vertical => "el-menu el-menu--vertical"
         }
         let attrs = HashMap<String, String>([("class", modeCls)])
+        if (this._dark) {
+            attrs["style"] = "--el-menu-bg-color:#1d2b3a;--el-menu-text-color:#c0c4cc;--el-menu-active-color:#ffffff;--el-menu-hover-text-color:#ffffff;--el-menu-hover-bg-color:#2a3b50;--el-menu-item-height:44px"
+        }
         let items = ArrayList<IComponent>()
         for (i in 0..this._items.size) {
             items.add(this._items[i].render())

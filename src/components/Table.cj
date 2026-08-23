@@ -347,7 +347,7 @@ public class Table<T> <: Component {
         }
         let tableAttrs = HashMap<String, String>([
             ("class", "el-table__header"),
-            ("style", "width: ${this.tableWidth()}px"),
+            ("style", "width: max(${this.tableWidth()}px, 100%)"),
             ("border", "0"),
             ("cellpadding", "0"),
             ("cellspacing", "0")
@@ -473,7 +473,7 @@ public class Table<T> <: Component {
         }
         let tableAttrs = HashMap<String, String>([
             ("class", "el-table__body"),
-            ("style", "width: ${this.tableWidth()}px"),
+            ("style", "width: max(${this.tableWidth()}px, 100%)"),
             ("border", "0"),
             ("cellpadding", "0"),
             ("cellspacing", "0")
@@ -572,7 +572,7 @@ public class Table<T> <: Component {
             this.buildDefaultCell(col, row, index, content)
         }
 
-        let cell = VNode("div", content.toArray(), attrs: Some(HashMap<String, String>([("class", "cell")])))
+        let cell = VNode("div", content.toArray(), attrs: Some(HashMap<String, String>([("class", "cell"), ("style", "white-space: nowrap; overflow: hidden; text-overflow: ellipsis")])))
         VNode("td", [cell], attrs: Some(cellAttrs))
     }
 
@@ -628,7 +628,7 @@ public class Table<T> <: Component {
         }
         let tableAttrs = HashMap<String, String>([
             ("class", "el-table__footer"),
-            ("style", "width: ${this.tableWidth()}px"),
+            ("style", "width: max(${this.tableWidth()}px, 100%)"),
             ("border", "0"),
             ("cellpadding", "0"),
             ("cellspacing", "0")
