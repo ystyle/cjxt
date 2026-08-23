@@ -1,77 +1,79 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif; background: #f0f2f5; color: #333; min-height: 100vh; }
-.container_5002356092872378694 { max-width: 640px; margin: 0 auto; padding: 24px 16px; }
-.tabs_5002356092872378694 { display: flex; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 20px; }
-.tab_5002356092872378694 { flex: 1; padding: 14px 20px; text-align: center; border: none; background: transparent; font-size: 15px; font-weight: 500; cursor: pointer; color: #666; }
-.tab_5002356092872378694.active_5002356092872378694 { color: #4f46e5; background: #f5f3ff; box-shadow: inset 0 -2px 0 #4f46e5; }
-.card_5002356092872378694 { background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 16px; }
-.card-title_5002356092872378694 { font-size: 16px; font-weight: 600; color: #111; margin-bottom: 16px; }
-.counter-value_5002356092872378694 { font-size: 48px; font-weight: 700; color: #4f46e5; text-align: center; padding: 20px 0; }
-.row_5002356092872378694 { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; }
-.btn_5002356092872378694 { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; }
-.btn-primary_5002356092872378694 { background: #4f46e5; color: #fff; }
-.btn-outline_5002356092872378694 { background: transparent; border: 1px solid #d1d5db; color: #374151; }
-.btn-sm_5002356092872378694 { padding: 6px 12px; font-size: 13px; }
-.btn-danger_5002356092872378694 { background: #fee2e2; color: #dc2626; }
-.input_5002356092872378694 { flex: 1; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; outline: none; min-width: 120px; }
-.input_5002356092872378694:focus { border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,0.1); }
-.label_5002356092872378694 { font-size: 13px; font-weight: 500; color: #6b7280; margin-bottom: 6px; }
-.desc_5002356092872378694 { font-size: 13px; color: #9ca3af; margin-top: 4px; }
-.todo-item_5002356092872378694 { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f3f4f6; }
-.todo-text_5002356092872378694 { flex: 1; font-size: 14px; color: #333; }
-.todo-empty_5002356092872378694 { text-align: center; color: #9ca3af; padding: 40px 0; font-size: 14px; }
-.footer_5002356092872378694 { text-align: center; font-size: 12px; color: #d1d5db; margin-top: 24px; }
-.input-group_5002356092872378694 { margin-bottom: 14px; }
-select.input_5002356092872378694 { appearance: auto; }
+.container_2602079163838258842 { max-width: 640px; margin: 0 auto; padding: 24px 16px; }
+.tabs_2602079163838258842 { display: flex; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 20px; }
+.tab_2602079163838258842 { flex: 1; padding: 14px 20px; text-align: center; border: none; background: transparent; font-size: 15px; font-weight: 500; cursor: pointer; color: #666; }
+.tab_2602079163838258842.active_2602079163838258842 { color: #4f46e5; background: #f5f3ff; box-shadow: inset 0 -2px 0 #4f46e5; }
+.card_2602079163838258842 { background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 16px; }
+.card-title_2602079163838258842 { font-size: 16px; font-weight: 600; color: #111; margin-bottom: 16px; }
+.counter-value_2602079163838258842 { font-size: 48px; font-weight: 700; color: #4f46e5; text-align: center; padding: 20px 0; }
+.row_2602079163838258842 { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; }
+.btn_2602079163838258842 { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; }
+.btn-primary_2602079163838258842 { background: #4f46e5; color: #fff; }
+.btn-outline_2602079163838258842 { background: transparent; border: 1px solid #d1d5db; color: #374151; }
+.btn-sm_2602079163838258842 { padding: 6px 12px; font-size: 13px; }
+.btn-danger_2602079163838258842 { background: #fee2e2; color: #dc2626; }
+.input_2602079163838258842 { flex: 1; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; outline: none; min-width: 120px; }
+.input_2602079163838258842:focus { border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,0.1); }
+.label_2602079163838258842 { font-size: 13px; font-weight: 500; color: #6b7280; margin-bottom: 6px; }
+.desc_2602079163838258842 { font-size: 13px; color: #9ca3af; margin-top: 4px; }
+.todo-item_2602079163838258842 { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f3f4f6; }
+.todo-text_2602079163838258842 { flex: 1; font-size: 14px; color: #333; }
+.todo-empty_2602079163838258842 { text-align: center; color: #9ca3af; padding: 40px 0; font-size: 14px; }
+.footer_2602079163838258842 { text-align: center; font-size: 12px; color: #d1d5db; margin-top: 24px; }
+.input-group_2602079163838258842 { margin-bottom: 14px; }
+select.input_2602079163838258842 { appearance: auto; }
 
 /* ============ Showcase ============ */
-.showcase-wrap_5002356092872378694 { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
-.showcase-body_5002356092872378694 { display: flex; gap: 20px; margin-top: 20px; align-items: flex-start; }
-.showcase-sidebar_5002356092872378694 { width: 200px; flex-shrink: 0; position: fixed; top: 90px; left: max(16px, calc(50% - 534px)); height: calc(100vh - 90px); overflow-y: auto; }
-.showcase-content_5002356092872378694 { flex: 1; min-width: 0; margin-left: 220px; }
-.showcase-demo_5002356092872378694 { background: #fff; border-radius: 12px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 16px; min-height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
-.showcase-props_5002356092872378694 { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
-.showcase-props-title_5002356092872378694 { font-size: 14px; font-weight: 600; color: #111; margin-bottom: 12px; }
-.showcase-prop-row_5002356092872378694 { display: flex; padding: 8px 0; border-bottom: 1px solid #f9fafb; font-size: 13px; gap: 12px; }
-.showcase-prop-name_5002356092872378694 { width: 160px; color: #6b7280; font-weight: 500; flex-shrink: 0; word-break: break-all; }
-.showcase-prop-type_5002356092872378694 { width: 260px; color: #111; flex-shrink: 0; word-break: break-all; }
-.showcase-prop-desc_5002356092872378694 { flex: 1; color: #6b7280; }
+.showcase-wrap_2602079163838258842 { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+.showcase-body_2602079163838258842 { display: flex; gap: 20px; margin-top: 20px; align-items: flex-start; }
+.showcase-sidebar_2602079163838258842 { width: 200px; flex-shrink: 0; position: fixed; top: 90px; left: max(16px, calc(50% - 534px)); height: calc(100vh - 90px); overflow-y: auto; }
+.showcase-content_2602079163838258842 { flex: 1; min-width: 0; margin-left: 220px; }
+.showcase-demo_2602079163838258842 { background: #fff; border-radius: 12px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 16px; min-height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+.showcase-props_2602079163838258842 { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.showcase-props-title_2602079163838258842 { font-size: 14px; font-weight: 600; color: #111; margin-bottom: 12px; }
+.showcase-prop-row_2602079163838258842 { display: flex; padding: 8px 0; border-bottom: 1px solid #f9fafb; font-size: 13px; gap: 12px; }
+.showcase-prop-name_2602079163838258842 { width: 160px; color: #6b7280; font-weight: 500; flex-shrink: 0; word-break: break-all; }
+.showcase-prop-type_2602079163838258842 { width: 260px; color: #111; flex-shrink: 0; word-break: break-all; }
+.showcase-prop-desc_2602079163838258842 { flex: 1; color: #6b7280; }
 
-.divider-demo_5002356092872378694 { align-self: stretch; width: 100%; }
-.divider-section-title_5002356092872378694 { font-size: 13px; color: #909399; margin-bottom: 8px; }
-.divider-group_5002356092872378694 { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.divider-demo_2602079163838258842 { align-self: stretch; width: 100%; }
+.divider-section-title_2602079163838258842 { font-size: 13px; color: #909399; margin-bottom: 8px; }
+.divider-group_2602079163838258842 { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 
-.progress-demo_5002356092872378694 { align-self: stretch; display: flex; flex-direction: column; gap: 20px; }
-.progress-line-group_5002356092872378694 { display: flex; flex-direction: column; gap: 18px; width: 100%; }
-.progress-circle-group_5002356092872378694 { display: flex; flex-wrap: wrap; justify-content: center; gap: 32px; }
-.showcase-section-title_5002356092872378694 { font-size: 14px; font-weight: 600; color: #111; margin-bottom: 8px; }
-.statistic-demo_5002356092872378694 { align-self: stretch; }
-.statistic-row_5002356092872378694 { display: flex; gap: 48px; flex-wrap: wrap; justify-content: center; }
-.descriptions-demo_5002356092872378694 { align-self: stretch; display: flex; flex-direction: column; gap: 24px; }
+.progress-demo_2602079163838258842 { align-self: stretch; display: flex; flex-direction: column; gap: 20px; }
+.progress-line-group_2602079163838258842 { display: flex; flex-direction: column; gap: 18px; width: 100%; }
+.progress-circle-group_2602079163838258842 { display: flex; flex-wrap: wrap; justify-content: center; gap: 32px; }
+.showcase-section-title_2602079163838258842 { font-size: 14px; font-weight: 600; color: #111; margin-bottom: 8px; }
+.statistic-demo_2602079163838258842 { align-self: stretch; }
+.statistic-row_2602079163838258842 { display: flex; gap: 48px; flex-wrap: wrap; justify-content: center; }
+.descriptions-demo_2602079163838258842 { align-self: stretch; display: flex; flex-direction: column; gap: 24px; }
 
 /* ============ 演示项垂直间隔（≥20px）——从 Pagination 起的 demo 统一 ============
    各 demo 根容器为 flex column + gap 20，section 之间保持至少 20px 呼吸空间；
    align-items:center 保持原有水平居中（子项按内容宽居中，同名 demo 类自带
    stretch 的（如 descriptions-demo）其旧规则同类名同特异性按文件序覆盖，不受影响） */
-.pagination-demo_5002356092872378694,
-.datepicker-demo_5002356092872378694,
-.feedback-demo_5002356092872378694,
-.tabs-demo_5002356092872378694,
-.markdown-demo_5002356092872378694,
-.autoscroll-demo_5002356092872378694,
-.reactive-demo_5002356092872378694,
-.vlist-demo_5002356092872378694,
-.domtx-demo_5002356092872378694,
-.breadcrumb-demo_5002356092872378694,
-.steps-demo_5002356092872378694,
-.dropdown-demo_5002356092872378694,
-.tree-demo_5002356092872378694,
-.cascader-demo_5002356092872378694,
-.upload-demo_5002356092872378694 {
+.pagination-demo_2602079163838258842,
+.datepicker-demo_2602079163838258842,
+.feedback-demo_2602079163838258842,
+.tabs-demo_2602079163838258842,
+.markdown-demo_2602079163838258842,
+.autoscroll-demo_2602079163838258842,
+.reactive-demo_2602079163838258842,
+.vlist-demo_2602079163838258842,
+.domtx-demo_2602079163838258842,
+.breadcrumb-demo_2602079163838258842,
+.steps-demo_2602079163838258842,
+.dropdown-demo_2602079163838258842,
+.tree-demo_2602079163838258842,
+.cascader-demo_2602079163838258842,
+.upload-demo_2602079163838258842 {
   display: flex;
   flex-direction: column;
   gap: 20px;
   align-items: center;
 }
-.steps-demo_5002356092872378694 { align-self: stretch; width: 100%; }
-.tree-demo_5002356092872378694 { align-self: stretch; width: 100%; }
+.steps-demo_2602079163838258842 { align-self: stretch; width: 100%; }
+.tree-demo_2602079163838258842 { align-self: stretch; width: 100%; }
+
+.autoscroll-demo_2602079163838258842 { align-self: stretch; width: 100%; }

@@ -1119,7 +1119,7 @@ class ShowcasePage <: Component {
                 PrimaryButton("追加消息").onClick(appendH),
                 DangerButton("清空").onClick(clearH),
             ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
-            VNode("div", buildAutoScrollItems(st.chatMessages.get()), attrs: Some(HashMap<String, String>([("data-auto-scroll", ""), ("style", "height:240px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:8px;padding:12px;background:#fafafa")]))),
+            VNode("div", buildAutoScrollItems(st.chatMessages.get()), attrs: Some(HashMap<String, String>([("data-auto-scroll", ""), ("style", "height:240px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:8px;padding:12px;background:#fafafa;width:100%")]))),
             div([text("当前消息数：${st.chatMessages.get().size}")], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
         ], attrs: Some(HashMap<String, String>([("class", cls("autoscroll-demo"))])))
     }

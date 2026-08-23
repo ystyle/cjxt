@@ -75,3 +75,5 @@ select.input { appearance: auto; }
 }
 .steps-demo { align-self: stretch; width: 100%; }
 .tree-demo { align-self: stretch; width: 100%; }
+
+.autoscroll-demo { align-self: stretch; width: 100%; }
