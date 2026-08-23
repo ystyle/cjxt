@@ -367,7 +367,11 @@ class CangjieUI {
         }
         this.applyAttrs(el, node);
         this.applyActions(el, node);
-        this.reconcileChildren(el, node.children || []);
+        // innerhtml 节点：内容由 innerHTML 整体管理（children 恒为空）。
+        // 若继续 reconcileChildren(el, [])，会把 applyAttrs 刚渲染出的内容子节点
+        // 当作"多余 existing"全部删除（切走再切回 Markdown demo → 内容空白）。
+        const hasInner = Object.keys(node.attrs || {}).some(k => k.toLowerCase() === 'innerhtml');
+        if (!hasInner) this.reconcileChildren(el, node.children || []);
         if (el.hasAttribute('data-bind-id') && !el.__cjxtBound) { this.attachBind(el); el.__cjxtBound = true; }
         if (el.hasAttribute('data-vscroll') && !el.__cjxtVScroll) { this.attachVScroll(el); el.__cjxtVScroll = true; }
         if (el.hasAttribute('data-auto-dismiss') && !el.__cjxtAutoDismiss) { this.attachAutoDismiss(el); el.__cjxtAutoDismiss = true; }
