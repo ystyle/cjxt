@@ -1,5 +1,7 @@
 package cjxt
 
+import std.collection.ArrayList
+import std.sync.{Mutex}
 import std.unittest.*
 import std.unittest.testmacro.*
 
@@ -51,5 +53,36 @@ public class MarkdownRenderTest {
         @Expect(out.contains("&lt;"), true)
         @Expect(out.contains("&gt;"), true)
         @Expect(out.contains("<script>"), false)
+    }
+}
+
+
+// ============ 并发解析稳定性（线上"偶尔空白"排查） ============
+// 怀疑：markit/GFMBundle 首次初始化多线程竞态 → hasErrors 回退转义文本
+@Test
+public class MarkdownConcurrencyTest {
+    @TestCase
+    public func testConcurrentParseStable(): Unit {
+        let sample = "# 欢迎使用 Markdown 组件\n\n**加粗** 与 `code`\n\n```cangjie\npublic func main() {}\n```\n\n| A | B |\n|---|---|\n| 1 | 2 |"
+        @Expect(renderMarkdown(sample).contains("<h1"), true)
+        let results = ArrayList<Bool>()
+        let mutex = Mutex()
+        let tasks = ArrayList<Future<Unit>>()
+        for (i in 0..12) {
+            let f = spawn {
+                let html = renderMarkdown(sample)
+                mutex.lock()
+                results.add(html.contains("<h1"))
+                mutex.unlock()
+            }
+            tasks.add(f)
+        }
+        for (t in tasks) {
+            let _ = t.get()
+        }
+        @Expect(results.size, 12)
+        for (ok in results) {
+            @Expect(ok, true) // 任一并发失败 = markit 线程竞态
+        }
     }
 }
