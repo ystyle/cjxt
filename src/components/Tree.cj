@@ -60,13 +60,13 @@ public class Tree <: Component {
         let children = ArrayList<IComponent>()
         var i = 0
         for (node in this._data) {
-            children.add(this.renderNode(node, "", i))
+            children.add(this.renderNode(node, "", i, 1))
             i += 1
         }
         VNode("div", children.toArray(), attrs: Some(HashMap<String, String>([("class", "el-tree el-tree--highlight-current")])))
     }
 
-    func renderNode(node: TreeNode, parentPath: String, idx: Int64): IComponent {
+    func renderNode(node: TreeNode, parentPath: String, idx: Int64, level: Int64): IComponent {
         let path = treeChildPath(parentPath, idx)
         let expanded = treeIsExpanded(this._expanded.get(), path)
         let isLeaf = node.children.size == 0
@@ -84,18 +84,18 @@ public class Tree <: Component {
         }
         let icon = VNode("span", [text("❯")], attrs: Some(HashMap<String, String>([("class", iconCls)]))).onClick(toggleH)
 
-        // label
-        let labelH: ActionHandler = { ctx =>
+        // 选中绑定在整行 content（EP 整行可点；icon 的 click 就近命中，不会冒泡到行）
+        // 缩进：EP tree-node 给 content 内联 padding-left = (level-1) * indent(18px)
+        let label = VNode("span", [text(node.label)], attrs: Some(HashMap<String, String>([("class", "el-tree-node__label")])))
+        let contentStyle = "padding-left:${(level - 1) * 18}px"
+        let contentEl = VNode("div", [icon, label], attrs: Some(HashMap<String, String>([("class", "el-tree-node__content"), ("style", contentStyle)]))).onClick({ ctx =>
             this._currentKey.set(path)
             match (this._onNodeClick) {
                 case Some(cb) => cb(path, node.label)
                 case None => ()
             }
             PatchResult.ReRender
-        }
-        let label = VNode("span", [text(node.label)], attrs: Some(HashMap<String, String>([("class", "el-tree-node__label")]))).onClick(labelH)
-
-        let content = VNode("div", [icon, label], attrs: Some(HashMap<String, String>([("class", "el-tree-node__content")])))
+        })
 
         // 根节点类
         var nodeCls = "el-tree-node"
@@ -104,12 +104,12 @@ public class Tree <: Component {
         if (isLeaf) { nodeCls = "${nodeCls} is-leaf" }
 
         let parts = ArrayList<IComponent>()
-        parts.add(content)
+        parts.add(contentEl)
         if (!isLeaf && expanded) {
             let childParts = ArrayList<IComponent>()
             var ci = 0
             for (c in node.children) {
-                childParts.add(this.renderNode(c, path, ci))
+                childParts.add(this.renderNode(c, path, ci, level + 1))
                 ci += 1
             }
             parts.add(VNode("div", childParts.toArray(), attrs: Some(HashMap<String, String>([("class", "el-tree-node__children")]))))
