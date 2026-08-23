@@ -1,13 +1,13 @@
 package cjxt
 
 import std.collection.{ArrayList, HashMap}
-import std.fs.{File, OpenMode}
+import std.fs.{File, OpenMode, Path, remove}
 import std.io.ByteBuffer
 import opencj::ulid.nextId
 import std.reflect.*
 import std.sync.Mutex
 import std.time.*
-import stdx.net.http.{WebSocket, WebSocketFrameType}
+import stdx.net.http.{WebSocket, WebSocketFrame, WebSocketFrameType}
 import tang.{Tang, TangHttpContext}
 import stdx.encoding.json.stream.{JsonWriter, JsonSerializable}
 import stdx.encoding.base64.fromBase64String
@@ -35,6 +35,9 @@ public class App {
     var staticRoutes = ArrayList<(String, String)>()
     // 服务端推送合并器：流式多 token 的 pushUpdate 合并为一次 flush（一个 sendPatch）
     var pushCoalescer = PushCoalescer()
+    // WS 二进制上传的存储配置（serveUpload 时写入；未调用则 WS 上传被拒绝）
+    var uploadDir: String = ""
+    var uploadPrefix: String = ""
     // sendPatch 调用计数（诊断/测试用：验证推送合并——N 次 pushUpdate → 1 次 sendPatch）
     public static var sendPatchCount: Int64 = 0
 
@@ -99,6 +102,8 @@ public class App {
     // 同时把 dir 静态暴露在 prefix 下供访问。
     // 说明：客户端用 FileReader 读为 base64 后 POST JSON（绕开 tang multipartForm 的挂起问题）。
     public func serveUpload(prefix: String, dir: String): App {
+        this.uploadPrefix = prefix
+        this.uploadDir = dir
         this.serveStatic(prefix, dir)
         this.tangApp.post(prefix) { ctx =>
             try {
@@ -437,15 +442,153 @@ public class App {
                     let txId = readField(raw, "txId")
                     let results = readResults(raw)
                     if (txId != "") { this.dispatchDomResult(ws, state, session, txId, results) }
+                } else if (t == "upload_begin") {
+                    this.handleUploadBegin(ws, state, session, raw)
                 }
+            } else if (frame.frameType == WebSocketFrameType.BinaryWebFrame) {
+                this.handleUploadBinary(ws, state, session, frame)
+            } else if (frame.frameType == WebSocketFrameType.PingWebFrame) {
+                // 协议要求：收到 ping 一定要回 pong（保持连接活性）
+                ws.writePongFrame(frame.payload)
             } else if (frame.frameType == WebSocketFrameType.CloseWebFrame) {
                 ws.writeCloseFrame()
                 break
             }
         }
+        // 连接断开：清理进行中的上传（删除半成品文件）
+        this.cleanupUpload(session)
         session.wsState = WsState.Disconnected
         session.ws = None
         session.tree = RenderContext.expandTree(state.page.renderWithScope(), "")
+    }
+
+    // ============ WS 二进制帧流式上传 ============
+
+    /// upload_begin（文本帧 JSON）：校验 → 建空文件 → 挂 session.upload
+    private func handleUploadBegin(ws: WebSocket, state: SessionState, session: Session, raw: String): Unit {
+        match (parseUploadBegin(raw)) {
+            case None =>
+                wsSendJson(ws, UploadErrorMsg("", "bad upload_begin"))
+            case Some(b) =>
+                if (this.uploadDir == "" || this.uploadPrefix == "") {
+                    wsSendJson(ws, UploadErrorMsg(b.id, "upload not configured (serveUpload missing)"))
+                    return
+                }
+                match (session.upload) {
+                    case Some(_) =>
+                        wsSendJson(ws, UploadErrorMsg(b.id, "upload already in progress"))
+                    case None =>
+                        if (b.size <= 0) {
+                            wsSendJson(ws, UploadErrorMsg(b.id, "empty file"))
+                            return
+                        }
+                        let stored = "${nextId()}-${b.name}"
+                        let path = "${this.uploadDir}/${stored}"
+                        try {
+                            let f = File(path, OpenMode.Write)
+                            f.close()
+                            session.upload = Some(UploadState(b.id, b.name, b.size, b.action, stored))
+                        } catch (e: Exception) {
+                            wsSendJson(ws, UploadErrorMsg(b.id, "can not open storage: ${e.message}"))
+                        }
+                }
+        }
+    }
+
+    /// 二进制帧：拼接分段帧 → 边收边写 → 块级 ack → 收满 dispatch action
+    private func handleUploadBinary(ws: WebSocket, state: SessionState, session: Session, first: WebSocketFrame): Unit {
+        match (collectBinaryPayload(ws, first)) {
+            case Some(bytes) => this.onUploadChunk(ws, state, session, bytes)
+            case None => this.cleanupUpload(session)
+        }
+    }
+
+    /// 读取并拼接一个完整的二进制消息（浏览器可能把单个消息分段发送）。
+    /// 帧间穿插 Ping 控制帧时回 Pong；收到 Close / 非法帧 → None（调用方中止）。
+    private func collectBinaryPayload(ws: WebSocket, first: WebSocketFrame): Option<Array<UInt8>> {
+        if (first.fin) {
+            return Some(first.payload)
+        }
+        var data = ArrayList<UInt8>()
+        appendBytes(data, first.payload)
+        var f = first
+        while (!f.fin) {
+            f = ws.read()
+            match (f.frameType) {
+                case ContinuationWebFrame => appendBytes(data, f.payload)
+                case PingWebFrame => ws.writePongFrame(f.payload)
+                case CloseWebFrame =>
+                    ws.writeCloseFrame()
+                    return None
+                case _ => return None
+            }
+        }
+        Some(data.toArray())
+    }
+
+    /// 写一块字节：写盘 → 进度 ack → 收满后 dispatch uploaded action
+    private func onUploadChunk(ws: WebSocket, state: SessionState, session: Session, bytes: Array<UInt8>): Unit {
+        if (bytes.size == 0) {
+            return
+        }
+        match (session.upload) {
+            case None =>
+                // 没有进行中的上传却收到数据帧：忽略并提示
+                wsSendJson(ws, UploadErrorMsg("", "no active upload"))
+            case Some(u) =>
+                if (uploadWouldOverflow(u, bytes.size)) {
+                    this.abortUpload(ws, session, "size exceeded")
+                    return
+                }
+                try {
+                    let f = File("${this.uploadDir}/${u.stored}", OpenMode.Append)
+                    f.write(bytes)
+                    f.close()
+                } catch (e: Exception) {
+                    this.abortUpload(ws, session, "write failed: ${e.message}")
+                    return
+                }
+                let done = uploadFeed(u, bytes.size)
+                wsSendJson(ws, UploadProgressMsg(u.id, u.received))
+                if (done) {
+                    session.upload = None
+                    // 完成：走标准 action 链路（handler 由 Upload 组件的 data-action-uploaded 提供）
+                    let params = HashMap<String, String>()
+                    params["name"] = u.name
+                    params["url"] = "${this.uploadPrefix}/${u.stored}"
+                    params["size"] = u.received.toString()
+                    this.dispatchAction(ws, state, session, u.action, params)
+                }
+        }
+    }
+
+    /// 中止上传：删半成品文件 + 清 session.upload + 回错误帧
+    private func abortUpload(ws: WebSocket, session: Session, message: String): Unit {
+        match (session.upload) {
+            case Some(u) =>
+                this.removeUploadFile(u)
+                session.upload = None
+                wsSendJson(ws, UploadErrorMsg(u.id, message))
+            case None => ()
+        }
+    }
+
+    /// 连接断开 / 协议异常时清理进行中的上传
+    private func cleanupUpload(session: Session): Unit {
+        match (session.upload) {
+            case Some(u) =>
+                this.removeUploadFile(u)
+                session.upload = None
+            case None => ()
+        }
+    }
+
+    private func removeUploadFile(u: UploadState): Unit {
+        try {
+            remove(Path("${this.uploadDir}/${u.stored}"))
+        } catch (e: Exception) {
+            ()
+        }
     }
 
     private func dispatchAction(ws: WebSocket, state: SessionState, session: Session, name: String, params: HashMap<String, String>): Unit {

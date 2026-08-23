@@ -4,6 +4,11 @@ class CangjieUI {
         this.sessionId = sessionId;
         this.tree = initialTree;
         this.ws = null;
+        // WS 二进制帧上传：串行队列 + 块级 ack 背压（每块等 upload_progress 再发下一块）
+        this._uploadSeq = 0;
+        this._uploadQueue = [];
+        this._uploading = false;
+        this._uploadWaiters = new Map();
         this.init();
         window.CJXT = { registerComponent: this.registerComponent.bind(this) };
     }
@@ -78,15 +83,59 @@ class CangjieUI {
     connectWS() {
         const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
         this.ws = new WebSocket(proto + '//' + location.host + '/ws');
+        this.ws.binaryType = 'arraybuffer';
         this.ws.onopen = () => this.send({ type: 'connect', sessionId: this.sessionId, token: localStorage.getItem('cjxt_token') || '' });
         this.ws.onmessage = (e) => {
             try {
-                this.handleMsg(JSON.parse(e.data));
+                const msg = JSON.parse(e.data);
+                // 上传协议帧（进度 ack / 错误）：独立路由，不进入页面 message 处理
+                if (msg.kind === 'upload_progress' || msg.kind === 'upload_error') {
+                    this.handleUploadMsg(msg);
+                    return;
+                }
+                this.handleMsg(msg);
             } catch(err) {
-                console.error('cjxt WS error:', err.message, 'data:', e.data.substring(0,200));
+                console.error('cjxt WS error:', err.message, 'data:', typeof e.data === 'string' ? e.data.substring(0,200) : '(binary)');
             }
         };
-        this.ws.onclose = () => setTimeout(() => this.connectWS(), 3000);
+        this.ws.onclose = () => {
+            for (const [, w] of this._uploadWaiters) w.rej(new Error('connection closed'));
+            this._uploadWaiters.clear();
+            setTimeout(() => this.connectWS(), 3000);
+        };
+    }
+    // ============ 上传（WS 二进制帧流式） ============
+    handleUploadMsg(msg) {
+        const w = this._uploadWaiters.get(msg.id);
+        if (!w) return;
+        this._uploadWaiters.delete(msg.id);
+        if (msg.kind === 'upload_error') w.rej(new Error(msg.message || 'upload failed'));
+        else w.res(msg.received);
+    }
+    pumpUpload() {
+        if (this._uploading) return;
+        const item = this._uploadQueue.shift();
+        if (!item) return;
+        this._uploading = true;
+        this.uploadOne(item)
+            .catch(err => console.error('cjxt upload failed:', err && err.message))
+            .finally(() => {
+                this._uploading = false;
+                this.pumpUpload();
+            });
+    }
+    async uploadOne(item) {
+        const id = String(++this._uploadSeq);
+        const CHUNK = 256 * 1024;
+        this.send({ type: 'upload_begin', id, name: item.file.name, size: item.file.size, action: item.action });
+        let off = 0;
+        while (off < item.file.size) {
+            const buf = await item.file.slice(off, off + CHUNK).arrayBuffer();
+            const ack = new Promise((res, rej) => this._uploadWaiters.set(id, { res, rej }));
+            this.ws.send(buf);
+            await ack;
+            off += buf.byteLength;
+        }
     }
     handleMsg(msg) {
         switch (msg.kind) {
@@ -323,8 +372,8 @@ class CangjieUI {
         if ((el.hasAttribute('data-upload-trigger') || el.hasAttribute('data-upload-input')) && !el.__cjxtUpload) { this.attachUpload(el); el.__cjxtUpload = true; }
     }
 
-    // 上传：触发区点击 → 打开 file input；file change → XHR multipart 上传 → 成功后按
-    // data-action-uploaded（稳定 handler id）dispatch action（服务端 handler 加文件到列表）
+    // 上传：触发区点击 → 打开 file input；file change → WS 二进制帧流式上传 →
+    // server 收满后按 data-action-uploaded（稳定 handler id）dispatch action（服务端 handler 加文件到列表）
     attachUpload(el) {
         if (el.hasAttribute('data-upload-trigger') && !el.__cjxtUploadTrigger) {
             el.__cjxtUploadTrigger = true;
@@ -339,39 +388,11 @@ class CangjieUI {
             el.addEventListener('change', () => {
                 const file = el.files && el.files[0];
                 if (!file) return;
-                const url = el.getAttribute('data-upload');
                 const action = el.getAttribute('data-action-uploaded');
-                if (!url || !action) return;
-                // FileReader → base64 data URL → POST JSON（绕开 multipart 服务端解析问题）
-                const reader = new FileReader();
-                reader.onload = () => {
-                    const dataUrl = String(reader.result || '');
-                    const comma = dataUrl.indexOf(',');
-                    const b64 = comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl;
-                    const xhr = new XMLHttpRequest();
-                    xhr.open('POST', url);
-                    xhr.setRequestHeader('Content-Type', 'application/json');
-                    xhr.onload = () => {
-                        let res = {};
-                        try { res = JSON.parse(xhr.responseText); } catch (e) {}
-                        if (window.ui) {
-                            window.ui.send({
-                                type: 'action',
-                                name: action,
-                                params: {
-                                    name: res.name || file.name,
-                                    url: res.url || '',
-                                    size: String(res.size != null ? res.size : file.size)
-                                },
-                                sessionId: window.ui.sessionId
-                            });
-                        }
-                    };
-                    xhr.onerror = () => {};
-                    xhr.send(JSON.stringify({ name: file.name, data: b64 }));
-                };
-                reader.onerror = () => {};
-                reader.readAsDataURL(file);
+                if (!action) return;
+                // 入队逐文件上传（服务端单流限制：binary 帧无元数据，串行最稳）
+                this._uploadQueue.push({ file, action });
+                this.pumpUpload();
                 el.value = ''; // 允许重复选同一文件
             });
         }

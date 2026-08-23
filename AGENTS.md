@@ -819,3 +819,30 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 **验证**：189 单测全过（steps +4 布局）；agent-browser 截图逐组件对照 EP（Breadcrumb 蓝链接灰分隔 / Steps 均分+圆形图标+状态色+垂直左右 / Dropdown 白卡+分隔线+disabled / Tree 展开高亮 / Cascader 边框+三列+值回显 / Upload 拖拽框+列表右侧 inline-flex 同 EP）。CSS 重建顺序：`bash scripts/build-css.sh` → `rm -rf examples/target/release/cjxt` → `cd examples && cjpm build`。
 
 **后续计划**：Upload 改为 **WS 二进制帧流式上传**（base64 膨胀 33% + FileReader 绕路）——stdx WebSocket 支持 BinaryWebFrame 读写（read→frame.frameType/payload，write(BinaryWebFrame, bytes) 自动分段；单帧 >20M 断连 → 256KB 分块 + 块级 ack 背压）；协议：upload_begin(JSON 帧 name/size/action-id) → 二进制帧流（File.slice().arrayBuffer()）→ 服务端边收边写（OpenMode.Append 不存在会创建）→ 收满 dispatach 现有 uploaded action（列表照旧出现）。复用 serveUpload 的 dir 配置，Upload.cj 组件不改。
+
+### 2026-08-23 Upload 改为 WS 二进制帧流式上传（替代 base64-JSON 通道）
+
+**动机**：base64 膨胀 33% + FileReader/XHR 绕路；复用已有 WS 双工连接串行上传更贴合服务端驱动模型（零 HTTP 新端点、会话绑定、块级背压）。
+
+**协议**（客户端 addEventListener change 触发，复用现有 WS）：
+- `{type:"upload_begin", id, name, size, action}`（Text 帧 JSON；action = data-action-uploaded 稳定 handler id）
+- 客户端按 256KB 分块发 `BinaryWebFrame`（`file.slice().arrayBuffer()`，零 FileReader/base64）
+- 服务端每块**边收边写盘**（OpenMode.Append，不存在会创建）→ 回 `{kind:"upload_progress", id, received}`（块级 ack = 背压 + 进度基础）
+- 收满 size → **dispatch 既有 uploaded action**（走标准 action 链路：execMutex + 脏追踪 + patch）→ 列表照旧出现
+- 错误 `{kind:"upload_error", id, message}`（bad begin / 未配置 / 已有进行中 / 超限 / 写失败）；超限/断开 → 删半成品文件（`std.fs.remove(Path)`）
+- 单流限制：binary 帧无元数据，同连接一个活跃上传，客户端队列串行（pumpUpload）
+
+**实现**：`src/upload.cj`（parseUploadBegin/UploadState/uploadFeed/uploadWouldOverflow + UploadProgressMsg/UploadErrorMsg，6 单测）；`Session.upload`；app.cj listenLoop 增 upload_begin/binary/ping 分支（Ping 回 Pong）；`collectBinaryPayload` 分段帧拼接（fin=false/Continuation）；`App.uploadDir/uploadPrefix` 由 serveUpload 写入（WS 上传零配置）；前端 uploadOne + `_uploadWaiters`（onclose 清空 rej）+ onmessage 路由 upload_progress/error。
+
+**E2E**（upload_e2e_test.cj，真实 App + upgradeFromClient）：三块二进制 → progress(received 6/11) → 文件落盘内容一致；无 begin 发二进制 → "no active upload"；超限 → "size exceeded" + 半成品删除。
+
+**关键坑（本轮踩）**
+- **客户端 `id` 发成数字**：`"id":1`（无引号）→ 服务端 `jsonStrField` 找不到 → begin 解析失败回 error，但客户端 waiter 是 **id 不匹配** → 静默永久挂起（waiters=1/uploading=true、无任何报错、服务端无日志）。修复：客户端 `String(++seq)` + 服务端 jsonNumField 回退兼容数字 id（回归单测 testParseBeginNumericId）。
+- **调试利器**：服务端 println 日志 + 浏览器 monkey-patch `ui.send`（记录实际发出消息）+ 目录落盘检查三管齐下，20 分钟内定位（此前盲猜 1 小时）。
+- **`uploads/` 目录被 rm 后服务端静默失败**（File Write 打开异常被 catch 回 error 帧）——本地 dev 目录注意存在性；.gitignore 已加 `examples/uploads/`。
+- `UploadState` 用 **class**（引用语义），struct 值传递 `uploadFeed` 无法推进 received。
+- `WebSocketFrameType` 变体名从 stdx 文档确认：ContinuationWebFrame/PingWebFrame/PongWebFrame 等；Frame 类 `payload: Array<UInt8>`。
+- std.fs：删除文件用**顶层 `remove(Path)`**（File 无 remove 方法）；目录用 `Directory.create/createTemp/readFrom/isEmpty`；Append 模式文件不存在会创建。
+- 浏览器 `ws.send(ArrayBuffer)` 大消息可能分段（fin=false + Continuation），服务端必须拼接（只支持穿插 Ping/Pong；其他帧中止）。
+
+**验证**：196 单测全过（+6 协议纯逻辑 +1 e2e）；浏览器端注入文件 → 列表出现（落盘内容一致）→ 点 × 删除 → 列表清空。

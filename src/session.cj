@@ -34,6 +34,8 @@ public class Session {
     var deferred: Bool
     // 已同步给前端的 token（登录/登出后 context["token"] 变化时触发 AuthMsg）
     var syncedToken: String
+    // 进行中的 WS 二进制上传（单流：binary 帧无元数据，同一连接一个活跃上传）
+    var upload: Option<UploadState>
 
     public init(id: String, page: IComponent, tree: IComponent) {
         this.id = id
@@ -51,6 +53,7 @@ public class Session {
         this.states = HashMap<String, AppState>()
         this.deferred = false
         this.syncedToken = ""
+        this.upload = None
     }
 
     public func touch(): Unit {
