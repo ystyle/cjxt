@@ -228,6 +228,16 @@ public class App {
 
     /// 渲染页面到 HTML 壳（会话初始化 + onMount + 树展开 + 写响应）
     private func renderPageInto(ctx: TangHttpContext, session: Session, page: IComponent, routeParams: HashMap<String, String>): Unit {
+        try {
+            this.renderPageIntoInner(ctx, session, page, routeParams)
+        } catch (e: Exception) {
+            println("cjxt renderPageInto error: " + e.message + " @ " + ctx.path())
+            e.printStackTrace()
+            ctx.status(500).writeString("Internal Server Error")
+        }
+    }
+
+    private func renderPageIntoInner(ctx: TangHttpContext, session: Session, page: IComponent, routeParams: HashMap<String, String>): Unit {
         this.initStates(session)
         page.onMount(LifecycleContext(session.id, routeParams, None, None, states: session.states))
         let tree = RenderContext.expandTree(page.renderWithScope(), "")
