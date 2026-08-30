@@ -128,12 +128,12 @@ public struct CombinedPatchMsg <: JsonSerializable {
 }
 
 public struct ActionContext {
-    let sessionId: String
-    let context: HashMap<String, String>
-    let params: HashMap<String, String>
-    let router: Router
-    let pushFn: (Array<PatchEntryMsg>) -> Unit
-    let sessionStates: HashMap<String, AppState>
+    public let sessionId: String
+    public let context: HashMap<String, String>
+    public let params: HashMap<String, String>
+    public let router: Router
+    public let pushFn: (Array<PatchEntryMsg>) -> Unit
+    public let sessionStates: HashMap<String, AppState>
     public let route: RouteContext
     public let keyEvent: Option<KeyEvent>
     // DOM 事务入口（事件驱动）：fire-and-forget 命令 + 查询续体。App 注入，None 表示不可用
