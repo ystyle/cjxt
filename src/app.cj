@@ -297,10 +297,15 @@ public class App {
 
         if (sid != "") {
             match (sessions.get(sid)) {
-                case Some(session) => this.resumeSession(ws, session, token)
-                case None => this.newSession(ws, sid)
+                case Some(session) =>
+                    println("cjxt-ws: RESUME sid=" + sid + " path=" + session.path)
+                    this.resumeSession(ws, session, token)
+                case None =>
+                    println("cjxt-ws: NEW(sid-miss) sid=" + sid)
+                    this.newSession(ws, sid)
             }
         } else {
+            println("cjxt-ws: NEW(no-sid)")
             this.newSession(ws, sessions.generateId())
         }
     }
