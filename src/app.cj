@@ -603,8 +603,10 @@ public class App {
 
     private func dispatchAction(ws: WebSocket, state: SessionState, session: Session, name: String, params: HashMap<String, String>): Unit {
         match (session.handlers.get(name)) {
-            case Some(fn) => this.runAction(ws, state, session, name, fn, params)
-            case None => ()
+            case Some(fn) =>
+                this.runAction(ws, state, session, name, fn, params)
+            case None =>
+                println("cjxt dispatch MISS " + name + " (handlers=" + session.handlers.size.toString() + ")")
         }
     }
 
@@ -618,12 +620,14 @@ public class App {
         }, sessionStates: session.states, keyEvent: keyEvent, dom: Some(DomApi(this, ws, session)))
         try {
             match (fn(ctx)) {
-                case PatchResult.ReRender => if (!flag.done) { this.sendPatch(ws, state, session) }
+                case PatchResult.ReRender =>
+                    if (!flag.done) { this.sendPatch(ws, state, session) }
                 case _ => ()
             }
             // 登录/登出等动作可能修改上下文 token → 同步给前端（localStorage）
             this.syncAuthToken(ws, session)
         } catch (e: Exception) {
+            println("cjxt runAction ERROR: " + TypeInfo.of(e).name + " " + e.message)
             state.page.onError(ErrorContext("", name, e))
         } finally {
             // 必须保证释放 execMutex：handler 抛非 Error 异常时
@@ -796,7 +800,8 @@ public class App {
         }, sessionStates: session.states, dom: Some(DomApi(this, ws, session)))
         try {
             match (fn(ctx)) {
-                case PatchResult.ReRender => if (!flag.done) { this.sendPatch(ws, state, session) }
+                case PatchResult.ReRender =>
+                    if (!flag.done) { this.sendPatch(ws, state, session) }
                 case _ => ()
             }
         } catch (e: Exception) {
