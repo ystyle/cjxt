@@ -252,8 +252,11 @@ public class App {
         for ((hash, _) in this.jsBlobs) {
             jsLinks.add("${this.config.basePath}/_cjxt/js/${hash}.js")
         }
-        ctx.contentType("text/html; charset=utf-8").writeString(
-            generateHtmlShell(session.id, config: this.config, extraCSS: cssLinks.toArray(), extraJS: jsLinks.toArray()))
+        ctx.contentType("text/html; charset=utf-8")
+            .append("Cache-Control", "no-store, no-cache, must-revalidate")
+            .append("Pragma", "no-cache")
+            .writeString(
+                generateHtmlShell(session.id, config: this.config, extraCSS: cssLinks.toArray(), extraJS: jsLinks.toArray()))
     }
 
     private func serveEmbeddedCSS(ctx: TangHttpContext): Unit {
