@@ -4,10 +4,11 @@ import std.collection.{ArrayList, HashMap}
 import std.fs.{File, OpenMode, Path, remove}
 import std.io.ByteBuffer
 import opencj::ulid.nextId
+import std.time.DateTime
 import std.reflect.*
 import std.sync.Mutex
 import std.time.*
-import stdx.net.http.{WebSocket, WebSocketFrame, WebSocketFrameType}
+import stdx.net.http.{WebSocket, WebSocketFrame, WebSocketFrameType, HttpRequestDistributor}
 import tang.{Tang, TangHttpContext}
 import stdx.encoding.json.stream.{JsonWriter, JsonSerializable}
 import stdx.encoding.base64.fromBase64String
@@ -144,7 +145,10 @@ public class App {
         this.sessions.clearAll()
     }
 
-    public func serve(): Unit {
+    /// 注册全部路由到 tang（serve() 与外部合并共用）：
+    /// 与 MCP 等服务合并单端口时，先调用 setupRoutes()，再用 router() 把分发器
+    /// 注入外部 HttpRequestDistributor（见 chronomem ComposeDistributor）。
+    public func setupRoutes(): Unit {
         let reg = RouteRegistry.global()
         let bp = this.config.basePath
         for ((entry, _) in reg.entries) {
@@ -162,6 +166,15 @@ public class App {
         if (this.jsBlobs.size > 0) {
             this.tangApp.get("${bp}/_cjxt/js/*", { ctx => this.serveEmbeddedJS(ctx) })
         }
+    }
+
+    /// 底层 tang 路由分发器（合并外部 server 用：distribute(path) → HttpRequestHandler）
+    public func router(): HttpRequestDistributor {
+        this.tangApp.getRouter()
+    }
+
+    public func serve(): Unit {
+        this.setupRoutes()
         this.tangApp.setHost(this.bindHost).setPort(this.bindPort).listen()
     }
 
@@ -292,7 +305,26 @@ public class App {
     }
 
     private func upgradeWS(ctx: TangHttpContext): Unit {
+        try {
+            this.upgradeWSInner(ctx)
+        } catch (e: Error) {
+            println("cjxt-diag upgradeWS ERR(Error): " + TypeInfo.of(e).name + " " + e.message)
+        } catch (e: Exception) {
+            println("cjxt-diag upgradeWS EX: " + TypeInfo.of(e).name + " " + e.message)
+            this.logStack(e)
+        }
+    }
+
+    private func logStack(e: Exception): Unit {
+        let st = e.getStackTrace()
+        for (i in 0..st.size) {
+            if (i < 12) { println("cjxt-diag stack " + st[i].toString()) }
+        }
+    }
+
+    private func upgradeWSInner(ctx: TangHttpContext): Unit {
         let ws = ctx.upgrade()
+        println("cjxt-diag upgrade ok, waiting connect frame")
         let frame = ws.read()
         let raw = String.fromUtf8(frame.payload)
         let sid = readField(raw, "sessionId")
@@ -610,6 +642,7 @@ public class App {
     }
 
     private func dispatchAction(ws: WebSocket, state: SessionState, session: Session, name: String, params: HashMap<String, String>): Unit {
+        println("cjxt-diag dispatch name=" + name + " handlers=" + session.handlers.size.toString() + " sid=" + session.id)
         match (session.handlers.get(name)) {
             case Some(fn) =>
                 this.runAction(ws, state, session, name, fn, params)
@@ -627,16 +660,20 @@ public class App {
             wsSendJson(ws, PushMsg(patches))
         }, sessionStates: session.states, keyEvent: keyEvent, dom: Some(DomApi(this, ws, session)))
         try {
+            let t0 = DateTime.now().toUnixTimeStamp().toMilliseconds()
             match (fn(ctx)) {
                 case PatchResult.ReRender =>
                     if (!flag.done) { this.sendPatch(ws, state, session) }
                 case _ => ()
             }
+            println("cjxt-diag action done name=" + name + " ms=" + (DateTime.now().toUnixTimeStamp().toMilliseconds() - t0).toString() + " sid=" + session.id)
             // 登录/登出等动作可能修改上下文 token → 同步给前端（localStorage）
             this.syncAuthToken(ws, session)
         } catch (e: Exception) {
             println("cjxt runAction ERROR: " + TypeInfo.of(e).name + " " + e.message)
             state.page.onError(ErrorContext("", name, e))
+        } catch (e: Error) {
+            println("cjxt runAction ERROR(Error): " + TypeInfo.of(e).name + " " + e.message)
         } finally {
             // 必须保证释放 execMutex：handler 抛非 Error 异常时
             // 若跳过 unlock，静态锁永久泄漏 → 后续所有会话/测试死锁
@@ -852,6 +889,7 @@ public class App {
         // sendPatch 被误渲染并整树替换（path="" 时 replace 整个页面）。
         // 所有渲染出口必须统一清理，否则残留脏组件污染后续增量补丁。
         RenderContext.clearDirty()
+        println("cjxt-diag applyNav path=" + path + " sid=" + session.id + " treeBytes=" + serializeSubtree(tree, HashMap<String, ActionHandler>()).size.toString())
         wsSendJson(ws, FullTreeMsg(tree, path: path))
         sendTitle(ws, path)
     }

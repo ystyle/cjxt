@@ -1,32 +1,32 @@
 [package]
-  cjc-version = "1.1.0"
-  name = "cjxt"
-  description = "Cangjie server-driven UI framework for enterprise applications"
-  version = "0.1.0"
-  output-type = "static"
-  compile-option = "-Woff unused"
-  link-option = ""
+cjc-version = "1.1.0"
+name = "cjxt"
+description = "Cangjie server-driven UI framework for enterprise applications"
+version = "0.1.0"
+output-type = "static"
+compile-option = "-Woff unused"
+link-option = ""
 
 
 [package.package-configuration."cjxt.components"]
 compile-option = "--debug-macro"
 
 [target.x86_64-unknown-linux-gnu]
-  # stdx.net.http 的 WebSocket 握手（SHA1）需要 digest 库（对齐 mcp-cj/atelier）
-  link-option = "-L${CANGJIE_STDX_PATH} -lstdx.crypto.digest"
+# stdx.net.http 的 WebSocket 握手（SHA1）需要 digest 库（对齐 mcp-cj/atelier）
+link-option = "-L${CANGJIE_STDX_PATH} -lstdx.crypto.digest"
 [target.x86_64-unknown-linux-gnu.bin-dependencies]
-  path-option = ["${CANGJIE_STDX_PATH}"]
+path-option = ["${CANGJIE_STDX_PATH}"]
 [target.x86_64-apple-darwin.bin-dependencies]
-  path-option = ["${CANGJIE_STDX_PATH}"]
+path-option = ["${CANGJIE_STDX_PATH}"]
 [target.x86_64-w64-mingw32.bin-dependencies]
-  path-option = ["${CANGJIE_STDX_PATH}"]
+path-option = ["${CANGJIE_STDX_PATH}"]
 [target.aarch64-linux-ohos.bin-dependencies]
-  path-option = ["${CANGJIE_STDX_PATH}"]
+path-option = ["${CANGJIE_STDX_PATH}"]
 [target.x86_64-linux-ohos.bin-dependencies]
-  path-option = ["${CANGJIE_STDX_PATH}"]
+path-option = ["${CANGJIE_STDX_PATH}"]
 
 [dependencies]
-tang = "1.0.2" 
+tang = "1.0.4"
 embed = "1.0.7"
 "opencj::ulid" = "0.1.2"
 markit = "0.0.4"
