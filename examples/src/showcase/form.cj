@@ -167,6 +167,7 @@ public func demoSlider(st: ShowcaseState): Array<IComponent> {
             Slider().min(0).max(100).bind(st.sliderValue),
             Slider().min(0).max(100).step(10).showStops().bind(st.sliderValue),
             Slider().min(0).max(100).disabled().bind(st.sliderValue),
+            Text([text("当前值: ${st.sliderValue.get()}")]).kind(ComponentKind.Info),
         ]),
     ]
 }

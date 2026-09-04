@@ -3,68 +3,59 @@
 @use '../mixins/mixins' as *;
 @use '../common/var' as *;
 
+// ============ Slider 服务端渲染增强 ============
+// 原生 input[type=range] 方案已废弃（Slider v2 改为 EP DOM：runway/bar/button-wrapper/button），
+// 这里补充 EP 没有覆盖的两处：
+// 1. 按钮值浮层 .el-slider__tip（EP 用 el-tooltip popper，服务端渲染为按钮包裹内元素，hover/拖动时显示）
+// 2. 焦点样式（wrapper 承担键盘焦点，EP 的 :focus-visible 未覆盖服务端渲染场景）
+
 @include b(slider) {
-  input[type="range"] {
-    -webkit-appearance: none;
-    appearance: none;
-    flex: 1;
-    height: getCssVar('slider-height');
-    border-radius: getCssVar('slider-border-radius');
-    background: linear-gradient(
-      to right,
-      getCssVar('slider-main-bg-color') 0%,
-      getCssVar('slider-main-bg-color') var(--pct, 0%),
-      getCssVar('slider-runway-bg-color') var(--pct, 0%),
-      getCssVar('slider-runway-bg-color') 100%
-    );
-    outline: none;
-    cursor: pointer;
+  @include e(button-wrapper) {
+    &:hover .#{$namespace}-slider__tip,
+    &.hover .#{$namespace}-slider__tip,
+    &.dragging .#{$namespace}-slider__tip {
+      visibility: visible;
+      opacity: 1;
+    }
+
+    &:focus-visible .#{$namespace}-slider__button {
+      outline: 2px solid getCssVar('slider-main-bg-color');
+      outline-offset: 2px;
+    }
   }
 
-  input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: getCssVar('slider-button-size');
-    height: getCssVar('slider-button-size');
-    border-radius: 50%;
-    background-color: getCssVar('color-white');
-    border: 2px solid getCssVar('slider-main-bg-color');
-    box-sizing: border-box;
-    cursor: grab;
+  @include e(tip) {
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 4px 8px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: getCssVar('color-white');
+    background-color: getCssVar('text-color-primary');
+    border-radius: 4px;
+    white-space: nowrap;
+    z-index: 2;
+    visibility: hidden;
+    opacity: 0;
     transition: getCssVar('transition-duration-fast');
+
+    &::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      margin-left: -4px;
+      border-width: 4px;
+      border-style: solid;
+      border-color: getCssVar('text-color-primary') transparent transparent transparent;
+    }
   }
 
-  input[type="range"]::-webkit-slider-thumb:hover {
-    transform: scale(1.2);
-    cursor: grab;
-  }
-
-  input[type="range"]::-moz-range-track {
-    height: getCssVar('slider-height');
-    border-radius: getCssVar('slider-border-radius');
-    background: transparent;
-  }
-
-  input[type="range"]::-moz-range-thumb {
-    width: getCssVar('slider-button-size');
-    height: getCssVar('slider-button-size');
-    border-radius: 50%;
-    background-color: getCssVar('color-white');
-    border: 2px solid getCssVar('slider-main-bg-color');
-    box-sizing: border-box;
-    cursor: grab;
-  }
-
-  input[type="range"]::-moz-range-progress {
-    height: getCssVar('slider-height');
-    border-radius: getCssVar('slider-border-radius');
-    background-color: getCssVar('slider-main-bg-color');
-  }
-
-  // disabled
-  &.is-disabled input[type="range"],
-  input[type="range"]:disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
+  &.is-disabled {
+    .#{$namespace}-slider__tip {
+      display: none;
+    }
   }
 }

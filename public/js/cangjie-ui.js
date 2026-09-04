@@ -242,6 +242,7 @@ class CangjieUI {
         // 绑定 input 事件
         if (el.hasAttribute('data-bind-id')) this.attachBind(el);
         if (el.hasAttribute('data-vscroll')) this.attachVScroll(el);
+        if (el.hasAttribute('data-slider')) this.attachSlider(el);
         // 自动消失（Message/Notification 等）：data-auto-dismiss="ms" → 到时触发点击（关闭 action）
         if (el.hasAttribute('data-auto-dismiss')) this.attachAutoDismiss(el);
         // 上传：data-upload-trigger（点触发 file input）+ data-upload-input（change 后 XHR 上传）
@@ -276,6 +277,7 @@ class CangjieUI {
         for (const c of (node.children || [])) el.appendChild(this.createNode(c));
         if (el.hasAttribute('data-bind-id')) this.attachBind(el);
         if (el.hasAttribute('data-vscroll')) this.attachVScroll(el);
+        if (el.hasAttribute('data-slider')) this.attachSlider(el);
         if (el.hasAttribute('data-auto-dismiss')) this.attachAutoDismiss(el);
         if (el.hasAttribute('data-upload-trigger') || el.hasAttribute('data-upload-input')) this.attachUpload(el);
         return el;
@@ -374,6 +376,7 @@ class CangjieUI {
         if (!hasInner) this.reconcileChildren(el, node.children || []);
         if (el.hasAttribute('data-bind-id') && !el.__cjxtBound) { this.attachBind(el); el.__cjxtBound = true; }
         if (el.hasAttribute('data-vscroll') && !el.__cjxtVScroll) { this.attachVScroll(el); el.__cjxtVScroll = true; }
+        if (el.hasAttribute('data-slider') && !el.__cjxtSlider) { this.attachSlider(el); el.__cjxtSlider = true; }
         if (el.hasAttribute('data-auto-dismiss') && !el.__cjxtAutoDismiss) { this.attachAutoDismiss(el); el.__cjxtAutoDismiss = true; }
         if ((el.hasAttribute('data-upload-trigger') || el.hasAttribute('data-upload-input')) && !el.__cjxtUpload) { this.attachUpload(el); el.__cjxtUpload = true; }
     }
@@ -496,6 +499,75 @@ class CangjieUI {
                 raf = null;
                 this.send({ type: 'bind', name: bid, value: String(el.scrollTop) });
             });
+        });
+    }
+    // 滑块（EP DOM 结构）：pointer 拖动/点击 + 键盘 → 位置/键码换算值 → bind 消息回传（rAF 节流）
+    attachSlider(el) {
+        const bid = el.getAttribute('data-bind-id');
+        if (!bid) return;
+        const min = Number(el.getAttribute('data-min') || 0);
+        const max = Number(el.getAttribute('data-max') || 100);
+        const step = Number(el.getAttribute('data-step') || 1);
+        const self = this;
+        let dragging = false;
+        let raf = null;
+        let lastValue = null;
+
+        const wrapper = () => el.querySelector('.el-slider__button-wrapper');
+        const valueFromEvent = (e) => {
+            const rect = el.getBoundingClientRect();
+            if (rect.width <= 0) return null;
+            const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+            const raw = min + ratio * (max - min);
+            let v = min + Math.round((raw - min) / step) * step;
+            if (v < min) v = min;
+            if (v > max) v = max;
+            return v;
+        };
+        const sendValue = (v) => {
+            if (v === null || v === lastValue) return;
+            lastValue = v;
+            if (raf) return;
+            raf = requestAnimationFrame(() => {
+                raf = null;
+                self.send({ type: 'bind', name: bid, value: String(lastValue) });
+            });
+        };
+        const setDragging = (on) => {
+            dragging = on;
+            const w = wrapper();
+            if (w) w.classList.toggle('dragging', on);
+        };
+        el.addEventListener('pointerdown', (e) => {
+            if (el.classList.contains('is-disabled')) return;
+            if (el.setPointerCapture) { try { el.setPointerCapture(e.pointerId); } catch (_) {} }
+            setDragging(true);
+            sendValue(valueFromEvent(e));
+            e.preventDefault();
+        });
+        el.addEventListener('pointermove', (e) => { if (dragging) sendValue(valueFromEvent(e)); });
+        el.addEventListener('pointerup', () => setDragging(false));
+        el.addEventListener('pointercancel', () => setDragging(false));
+        // 键盘（焦点在 button-wrapper，事件冒泡到 runway）：方向键 ±step、Page ±10step、Home/End 边界
+        el.addEventListener('keydown', (e) => {
+            if (el.classList.contains('is-disabled')) return;
+            const w = wrapper();
+            const cur = w ? Number(w.getAttribute('aria-valuenow') || 0) : 0;
+            const pg = step * 10;
+            let v = cur;
+            switch (e.key) {
+                case 'ArrowLeft': case 'ArrowDown': v = cur - step; break;
+                case 'ArrowRight': case 'ArrowUp': v = cur + step; break;
+                case 'PageDown': v = cur - pg; break;
+                case 'PageUp': v = cur + pg; break;
+                case 'Home': v = min; break;
+                case 'End': v = max; break;
+                default: return;
+            }
+            if (v < min) v = min;
+            if (v > max) v = max;
+            sendValue(v);
+            e.preventDefault();
         });
     }
     registerComponent(name, compClass) {
