@@ -192,6 +192,27 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 
 ## 代码总结
 
+### 2026-09-06 Collapse 折叠面板对齐 EP（样式/DOM 结构）
+
+**现象**：Collapse 页面全部面板渲染成一行行裸文本——无 48px 头高、无内边距、无条目分隔线、箭头方向也不对。
+
+**根因 1（样式缺失）**：EP theme-chalk 把折叠面板拆成 **3 个 scss**（collapse.scss 容器 / collapse-item.scss 条目 / collapse-transition.scss），
+cjxt 只拷了容器那个。`.el-collapse-item__header` 的全部规则（min-height 48px、13px/500、border-bottom、bg）都在 collapse-item.scss 里，未引入 → 条目零样式。
+- 教训：拷组件 scss 前用 `ls packages/theme-chalk/src/ | grep -i <component>` 全量检查该组件拆分成的所有文件，别只拷目录里肉眼可见的主文件。
+
+**根因 2（变量表）**：`set-component-css-var('collapse', $collapse)` 依赖 common/var.scss 里的 `$collapse` map（本次已在，无需加）；
+若缺失则 `getCssVar('collapse-*')` → `var(--el-collapse-*)` 全部无值 → 规则整体失效。判断"样式没生效"要先查变量表是否在 grep 的**正确文件**（common/var.scss，不在 var.scss）。
+
+**根因 3（DOM 结构）**：EP 结构是 `header > (span.__title + span.__arrow(ArrowRight))` + `div.__wrap[role=region] > div.__content`；
+旧实现缺 `__wrap`（EP 的 wrap 持有 border-bottom；header is-active 时 border-color 透明，分隔线由 wrap 补上）、标题类名写成 `__header-text`（EP 是 `__title`）、
+箭头用 arrow-down + 内联 rotate(180deg)（EP 是 **ArrowRight**，CSS `.el-collapse-item__arrow.is-active { rotate(90deg) }`，不用内联样式）。
+
+**本次修复**：
+- 拷入 collapse-item.scss 并 `@use` 到 element-plus.scss；arrow-right 路径换 EP icons-vue 现行版（旧 element-ui 路径超出 1024 viewBox 会被裁边）
+- CollapseItem.render 对齐 EP：`__title` / ArrowRight+is-active / `__wrap>__content`（仅激活时渲染，服务端 v-show 语义）
+- 键盘支持：header `tabindex=0` + `on("keydown")` 回车/空格切换（`on()` 合并式，不丢 click handler）
+- 验证：agent-browser 计算样式 48px/13px/500/border rgb(235,238,245)；点击展开出 wrap 内容；手风琴互斥（组A→组B 只留组B）；259/259 单测全过；docker 部署后线上复验一致
+
 ### 2026-09-05 Table P1 对齐 + VNode.onClick 陷阱
 
 **Table P1 修复：**
