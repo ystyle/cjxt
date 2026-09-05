@@ -192,6 +192,15 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 
 ## 代码总结
 
+### 2026-09-06 Calendar 表头/补位格修复（用户反馈）
+
+**用户反馈**：日历页"周几那行有问题"+ 选中 7-30 无高亮。经核对日期事实（2026-08-01 周六、7-30 周四）渲染正确，实际是两个体验问题：
+1. **默认周起始**：原默认 0=周日，中文习惯（EP zh locale firstDayOfWeek=1）应默认**周一** → `_firstDay = 1`；demo 第二例改为"周日开始（firstDayOfWeek=0）"；新增 testDefaultMondayFirst 单测。
+2. **补位格点击**：原实现只写选中值、视图不动 → 点 7-30 后"选中：2026-07-30"但 8 月视图无高亮，显得"点了没反应"。对齐 EP pickDay：**补位格（!inMonth）点击时视图切到该格所在月**（setViewKey 当月首日）→ 视图跳 7 月且选中 30 高亮可见。
+- 排查法：先用 `date -d 2026-08-01 +%A` 核事实，再查 computed style（th fw400/#606266/pad 12px 0/border-top 与 EP scss 一致）→ 确认不是样式 bug，是交互/默认值问题。
+
+**验证**：tests 33/33（+1 默认周一）；浏览器：默认表头 一二三四五六日；点 7-30 补位格 → 视图切"2026 年 7 月"+ 选中 30；docker 部署线上复验。
+
 ### 2026-09-06 Calendar 日历组件（Stage 5 时间组第 1 个）
 
 **实现**：`Calendar().bind(Signal<String> 选中日).viewDate(Signal<String> 显示月).firstDayOfWeek(Int64).onSelect(ActionHandler)`；DOM 对齐 EP：`el-calendar > __header(__title "2026 年 9 月" + __button-group 上月/今天/下月 small) + __body > table.el-calendar-table[cellspacing=0] > thead(7 th) / tbody > tr.el-calendar-table__row > td.{current|prev|next}[.is-selected][.is-today] > div.el-calendar-day > span`。复用 `calendar.cj` 的 `addMonths/formatDate/parseDate/monthGrid(42 格)/nowDateKey` 纯逻辑（已有单测）；today 用 `nowDateKey()`，选中/今天类只挂 current 格（EP getCellClass 语义）。导航切月写 viewDate 外置信号（组件自身订阅 → 脏重渲染）；点任意格 = 写选中值 + onSelect。
