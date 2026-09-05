@@ -113,8 +113,16 @@ public class MenuItemGroup <: Component {
     public func getChildren(): Array<IComponent> { this._children }
 
     public func render(): IComponent {
-        let title = div([text(this._label)], attrs: Some(HashMap<String, String>([("class", "el-menu-item-group__title")])))
-        VNode("li", [title, VNode("ul", this._children)], attrs: Some(HashMap<String, String>([("class", "el-menu-item-group")])))
+        // 标题 padding 依赖 --el-menu-base-level-padding（服务端渲染未设置 → 贴边），
+        // 内联对齐菜单项（EP：padding: 7px 0 7px 20px, 12px 次级文字色由 scss 提供）
+        let titleAttrs = HashMap<String, String>([
+            ("class", "el-menu-item-group__title"),
+            ("style", "padding: 9px 20px 7px 20px"),
+        ])
+        let title = div([text(this._label)], attrs: Some(titleAttrs))
+        // 组间距（首组也无妨：与顶部导航栏留白一致）；inner ul 防 marker 圆点
+        let liAttrs = HashMap<String, String>([("class", "el-menu-item-group"), ("style", "margin-top: 10px; list-style: none")])
+        VNode("li", [title, VNode("ul", this._children, attrs: Some(HashMap<String, String>([("style", "list-style: none")])))], attrs: Some(liAttrs))
     }
 }
 
