@@ -101,7 +101,7 @@ public class Badge <: Component {
     func parseInt(s: String): Int64 {
         try {
             Int64.parse(s)
-        } catch (e: Error) {
+        } catch (e: Exception) {
             -1
         }
     }
@@ -118,7 +118,8 @@ public class Badge <: Component {
         let displayValue = this.computeDisplayValue()
         // EP badge.vue：值 0 且 showZero=false → is-hide-zero（scss display:none）；
         // 无值且非 dot 且无子项 slot 时不渲染 sup（旧实现空值也渲染空 sup）
-        let isZero = this.parseInt(this._value) == 0 && this._value != ""
+        // ⚠️ 空值分支必须在前（parseInt("") 抛 IllegalArgumentException）
+        let isZero = this._value != "" && this.parseInt(this._value) == 0
         if (isZero && !this._showZero) { contentCls = "${contentCls} is-hide-zero" }
 
         let parts = ArrayList<IComponent>()

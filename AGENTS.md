@@ -224,6 +224,15 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
   （隐藏 input 不可见不可直接点击，action 由 label 主导，天然一次）。
 - 排查提示：服务端日志看到**同一 handler id 连续两条 dispatch** 就是这个症状。
 
+**教训 7（2026-09-05，Badge 页面点不进去）：&& 短路左侧的解析在空值下先炸（且 parse 抛的是 Exception 非 Error）**
+- 现象：Badge 菜单点击后 demo 不切换；日志 `runAction ERROR: IllegalArgumentException The string is empty`。
+- 根因：新增判断 `this.parseInt(this._value) == 0 && this._value != ""` —— 逻辑顺序反了，
+  纯 dot 无 value 的 Badge 先执行 `parseInt("")` → `Int64.parse("")` 抛 IllegalArgumentException；
+  且 parseInt 的 `catch (e: Error)` 捕不到（异常基类是 Exception）→ 传播到 runAction。
+- 修复：空值短路前置（`this._value != "" && ...`），parseInt/所有无害解析统一 `catch (e: Exception)`。
+- 排查方法：runAction ERROR 加了 `e.getStackTrace()` 堆栈打印（app.cj 异常两分支），
+  从此这类问题一条日志定位到行号（Badge::render → parseInt → Int64.parse）。
+
 **教训 6（2026-09-05）：StringBuilder.append(UInt8) 把字节转成十进制文本**
 - 表现：formatStatistic("1234567") 输出 "49,505,152,535,455"（每个字符的 ASCII 十进制拼串）。
 - 根因：`sb.append(bytes[i])`（UInt8）按**数值文本**追加（"1"→"49"），不是字符；

@@ -671,6 +671,7 @@ public class App {
             this.syncAuthToken(ws, session)
         } catch (e: Exception) {
             println("cjxt runAction ERROR: " + TypeInfo.of(e).name + " " + e.message)
+            println("cjxt-diag stack " + e.getStackTrace().toString())
             state.page.onError(ErrorContext("", name, e))
         } catch (e: Error) {
             println("cjxt runAction ERROR(Error): " + TypeInfo.of(e).name + " " + e.message)
