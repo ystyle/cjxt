@@ -214,6 +214,16 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 - 修复：改用合并式 `on("click", h)` / `on("keydown", h)`（on() 克隆合并现有 actions/handlers）。
 - 排查提示：dispatchBind 静默 MISS（session.handlers 查不到 bid）时先检查是否被 onClick 链吞掉。
 
+**教训 4（2026-09-05 修复，选择列失效）：label 内隐藏 input 的合成 click 导致委托双重派发**
+- 现象：Table 选择列 checkbox 点了没反应（同样影响 Radio）。服务端 handler 正常写入选择集，
+  但同一点击被派发两次（ms=2 两行日志），第一次全选、第二次反选 → 净效果不变。
+- 根因：浏览器对 `<label><input type=checkbox 隐藏></label>` 的点击有默认行为——激活关联 input，
+  合成一次 **input 的 click** 冒泡到 container；attachClickDelegate 的 `e.target.closest('[data-action-click]')`
+  从 input 向上找到同一 label → 同一 action 再次 dispatch（与 handler 是否防抖无关）。
+- 修复：attachClickDelegate 里 `e.target` 是 label 内的 checkbox/radio input 时直接 return
+  （隐藏 input 不可见不可直接点击，action 由 label 主导，天然一次）。
+- 排查提示：服务端日志看到**同一 handler id 连续两条 dispatch** 就是这个症状。
+
 **教训 3：Int64.parse 抛 Exception（非 Error）**
 - `catch (e: Error)` 捕不到 Int64.parse 的非数字异常（"Alice" 直接炸测试）；
   无害解析用 `catch (e: Exception)`（Badge.parseInt 旧代码用 Error 覆盖不到的路径）。

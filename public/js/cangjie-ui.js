@@ -76,6 +76,12 @@ class CangjieUI {
     }
     attachClickDelegate() {
         this.container.addEventListener('click', (e) => {
+            // label 内隐藏 input（checkbox/radio）的点击是 label 点击的“合成回放”：
+            // 浏览器默认行为会让 label 关联的 input 再派发一次 click，冒泡后会被本委托
+            // 再次分发（closest 找到同一 label）→ 同一动作执行两次（如 Table 选择被 toggle 两次）。
+            // 隐藏 input 不可见不可直接点击，直接跳过由 label 主导的派发。
+            const t = e.target;
+            if (t && t.tagName === 'INPUT' && (t.type === 'checkbox' || t.type === 'radio') && t.closest('label')) return;
             const el = e.target.closest('[data-action-click]');
             if (!el) return;
             const name = el.getAttribute('data-action-click');
