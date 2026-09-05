@@ -133,13 +133,13 @@ public class TableGenericRenderTest {
     }
 
     @TestCase
-    public func testTableCellNowrap(): Unit {
+    public func testTableCellNoForcedNowrap(): Unit {
         let table = Table<PersonRow>()
             .data(peopleData())
             .add(TableColumn<PersonRow>().label("姓名").accessor({ r => r.name }))
         let (json, _) = renderTableJson(table)
-        // 单元格单行（防止窄列长文本换行成竖排）
-        @Expect(json.contains("white-space: nowrap"), true)
+        // 对齐 EP：cell 不强制 nowrap（EP 默认换行，长文本折行而非撑破列宽）
+        @Expect(json.contains("white-space: nowrap"), false)
     }
 }
 

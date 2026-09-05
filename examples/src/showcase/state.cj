@@ -72,6 +72,7 @@ public class ShowcaseState <: AppState {
     var domTxResult = Signal<String>("未查询")
     var stepsActive = Signal<Int64>(1)
     var dropdownResult = Signal<String>("未选择")
+    var popconfirmResult = Signal<String>("未操作")
     var treeCurrent = Signal<String>("")
     var treeNodeLabel = Signal<String>("未选节点")
     var treeExpanded = Signal<HashMap<String, Bool>>(HashMap<String, Bool>())

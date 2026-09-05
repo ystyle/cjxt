@@ -90,6 +90,7 @@ public class App {
         this.addJS(_floatingUIJS)
         this.addJS(_tooltipJS)
         this.addJS(_popoverJS)
+        this.addJS(_popconfirmJS)
         this
     }
 

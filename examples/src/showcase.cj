@@ -27,7 +27,7 @@ let menuGroups: Array<MenuCategory> = [
     MenuCategory("数据", ["Table", "Collapse", "Pagination", "DatePicker", "DateRangePicker", "Tree", "Cascader", "Upload"]),
     MenuCategory("导航", ["Tabs", "Breadcrumb", "Steps", "Dropdown"]),
     MenuCategory("反馈", ["Alert", "Message", "Notification", "Loading", "Skeleton"]),
-    MenuCategory("遮罩层", ["Dialog", "Drawer", "Tooltip", "Popover"]),
+    MenuCategory("遮罩层", ["Dialog", "Drawer", "Tooltip", "Popover", "Popconfirm"]),
     MenuCategory("展示", ["Progress", "Avatar", "Empty", "Descriptions", "Statistic", "Result"]),
     MenuCategory("高级", ["Markdown", "AutoScroll", "Reactive", "VirtualList", "DomTx"]),
 ]
@@ -93,6 +93,7 @@ class ShowcasePage <: Component {
             case "Button" => demoButton(this.state)
             case "Alert" => demoAlert(this.state)
             case "Collapse" => demoCollapse(this.state)
+            case "Popconfirm" => demoPopconfirm(this.state)
             case "ButtonGroup" => demoButtonGroup(this.state)
             case "Card" => demoCard(this.state)
             case "RowCol" => demoRowCol(this.state)
@@ -153,6 +154,7 @@ class ShowcasePage <: Component {
             case "Button" => propsButton()
             case "Alert" => propsAlert()
             case "Collapse" => propsCollapse()
+            case "Popconfirm" => propsPopconfirm()
             case "ButtonGroup" => propsButtonGroup()
             case "Card" => propsCard()
             case "RowCol" => propsRowCol()
