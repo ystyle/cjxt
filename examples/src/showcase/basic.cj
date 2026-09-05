@@ -91,6 +91,13 @@ public func demoRowCol(st: ShowcaseState): Array<IComponent> {
                 Col([cell("offset: 4")], span: 4, offset: 4, gutter: gutter),
             ], gutter: gutter),
         ]),
+        demoSection("响应式（xs→xl）", [
+            Row([
+                Col([cell("md: 8")], span: 24, xs: 24, sm: 12, md: 8, gutter: gutter),
+                Col([cell("md: 8")], span: 24, xs: 24, sm: 12, md: 8, gutter: gutter),
+                Col([cell("md: 8")], span: 24, xs: 24, sm: 12, md: 8, gutter: gutter),
+            ], gutter: gutter),
+        ]),
         demoSection("Justify / Align", [
             Row([
                 Col([cell("start")], span: 4, gutter: gutter),

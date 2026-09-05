@@ -57,11 +57,17 @@ public func Row(children: Array<IComponent>, gutter!: Int64 = 0, justify!: RowJu
     div(children, attrs: Some(attrs))
 }
 
-public func Col(children: Array<IComponent>, span!: Int64 = 24, offset!: Int64 = 0, pull!: Int64 = 0, push!: Int64 = 0, gutter!: Int64 = 0): IComponent {
+public func Col(children: Array<IComponent>, span!: Int64 = 24, offset!: Int64 = 0, pull!: Int64 = 0, push!: Int64 = 0, gutter!: Int64 = 0, xs!: Int64 = -1, sm!: Int64 = -1, md!: Int64 = -1, lg!: Int64 = -1, xl!: Int64 = -1): IComponent {
     var cls = "el-col el-col-${span}"
     if (offset > 0) { cls = "${cls} el-col-offset-${offset}" }
     if (pull > 0) { cls = "${cls} el-col-pull-${pull}" }
     if (push > 0) { cls = "${cls} el-col-push-${push}" }
+    // 响应式断点：ep col.scss 的媒体查询按 el-col-{bp}-{span} 类生效
+    if (xs > 0) { cls = "${cls} el-col-xs-${xs}" }
+    if (sm > 0) { cls = "${cls} el-col-sm-${sm}" }
+    if (md > 0) { cls = "${cls} el-col-md-${md}" }
+    if (lg > 0) { cls = "${cls} el-col-lg-${lg}" }
+    if (xl > 0) { cls = "${cls} el-col-xl-${xl}" }
     let styleStr = if (gutter > 0) { "padding-left:${gutter / 2}px;padding-right:${gutter / 2}px" } else { "" }
     let attrs = HashMap<String, String>([("class", cls)])
     if (styleStr != "") { attrs["style"] = styleStr }

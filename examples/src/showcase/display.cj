@@ -34,6 +34,7 @@ public func demoAvatar(st: ShowcaseState): Array<IComponent> {
                 Avatar().src("https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png"),
                 Avatar().size("large").icon("user"),
                 Avatar().size("small").icon("user"),
+                Avatar().size("64").icon("user"),
                 Avatar().shape(AvatarShape.Square).icon("user"),
             ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
         ]),

@@ -40,26 +40,23 @@ public class Avatar <: Component {
 
         let attrs = HashMap<String, String>([("class", cls)])
         if (this._size != "") {
+            // EP avatar.vue：数字尺寸走 --el-avatar-size CSS 变量（avatar.scss width/height: var）
             let isNumeric = this.isNumericString(this._size)
-            if (isNumeric) { attrs["style"] = "width:${this._size}px;height:${this._size}px;line-height:${this._size}px" }
+            if (isNumeric) { attrs["style"] = "--el-avatar-size:${this._size}px" }
         }
         if (this._hasError) { this._hasError = false; attrs["class"] = "${cls} is-error" }
 
         let content: IComponent
         if (this._src != "" && !this._hasError) {
             let imgAttrs = HashMap<String, String>([
-                ("class", "el-avatar__img"),
                 ("src", this._src),
                 ("style", "object-fit:${this._fit.asAttr()}")
             ])
             if (this._alt != "") { imgAttrs["alt"] = this._alt }
             if (this._srcSet != "") { imgAttrs["srcset"] = this._srcSet }
-            let imgEl = VNode("img", [], attrs: Some(imgAttrs))
-            match (this._onError) {
-                case Some(h) => imgEl.onClick(h)
-                case None => imgEl
-            }
-            content = imgEl
+            // EP 错误回退监听原生 img error 事件 —— 服务端无法收发；
+            // 不绑定 onClick（原实现语义错误：点击头像会触发 onError）
+            content = VNode("img", [], attrs: Some(imgAttrs))
         } else if (this._icon != "") {
             content = Icon(this._icon).render()
         } else if (this._children.size > 0) {
