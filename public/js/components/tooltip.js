@@ -10,14 +10,13 @@
             container.appendChild(trigger);
 
             const popper = document.createElement('div');
-            popper.className = 'el-tooltip__popper is-' + (props.effect || 'dark');
+            popper.className = 'el-popper is-' + (props.effect || 'dark');
+            popper.setAttribute('role', 'tooltip');
             popper.textContent = props.content || '';
-            popper.style.cssText = 'display:none;position:absolute;z-index:2000;padding:8px 12px;border-radius:4px;font-size:12px;line-height:1.4;max-width:350px;word-wrap:break-word;';
-            if (props.effect === 'light') {
-                popper.style.cssText += 'background:#fff;color:#303133;border:1px solid #e4e7ed;box-shadow:0 2px 12px rgba(0,0,0,0.12);';
-            } else {
-                popper.style.cssText += 'background:#303133;color:#fff;';
-            }
+            popper.style.cssText = 'display:none;max-width:350px;';
+            const arrow = document.createElement('span');
+            arrow.className = 'el-popper__arrow';
+            popper.appendChild(arrow);
             document.body.appendChild(popper);
 
             this._trigger = trigger;
@@ -42,6 +41,7 @@
                             placement: this._placement,
                             middleware: [FloatingUIDOM.offset(8), FloatingUIDOM.shift({padding: 5}), FloatingUIDOM.arrow({element: popper.querySelector('.el-popper__arrow')})]
                         }).then(({x, y, middlewareData, placement}) => {
+                            popper.setAttribute('data-popper-placement', placement);
                             Object.assign(popper.style, {left: x + 'px', top: y + 'px'});
                             if (middlewareData.arrow) {
                                 const arrow = popper.querySelector('.el-popper__arrow');

@@ -13,17 +13,16 @@
             const popper = document.createElement('div');
             popper.className = 'el-popover el-popper';
             const w = props.width ? props.width + 'px' : '150px';
-            popper.style.cssText = 'display:none;position:absolute;z-index:2000;background:#fff;border:1px solid #e4e7ed;border-radius:4px;padding:12px;box-shadow:0 2px 12px rgba(0,0,0,0.12);min-width:' + w + ';';
+            popper.style.cssText = 'display:none;min-width:' + w + ';';
             if (props.title) {
                 const title = document.createElement('div');
+                title.className = 'el-popover__title';
                 title.textContent = props.title;
-                title.style.cssText = 'font-size:14px;font-weight:600;margin-bottom:8px;color:#303133;';
                 popper.appendChild(title);
             }
             if (props.content) {
                 const body = document.createElement('div');
                 body.textContent = props.content;
-                body.style.cssText = 'font-size:13px;color:#606266;';
                 popper.appendChild(body);
             }
             document.body.appendChild(popper);
@@ -42,7 +41,8 @@
                     FloatingUIDOM.computePosition(trigger, popper, {
                         placement: this._placement,
                         middleware: [FloatingUIDOM.offset(8), FloatingUIDOM.shift({padding: 5})]
-                    }).then(({x, y}) => {
+                    }).then(({x, y, placement}) => {
+                        popper.setAttribute('data-popper-placement', placement);
                         Object.assign(popper.style, {left: x + 'px', top: y + 'px'});
                     });
                 });

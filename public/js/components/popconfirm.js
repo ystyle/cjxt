@@ -13,7 +13,7 @@
             const popper = document.createElement('div');
             popper.className = 'el-popover el-popper';
             const w = props.width ? props.width + 'px' : '150px';
-            popper.style.cssText = 'display:none;position:absolute;z-index:2000;background:#fff;border:1px solid #e4e7ed;border-radius:4px;padding:12px;box-shadow:0 2px 12px rgba(0,0,0,0.12);min-width:' + w + ';box-sizing:border-box;';
+            popper.style.cssText = 'display:none;min-width:' + w + ';';
 
             // EP 结构：.el-popconfirm > __main(icon+title) + __action(取消/确定)
             const box = document.createElement('div');
@@ -66,7 +66,8 @@
                     FloatingUIDOM.computePosition(trigger, popper, {
                         placement: this._placement,
                         middleware: [FloatingUIDOM.offset(8), FloatingUIDOM.shift({padding: 5})]
-                    }).then(({x, y}) => {
+                    }).then(({x, y, placement}) => {
+                        popper.setAttribute('data-popper-placement', placement);
                         Object.assign(popper.style, {left: x + 'px', top: y + 'px'});
                     });
                 });
