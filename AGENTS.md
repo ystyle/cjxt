@@ -192,6 +192,18 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 
 ## 代码总结
 
+### 2026-09-06 Calendar 日历组件（Stage 5 时间组第 1 个）
+
+**实现**：`Calendar().bind(Signal<String> 选中日).viewDate(Signal<String> 显示月).firstDayOfWeek(Int64).onSelect(ActionHandler)`；DOM 对齐 EP：`el-calendar > __header(__title "2026 年 9 月" + __button-group 上月/今天/下月 small) + __body > table.el-calendar-table[cellspacing=0] > thead(7 th) / tbody > tr.el-calendar-table__row > td.{current|prev|next}[.is-selected][.is-today] > div.el-calendar-day > span`。复用 `calendar.cj` 的 `addMonths/formatDate/parseDate/monthGrid(42 格)/nowDateKey` 纯逻辑（已有单测）；today 用 `nowDateKey()`，选中/今天类只挂 current 格（EP getCellClass 语义）。导航切月写 viewDate 外置信号（组件自身订阅 → 脏重渲染）；点任意格 = 写选中值 + onSelect。
+
+**要点/坑**：
+- 跨年补位判定不能只比 month：`cell.year > d.year || (cell.year == d.year && cell.month > d.month)`（12 月 → 次年 1 月时 month 比较会误判）。
+- `String.indexOf` 返回 **Option<Int64>**（不是 -1 语义），测试用 match + 位置比较。
+- 月视图显示月：外置 `viewDate` 信号优先（跨渲染持久化），内部 `_viewS` 兜底（组件实例不跨渲染复用，简单场景可用）。
+- 内部信号驱动的「上月/今天/下月」在组件 scope 内 ReRender 正常工作（与 Collapse 内部 _activeSignal 同模式）。
+
+**验证**：根包 259 + tests 32 全过（新增 4：结构/标题与选中/周一表头顺序/导航动作）；浏览器：2026 年 8 月、42 格、15 选中浅蓝、today 5 蓝字、上月补位灰；点「下月」→ 9 月、点 20 → 选中 20 + "选中：2026-09-20"；docker 部署线上复验 title/42 格/选中一致。
+
 ### 2026-09-06 MessageBox 弹框（Alert/Confirm/Prompt）
 
 **实现**：`MessageBox(visible: Signal<Bool>)` 外置可见信号（跨渲染持久化，同 Dialog）+ `kind(Alert|Confirm|Prompt)` + `title/message/confirmText/cancelText/icon(Success|Warning|Error|Info)` + `center/showClose/closeOnClickModal` + Prompt 的 `value(Signal<String>)/placeholder` + `onConfirm/onCancel`。DOM 对齐 EP：`el-overlay.is-message-box > el-overlay-message-box[role=dialog] > el-message-box[is-center] > __header(.show-close)/__content(> __container(__status icon + __message>p) / __input)/__btns`。确认/取消/回车关闭并回调；弹窗本体挂 **noop click 截断**（点击弹窗内委托命中自身，避免冒泡到 overlay 关闭 action）；遮罩点击关闭 = overlay 自身 action（弹窗内被 noop 截断）。
