@@ -24,7 +24,7 @@ public struct MenuCategory {
 let menuGroups: Array<MenuCategory> = [
     MenuCategory("基础", ["Button", "ButtonGroup", "Card", "RowCol", "Divider", "Text", "Link", "Tag", "Badge", "Space", "Icon"]),
     MenuCategory("表单", ["Input", "InputNumber", "Switch", "Radio", "Checkbox", "Rate", "Select", "Slider", "Form"]),
-    MenuCategory("数据", ["Table", "Collapse", "Pagination", "DatePicker", "DateRangePicker", "Tree", "Cascader", "Upload"]),
+    MenuCategory("数据", ["Table", "Collapse", "Pagination", "DatePicker", "DateRangePicker", "Calendar", "Tree", "Cascader", "Upload"]),
     MenuCategory("导航", ["Tabs", "Breadcrumb", "Steps", "Dropdown"]),
     MenuCategory("反馈", ["Alert", "Message", "Notification", "Loading", "Skeleton", "MessageBox"]),
     MenuCategory("遮罩层", ["Dialog", "Drawer", "Tooltip", "Popover", "Popconfirm"]),
@@ -127,6 +127,7 @@ class ShowcasePage <: Component {
             case "Pagination" => demoPagination(this.state)
             case "DatePicker" => demoDatePicker(this.state)
             case "DateRangePicker" => demoDatePicker(this.state)
+            case "Calendar" => demoCalendar(this.state)
             case "Message" => demoMessage(this.state)
             case "Notification" => demoNotification(this.state)
             case "Loading" => demoLoading(this.state)
@@ -189,6 +190,7 @@ class ShowcasePage <: Component {
             case "Pagination" => propsPagination()
             case "DatePicker" => propsDatePicker()
             case "DateRangePicker" => propsDateRangePicker()
+            case "Calendar" => propsCalendar()
             case "Message" => propsMessage()
             case "Notification" => propsNotification()
             case "Loading" => propsLoading()

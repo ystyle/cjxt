@@ -84,6 +84,8 @@ public class ShowcaseState <: AppState {
     var cascaderSelected = Signal<ArrayList<String>>(ArrayList<String>())
     var cascaderText = Signal<String>("未选择")
     var uploadFiles = Signal<ArrayList<UploadFile>>(ArrayList<UploadFile>())
+    var calendarValue = Signal<String>("2026-08-15")
+    var calendarView = Signal<String>("2026-08-01")
     var formUsername = Signal<String>("")
     var formPassword = Signal<String>("")
     var formUserError = Signal<String>("")
