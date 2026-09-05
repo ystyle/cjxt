@@ -105,13 +105,18 @@
 
 ## 进度
 
+> 更新于 2026-09-06。演示站（examples `/showcase`）按 8 组 56 项组织：
+> 基础 11 / 表单 9 / 数据 10 / 导航 4 / 反馈 6 / 遮罩层 5 / 展示 6 / 高级 5
+
 | Stage | 组件数 | 已实现 | 状态 |
 |-------|--------|--------|------|
 | Stage 1 布局与基础 | 12 | Button / ButtonGroup / Card / Col / Divider / Icon / Link / Row / Space / Tag / Text / Badge | ✅ 12/12 |
 | Stage 2 表单控件 | 10 + Form | Checkbox / CheckboxGroup / Form / FormItem / Input / InputNumber / Radio / RadioGroup / Rate / Select / Slider / Switch | ✅ 12/12 |
 | Stage 3 数据展示 | 8 | Avatar / Descriptions / DescriptionsItem / Empty / Progress / Result / Statistic / Table / TableColumn | ✅ 9/8 |
-| Stage 4 交互组件 | 12 | Dialog / Drawer / Tooltip / Popover | ✅ 4/12 |
-| Stage 5 复杂组件 | ~20 | — | ❌ 0/20 |
+| Stage 4 交互组件 | 12 | Dialog / Drawer / Tooltip / Popover / Popconfirm / Dropdown / Message / Notification / MessageBox / Tabs+TabPane / Collapse+CollapseItem / Pagination | ✅ 12/12 |
+| Stage 5 复杂组件 | 25 | **已做 12**：Menu / SubMenu / MenuItem / Breadcrumb / Steps（导航 5）、DatePicker / DateRangePicker / Calendar / TimePicker（时间 4）、Tree / Cascader（树/级联 2，CascaderPanel 集成于 Cascader）、Upload、VirtualList<br>**未做 12**：TimeSelect / DateTimePicker / TreeSelect / Transfer / ColorPicker / Carousel / Autocomplete / Mention / InputTag / SelectV2 / TableV2 / TreeV2 | 🟡 12/25 |
+
+**计划外组件（已实现，非 Stage 清单）：** `Alert` / `Message` / `Notification` / `Loading` / `Skeleton`（反馈）、`Markdown` / `AutoScroll` / `Reactive`（Computed·Effect 演示）/ `VirtualList` / `DomTx`（高级能力演示）、下拉树级联等业务扩展随 P1-P3 迭代完成（见 AGENTS.md 后续计划）。
 
 ## CSS 加载流程
 
