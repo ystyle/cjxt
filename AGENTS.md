@@ -192,6 +192,13 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 
 ## 代码总结
 
+### 2026-09-06 TimePicker 用户反馈两处（输入框右侧竖线 / × 位置）
+
+**排查**：agent-browser 实测线上 DOM——三个 `.el-date-editor` 宽 220 一致；输入框右侧 20/40/80px 处 elementFromPoint 全是容器空白（无竖线元素）；clearable 的 ×（`.el-input__suffix` absolute right:8px）实测 x=769 在编辑器（579-799）内部右端，位置正确。判定用户截图与当前 DOM 不符（可能缓存/渲染快照），但仍做两处加固：
+1. **is-focus 蓝框**：EP 打开态高亮由 `.el-input.is-focus .el-input__wrapper`（when(focus)=**is-focus**）驱动，cjxt 只加了 is-focused → 打开面板时无蓝色焦点框。修复：editor cls 追加 `is-focus`（实测 wrapper box-shadow rgb(64,158,255) inset ✓ EP 效果）。
+2. **editor 相对定位防御**：× 依赖 editor root 的 `position:relative`（内联 style），丢失时会 absolute 到外层容器右侧（即用户截图 × 远离输入框的症状）。修复：custom scss `.el-date-editor.el-input { position: relative; }` 双保险。
+- 坑：`custom/time-picker.scss` 与 `date-picker/time-picker.scss` 同名 → Sass 模块命名空间冲突（Error: already a module with namespace "time-picker"）——custom 文件改名 `timepicker-fix.scss`。
+
 ### 2026-09-06 TimePicker 时间选择（Stage 5 时间组第 2 个）
 
 **实现**：`TimePicker().bind(Signal<String> "HH:mm:ss").placeholder().disabled().clearable()`；复用 DatePicker 弹层模型（el-date-editor 输入框 + 时钟前缀图标 + `el-picker__popper el-popper` absolute 面板）。面板对齐 EP：`el-time-panel > __content.has-seconds > el-time-spinner.has-seconds > __wrapper ×3(时/分/秒, max-height 192 滚动) > ul.__list > li.__item[.is-active](pad2 文本)` + `__footer > btn.cancel/.confirm`；点 li 即时写值（部件替换 + pad2 重组），取消/确定关闭。新增 `clock` 图标（element-plus-icons 官方 path）。
