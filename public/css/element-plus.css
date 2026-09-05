@@ -7273,6 +7273,10 @@
   overflow-y: auto;
 }
 
+.el-date-editor.el-input {
+  position: relative;
+}
+
 .el-form {
   --el-form-label-font-size: var(--el-font-size-base);
   --el-form-inline-content-width: 220px;

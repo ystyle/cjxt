@@ -1,0 +1,10 @@
+// TimePicker 防御性样式：
+// 1. 编辑器 root 始终相对定位 —— clearable 的 × （absolute right:8px）依赖此定位祖先，
+//    即使内联 style 未来被覆盖也不会错位到容器右侧
+// 2. 打开面板时的 focus 蓝框使用 EP 的 .is-focus 类（.el-input.is-focus .el-input__wrapper）
+@use '../mixins/mixins' as *;
+@use '../common/var' as *;
+
+.#{$namespace}-date-editor.#{$namespace}-input {
+  position: relative;
+}

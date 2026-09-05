@@ -100,7 +100,7 @@ public class TimePicker <: Component {
         // 面板恒渲染（EP persistent 语义），未打开时 display:none —— 结构稳定且可测试
         children.add(this.buildPanel(current, isOpen))
         var cls = "el-date-editor el-input el-input--prefix"
-        if (isOpen) { cls = "${cls} is-focused" }
+        if (isOpen) { cls = "${cls} is-focused is-focus" }
         if (this._disabled) { cls = "${cls} is-disabled" }
         VNode("div", children.toArray(), attrs: Some(HashMap<String, String>([("class", cls), ("style", "position:relative;display:inline-block")])))
     }
