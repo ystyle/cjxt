@@ -192,6 +192,18 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 
 ## 代码总结
 
+### 2026-09-06 Tooltip/Popover/Popconfirm 接入 EP .el-popper 样式
+
+**背景**：三个弹层组件此前靠 JS 手写 cssText（bg/border/padding/radius/shadow），与 EP 视觉不一致且不可维护；经查 **popover.scss 从未被 element-plus.scss 引入**（一直没生效，纯手写撑着）。
+
+**修复**：
+1. 拷入 **popper.scss**（`.el-popper` 基础：absolute/5px 11px/radius 4px/z-index 2000 + **is-dark**（#303133 底/白字/边框）+ **is-light** + **arrow**（`.el-popper__arrow` 45° 旋转 + `[data-popper-placement^=…]` 圆角/去边）+ is-pure），并同时补引入 `popover.scss`（此前是死文件）。
+2. tooltip.js：popper class `el-tooltip__popper is-*`（旧 Element UI 结构）→ **`el-popper is-dark/is-light`** + `role=tooltip` + 创建 `.el-popper__arrow`（原查询恒 null）；cssText 仅留 `display:none;max-width`。
+3. popover.js / popconfirm.js：cssText 从 13 条手写样式精简为 `display:none;min-width`（其余全由 popover.scss/popper.scss 提供）；popover 标题改用 `.el-popover__title`。
+4. 三个 computePosition 回调补 **`popper.setAttribute('data-popper-placement', placement)`**（FloatingUI 默认不设置，EP arrow 定位依赖）。
+
+**验证**：tests 39/39；浏览器 computed：Tooltip `el-popper is-dark` bg rgb(48,49,51)/白字/5px 11px/arrow/placement=top；Popover/Popconfirm `el-popover el-popper` 白底/rgb(235,238,245) 边框/12px/EP box-shadow/标题类/按钮齐全；docker 部署线上。
+
 ### 2026-09-06 Tabs 滑动 active-bar（文档计划 v1 遗留）
 
 **实现**：line 类型的 `.el-tabs__nav` 末尾渲染 `<div class="el-tabs__active-bar [is-left|is-right]" data-tabs-bar>`（card/border-card 不渲染，EP 语义）；前端新增 **`tabsBarAll()`**：对 `[data-tabs-bar]` 用 getBoundingClientRect 差值把 bar 定位到 `.el-tabs__item.is-active`（横向 width + translateX；vertical 用 height + translateY；rect 差值不依赖 offsetParent 归属，任意嵌套安全）。调用点：**初始渲染后**（renderTree(this.tree) 之后）与 **applyTreePatches 末尾**（切换标签后定位/过渡动画走 scss 的 width/transform transition）。
