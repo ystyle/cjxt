@@ -9,6 +9,8 @@ public func demoButton(st: ShowcaseState): Array<IComponent> {
     [
         demoSection("基础按钮", [
             div([
+                Button("Default").dashed(),
+                Button("自定义色").color("#8b5cf6"),
                 Button("Default"),
                 PrimaryButton("Primary"),
                 SuccessButton("Success"),

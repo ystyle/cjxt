@@ -182,6 +182,18 @@ public enum TagEffect {
     }
 }
 
+public enum SpaceSize {
+    | Small | Default | Large
+
+    public func px(): Int64 {
+        match (this) {
+            case Small => 8
+            case Default => 12
+            case Large => 16
+        }
+    }
+}
+
 public enum SpaceDirection {
     | Horizontal | Vertical
 

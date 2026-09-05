@@ -224,6 +224,14 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
   （隐藏 input 不可见不可直接点击，action 由 label 主导，天然一次）。
 - 排查提示：服务端日志看到**同一 handler id 连续两条 dispatch** 就是这个症状。
 
+**教训 6（2026-09-05）：StringBuilder.append(UInt8) 把字节转成十进制文本**
+- 表现：formatStatistic("1234567") 输出 "49,505,152,535,455"（每个字符的 ASCII 十进制拼串）。
+- 根因：`sb.append(bytes[i])`（UInt8）按**数值文本**追加（"1"→"49"），不是字符；
+  与本项同时踩到的 `t[0] == '-'u8` 语法不存在（字符字面量没有 u8 后缀，用 45u8/43u8/46u8/48u8）。
+- 修复：字符拼接一律用 String 切片（`sb.append(dec[i..i+1])`、`s[start..end]`）或直接字符串连接；
+  字节字面量只用于**比较**，不用于**拼接**。
+- 排查提示：输出全是 2 位十进制数字串即此症状。
+
 **教训 5（2026-09-05）：querySelector/closest 不匹配自身 — 服务端挂 action 的元素要在自身读取**
 - 现象：Rate 半星点击无效果；JS 拦截器 `item.querySelector('[data-action-click]')` 恒为 null。
 - 根因：`querySelector` 只搜**后代**，而 onClick 挂载的 data-action-click 属性在 item **自身**上。

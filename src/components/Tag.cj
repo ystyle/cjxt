@@ -116,12 +116,16 @@ public class Badge <: Component {
         if (kc != "") { contentCls = "${contentCls} el-badge__content--${kc}" }
 
         let displayValue = this.computeDisplayValue()
+        // EP badge.vue：值 0 且 showZero=false → is-hide-zero（scss display:none）；
+        // 无值且非 dot 且无子项 slot 时不渲染 sup（旧实现空值也渲染空 sup）
+        let isZero = this.parseInt(this._value) == 0 && this._value != ""
+        if (isZero && !this._showZero) { contentCls = "${contentCls} is-hide-zero" }
 
         let parts = ArrayList<IComponent>()
         if (hasChildren) {
             parts.add(Fragment(this._children))
         }
-        if (!this._hidden) {
+        if (!this._hidden && (this._dot || this._value != "")) {
             let supAttrs = HashMap<String, String>([("class", contentCls)])
             parts.add(VNode("sup", [text(displayValue)], attrs: Some(supAttrs)))
         }

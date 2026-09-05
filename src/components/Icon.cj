@@ -32,6 +32,6 @@ public class Icon <: Component {
         }
         let pathAttrs = HashMap<String, String>([("fill", "currentColor"), ("d", d)])
         let pathEl = VNode("path", [], attrs: Some(pathAttrs))
-        VNode("span", [VNode("svg", [pathEl], attrs: Some(svgAttrs))], attrs: Some(iconAttrs))
+        VNode("i", [VNode("svg", [pathEl], attrs: Some(svgAttrs))], attrs: Some(iconAttrs))
     }
 }

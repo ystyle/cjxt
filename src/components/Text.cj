@@ -69,18 +69,18 @@ public class Link <: Component {
     }
 
     public func render(): IComponent {
-        var cls = "el-link"
+        var cls = "el-link el-link--default"
         let kc = this._kind.asClass()
         if (kc != "") { cls = "${cls} el-link--${kc}" }
         let uc = this._underline.asClass()
-        if (uc != "") { cls = "${cls} ${uc}" }
+        // EP link.vue：disabled 时不加 is-hover-underline（hover 下划线对禁用项无意义）
+        if (uc != "" && !(this._disabled && uc == "is-hover-underline")) { cls = "${cls} ${uc}" }
         if (this._disabled) { cls = "${cls} is-disabled" }
         let attrs = HashMap<String, String>([("class", cls)])
         if (this._href != "" && !this._disabled) {
             attrs["href"] = this._href
             attrs["target"] = this._target
         }
-        if (this._disabled) { attrs["disabled"] = "disabled" }
 
         let inner = ArrayList<IComponent>()
         match (this._iconName) {

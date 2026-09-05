@@ -86,6 +86,7 @@ public func demoStatistic(st: ShowcaseState): Array<IComponent> {
                 Statistic().title("日活跃用户").value("128,000").suffix("人"),
                 Statistic().title("今日订单").value("3,256").suffix("单"),
                 Statistic().title("总销售额").value(128000).prefix("¥"),
+                Statistic().title("平均单价").value("1234.5").prefix("¥").precision(2),
             ], attrs: Some(HashMap<String, String>([("class", cls("statistic-row"))]))),
         ]),
     ]

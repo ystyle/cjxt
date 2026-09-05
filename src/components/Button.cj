@@ -17,6 +17,9 @@ public class Button <: Component {
     var _link: Bool = false
     var _bg: Bool = false
     var _autofocus: Bool = false
+    var _dashed: Bool = false
+    var _color: String = ""
+    var _tag: String = "button"
     var _iconName: Option<String> = None
     var _onClick: Option<ActionHandler> = None
 
@@ -40,6 +43,9 @@ public class Button <: Component {
     public func link(): Button { this._link = true; this }
     public func bg(): Button { this._bg = true; this }
     public func autofocus(): Button { this._autofocus = true; this }
+    public func dashed(): Button { this._dashed = true; this }
+    public func color(v: String): Button { this._color = v; this }
+    public func tag(v: String): Button { this._tag = v; this }
     public func icon(name: String): Button { this._iconName = Some(name); this }
     public func onClick(h: ActionHandler): Button { this._onClick = Some(h); this }
     public func onClick(h: (ActionContext) -> Unit): Button {
@@ -60,6 +66,7 @@ public class Button <: Component {
         if (this._loading) { cls = "${cls} is-loading" }
         if (this._text) { cls = "${cls} is-text" }
         if (this._link) { cls = "${cls} is-link" }
+        if (this._dashed) { cls = "${cls} is-dashed" }
         if (this._bg) { cls = "${cls} has-bg" }
 
         let attrs = HashMap<String, String>()
@@ -67,6 +74,12 @@ public class Button <: Component {
         attrs["type"] = this._nativeType.asAttr()
         if (this._disabled || this._loading) { attrs["disabled"] = "disabled" }
         if (this._autofocus) { attrs["autofocus"] = "autofocus" }
+        // EP custom button（button-custom.ts）：--el-button-* CSS 变量驱动主题色；hover/active 近似同色
+        if (this._color != "") {
+            let c = this._color
+            let style = "--el-button-bg-color:${c};--el-button-border-color:${c};--el-button-text-color:#fff;--el-button-hover-bg-color:${c};--el-button-hover-border-color:${c};--el-button-hover-text-color:#fff;--el-button-active-bg-color:${c};--el-button-active-border-color:${c};--el-button-active-text-color:#fff"
+            attrs["style"] = style
+        }
 
         let inner = ArrayList<IComponent>()
         if (this._loading) {
@@ -81,9 +94,10 @@ public class Button <: Component {
         // 恢复 button.scss `> span` flex 与 `[class*='el-icon'] + span` 的图标间距
         inner.add(VNode("span", this._children, attrs: Some(HashMap<String, String>())))
 
-        let btn = button(inner.toArray(), attrs: Some(attrs))
+        let btn = VNode(this._tag, inner.toArray(), attrs: Some(attrs))
         match (this._onClick) {
-            case Some(h) => if (!this._loading && !this._disabled) { btn.onClick(h) } else { btn }
+            case Some(h) =>
+                if (!this._loading && !this._disabled) { btn.onClick(h) } else { btn }
             case None => btn
         }
     }

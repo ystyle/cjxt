@@ -10,6 +10,8 @@ public class Card <: Component {
     var _shadow: CardShadow = CardShadow.Always
     var _bodyStyle: String = ""
     var _bodyClass: String = ""
+    var _headerClass: String = ""
+    var _footerClass: String = ""
 
     public init(children: Array<IComponent>) { this._children = children }
 
@@ -20,6 +22,8 @@ public class Card <: Component {
     public func shadow(v: CardShadow): Card { this._shadow = v; this }
     public func bodyStyle(v: String): Card { this._bodyStyle = v; this }
     public func bodyClass(v: String): Card { this._bodyClass = v; this }
+    public func headerClass(v: String): Card { this._headerClass = v; this }
+    public func footerClass(v: String): Card { this._footerClass = v; this }
 
     public func render(): IComponent {
         let cls = "el-card is-${this._shadow.asClass()}-shadow"
@@ -29,11 +33,13 @@ public class Card <: Component {
 
         let parts = ArrayList<IComponent>()
         if (this._header.size > 0) {
-            parts.add(div(this._header, attrs: Some(HashMap<String, String>([("class", "el-card__header")]))))
+            let hCls = if (this._headerClass != "") { "el-card__header ${this._headerClass}" } else { "el-card__header" }
+            parts.add(div(this._header, attrs: Some(HashMap<String, String>([("class", hCls)]))))
         }
         parts.add(div(this._children, attrs: Some(bodyAttrs)))
         if (this._footer.size > 0) {
-            parts.add(div(this._footer, attrs: Some(HashMap<String, String>([("class", "el-card__footer")]))))
+            let fCls = if (this._footerClass != "") { "el-card__footer ${this._footerClass}" } else { "el-card__footer" }
+            parts.add(div(this._footer, attrs: Some(HashMap<String, String>([("class", fCls)]))))
         }
         div(parts.toArray(), attrs: Some(HashMap<String, String>([("class", cls)])))
     }
