@@ -26,7 +26,7 @@ let menuGroups: Array<MenuCategory> = [
     MenuCategory("表单", ["Input", "InputNumber", "Switch", "Radio", "Checkbox", "Rate", "Select", "Slider", "Form"]),
     MenuCategory("数据", ["Table", "Collapse", "Pagination", "DatePicker", "DateRangePicker", "Tree", "Cascader", "Upload"]),
     MenuCategory("导航", ["Tabs", "Breadcrumb", "Steps", "Dropdown"]),
-    MenuCategory("反馈", ["Alert", "Message", "Notification", "Loading", "Skeleton"]),
+    MenuCategory("反馈", ["Alert", "Message", "Notification", "Loading", "Skeleton", "MessageBox"]),
     MenuCategory("遮罩层", ["Dialog", "Drawer", "Tooltip", "Popover", "Popconfirm"]),
     MenuCategory("展示", ["Progress", "Avatar", "Empty", "Descriptions", "Statistic", "Result"]),
     MenuCategory("高级", ["Markdown", "AutoScroll", "Reactive", "VirtualList", "DomTx"]),
@@ -131,6 +131,7 @@ class ShowcasePage <: Component {
             case "Notification" => demoNotification(this.state)
             case "Loading" => demoLoading(this.state)
             case "Skeleton" => demoSkeleton(this.state)
+            case "MessageBox" => demoMessageBox(this.state)
             case "Tabs" => demoTabs(this.state)
             case "Markdown" => demoMarkdown(this.state)
             case "AutoScroll" => demoAutoScroll(this.state)
@@ -192,6 +193,7 @@ class ShowcasePage <: Component {
             case "Notification" => propsNotification()
             case "Loading" => propsLoading()
             case "Skeleton" => propsSkeleton()
+            case "MessageBox" => propsMessageBox()
             case "Tabs" => propsTabs()
             case "Markdown" => propsMarkdown()
             case "AutoScroll" => propsAutoScroll()

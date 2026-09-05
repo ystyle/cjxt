@@ -18,6 +18,7 @@ public class Input <: Component {
     var _append: String = ""
     var _readonly: Bool = false
     var _maxLength: Int64 = -1
+    var _keydownH: Option<ActionHandler> = None
 
     public init() {}
     public func placeholder(v: String): Input { this._placeholder = v; this }
@@ -34,6 +35,7 @@ public class Input <: Component {
     public func readonly(): Input { this._readonly = true; this }
     public func maxLength(v: Int64): Input { this._maxLength = v; this }
     public func bind(signal: Signal<String>): Input { this._signal = Some(signal); this }
+    public func onKeydown(h: ActionHandler): Input { this._keydownH = Some(h); this }
 
     public func render(): IComponent {
         if (this._textarea) { return this.renderTextarea() }
@@ -91,10 +93,15 @@ public class Input <: Component {
         if (this._readonly) { innerAttrs["readonly"] = "readonly" }
         if (this._maxLength > 0) { innerAttrs["maxlength"] = this._maxLength.toString() }
         let inner = VNode("input", [], attrs: Some(innerAttrs))
-        match (this._signal) {
+        var innerEl = match (this._signal) {
             case Some(s) => inner.bind(s)
             case None => inner
         }
+        match (this._keydownH) {
+            case Some(h) => innerEl = innerEl.on("keydown", h)
+            case None => ()
+        }
+        innerEl
     }
 
     func makePrefix(): IComponent {
