@@ -111,10 +111,10 @@ public func demoRate(st: ShowcaseState): Array<IComponent> {
             ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
             div([
                 Rate().max(3).showText().texts(["差", "一般", "好"]).bind(st.rateValue),
-                Row([
-                    Rate().allowHalf().bind(st.rateValue),
-                    Text([text("当前: ${rateValueText(st.rateValue.get())}")]).kind(ComponentKind.Info),
-                ], gutter: 12),
+                Text([text("当前: ${rateValueText(st.rateValue.get())}")]).kind(ComponentKind.Info),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([
+                Rate().allowHalf().bind(st.rateValue),
             ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
             div([
                 Rate().disabled().bind(st.rateValue),
