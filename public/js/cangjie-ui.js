@@ -722,11 +722,22 @@ class CangjieUI {
 
         // 自动滚动（data-auto-scroll）：内容更新后贴底跟随（仅当用户接近底部时，避免打断回看）
         this.autoScrollAll();
+        // 自动滚动到选中项（data-scroll-active）：打开/更新后把 .is-active 项滚到容器中线
+        this.scrollActiveAll();
     }
     autoScrollAll() {
         document.querySelectorAll('[data-auto-scroll]').forEach((el) => {
             const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
             if (dist < 80) el.scrollTop = el.scrollHeight;
+        });
+    }
+    scrollActiveAll() {
+        document.querySelectorAll('[data-scroll-active]').forEach((el) => {
+            const act = el.querySelector('.is-active');
+            if (!act) return;
+            const r = act.getBoundingClientRect();
+            const cr = el.getBoundingClientRect();
+            el.scrollTop += (r.top + r.height / 2) - (cr.top + cr.height / 2);
         });
     }
     // DOM 事务执行器（事件驱动）：执行服务端下发的 dom_command，needResult 时回 dom_result

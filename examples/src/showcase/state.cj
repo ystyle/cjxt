@@ -86,6 +86,7 @@ public class ShowcaseState <: AppState {
     var uploadFiles = Signal<ArrayList<UploadFile>>(ArrayList<UploadFile>())
     var calendarValue = Signal<String>("2026-08-15")
     var calendarView = Signal<String>("2026-08-01")
+    var timeValue = Signal<String>("09:30:45")
     var formUsername = Signal<String>("")
     var formPassword = Signal<String>("")
     var formUserError = Signal<String>("")
