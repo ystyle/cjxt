@@ -4,6 +4,7 @@ import cjxt.*
 import std.collection.{HashMap, ArrayList}
 
 // EP Calendar（calendar.vue + date-table.vue）：
+// 表头周起始默认周一（中文习惯，EP zh locale firstDayOfWeek=1；0=周日可配）。
 //   div.el-calendar
 //     div.el-calendar__header > div.el-calendar__title("2026 年 9 月") + div.el-calendar__button-group(上月/今天/下月 small)
 //     div.el-calendar__body
@@ -16,7 +17,7 @@ public class Calendar <: Component {
     var _valueS: Option<Signal<String>> = None
     var _viewDate: Option<Signal<String>> = None
     var _viewS: Signal<String>
-    var _firstDay: Int64 = 0
+    var _firstDay: Int64 = 1
     var _selectH: Option<ActionHandler> = None
 
     public init() {
@@ -72,11 +73,16 @@ public class Calendar <: Component {
     func selectDayAction(cell: CalCell): ActionHandler {
         let vs = this._valueS
         let h = this._selectH
+        let base = this
         let handler: ActionHandler = { ctx =>
             let key = formatDate(cell.year, cell.month, cell.day)
             match (vs) {
                 case Some(s) => s.set(key)
                 case None => ()
+            }
+            // 补位格（上/下月）点击：视图切到该格所在月（EP pickDay 语义：选择后月历跟随）
+            if (!cell.inMonth) {
+                base.setViewKey(formatDate(cell.year, cell.month, 1))
             }
             match (h) {
                 case Some(hh) => runHandler(hh, ctx)

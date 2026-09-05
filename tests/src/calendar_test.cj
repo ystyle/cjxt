@@ -41,6 +41,23 @@ public class CalendarTest {
     }
 
     @TestCase
+    public func testDefaultMondayFirst(): Unit {
+        // 默认周一起始（中文习惯；不传 firstDayOfWeek 时 "一" 在 "日" 前）
+        let ca = Calendar()
+        let (json, _) = renderCalendarJson(ca)
+        let i1 = json.indexOf("\"text\":\"一\"")
+        let i2 = json.indexOf("\"text\":\"日\"")
+        match (i1) {
+            case Some(a) =>
+                match (i2) {
+                    case Some(b) => @Expect(a < b, true)
+                    case None => @Fail("no 日 header")
+                }
+            case None => @Fail("no 一 header")
+        }
+    }
+
+    @TestCase
     public func testFirstDayOfWeekMonday(): Unit {
         let vis = Signal<String>("2026-08-01")
         let ca = Calendar().viewDate(vis).firstDayOfWeek(1)
