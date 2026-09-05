@@ -243,6 +243,7 @@ class CangjieUI {
         if (el.hasAttribute('data-bind-id')) this.attachBind(el);
         if (el.hasAttribute('data-vscroll')) this.attachVScroll(el);
         if (el.hasAttribute('data-slider')) this.attachSlider(el);
+        if (el.hasAttribute('data-select')) this.attachSelect(el);
         // 自动消失（Message/Notification 等）：data-auto-dismiss="ms" → 到时触发点击（关闭 action）
         if (el.hasAttribute('data-auto-dismiss')) this.attachAutoDismiss(el);
         // 上传：data-upload-trigger（点触发 file input）+ data-upload-input（change 后 XHR 上传）
@@ -278,6 +279,7 @@ class CangjieUI {
         if (el.hasAttribute('data-bind-id')) this.attachBind(el);
         if (el.hasAttribute('data-vscroll')) this.attachVScroll(el);
         if (el.hasAttribute('data-slider')) this.attachSlider(el);
+        if (el.hasAttribute('data-select')) this.attachSelect(el);
         if (el.hasAttribute('data-auto-dismiss')) this.attachAutoDismiss(el);
         if (el.hasAttribute('data-upload-trigger') || el.hasAttribute('data-upload-input')) this.attachUpload(el);
         return el;
@@ -377,6 +379,7 @@ class CangjieUI {
         if (el.hasAttribute('data-bind-id') && !el.__cjxtBound) { this.attachBind(el); el.__cjxtBound = true; }
         if (el.hasAttribute('data-vscroll') && !el.__cjxtVScroll) { this.attachVScroll(el); el.__cjxtVScroll = true; }
         if (el.hasAttribute('data-slider') && !el.__cjxtSlider) { this.attachSlider(el); el.__cjxtSlider = true; }
+        if (el.hasAttribute('data-select') && !el.__cjxtSelect) { this.attachSelect(el); el.__cjxtSelect = true; }
         if (el.hasAttribute('data-auto-dismiss') && !el.__cjxtAutoDismiss) { this.attachAutoDismiss(el); el.__cjxtAutoDismiss = true; }
         if ((el.hasAttribute('data-upload-trigger') || el.hasAttribute('data-upload-input')) && !el.__cjxtUpload) { this.attachUpload(el); el.__cjxtUpload = true; }
     }
@@ -500,6 +503,38 @@ class CangjieUI {
                 this.send({ type: 'bind', name: bid, value: String(el.scrollTop) });
             });
         });
+    }
+
+    // 下拉选择（EP DOM 结构）：点击外部关闭 + 选项 hover 高亮类 + 搜索输入框键盘 preventDefault
+    attachSelect(el) {
+        const self = this;
+        // 1) 点击外部 → 按 data-select-close 派发关闭 action（服务端关面板；面板打开时 wrapper 带 is-focused）
+        document.addEventListener('click', (e) => {
+            if (el.contains(e.target)) return;
+            const wrapper = el.querySelector('.el-select__wrapper');
+            if (!wrapper || !wrapper.classList.contains('is-focused')) return;
+            const closer = el.getAttribute('data-select-close');
+            if (closer) self.send({ type: 'action', name: closer, params: {}, sessionId: self.sessionId });
+        });
+        // 2) 选项 hover：客户端切换 is-hovering 类（服务端键盘高亮走同一类，patch 会重置为服务端状态）
+        const list = el.querySelector('.el-select-dropdown__list');
+        if (list) {
+            list.addEventListener('mousemove', (e) => {
+                const item = e.target.closest('.el-select-dropdown__item');
+                list.querySelectorAll('.el-select-dropdown__item.is-hovering').forEach((x) => {
+                    if (x !== item) x.classList.remove('is-hovering');
+                });
+                if (item) item.classList.add('is-hovering');
+            });
+        }
+        // 3) 搜索输入：方向/回车/Esc 交给服务端 KeyEvent 处理，前端 preventDefault（防光标移动/表单提交）
+        const input = el.querySelector('.el-select__input');
+        if (input && !input.__cjxtSelectInput) {
+            input.__cjxtSelectInput = true;
+            input.addEventListener('keydown', (e) => {
+                if (['ArrowDown', 'ArrowUp', 'Enter', 'Escape'].includes(e.key)) e.preventDefault();
+            });
+        }
     }
     // 滑块（EP DOM 结构）：pointer 拖动/点击 + 键盘 → 位置/键码换算值 → bind 消息回传（rAF 节流）
     attachSlider(el) {

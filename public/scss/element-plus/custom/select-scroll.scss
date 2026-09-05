@@ -1,0 +1,11 @@
+@use 'sass:map';
+
+@use '../mixins/mixins' as *;
+
+// ============ Select 服务端渲染增强 ============
+// 无 el-scrollbar 结构（EP 用 el-scrollbar 的 __wrap 承载滚动），
+// 这里直接给 .el-select-dropdown__wrap 补滚动语义，长列表可滚动（EP 等价的 max-height 来自原版 scss）。
+
+@include b(select-dropdown__wrap) {
+  overflow-y: auto;
+}
