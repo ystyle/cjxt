@@ -5,6 +5,25 @@ import cjxt.*
 import cjxt.components.*
 import std.collection.{ArrayList, HashMap}
 
+public func demoCollapse(st: ShowcaseState): Array<IComponent> {
+    [
+        demoSection("折叠面板", [
+            Collapse([
+                CollapseItem([Text([text("第一节的内容区域")])], "第一节", "1"),
+                CollapseItem([Text([text("第二节的内容区域")])], "第二节", "2").disabled(true),
+                CollapseItem([Text([text("第三节的内容区域")])], "第三节", "3"),
+            ]),
+        ]),
+        demoSection("手风琴模式（单开）", [
+            Collapse([
+                CollapseItem([Text([text("A 组内容")])], "组 A", "a"),
+                CollapseItem([Text([text("B 组内容")])], "组 B", "b"),
+                CollapseItem([Text([text("C 组内容")])], "组 C", "c"),
+            ]).accordion(),
+        ]),
+    ]
+}
+
 public func demoTable(st: ShowcaseState): Array<IComponent> {
     let d = st.tableData
     if (d.get().size == 0) {

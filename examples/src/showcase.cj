@@ -24,9 +24,9 @@ public struct MenuCategory {
 let menuGroups: Array<MenuCategory> = [
     MenuCategory("基础", ["Button", "ButtonGroup", "Card", "RowCol", "Divider", "Text", "Link", "Tag", "Badge", "Space", "Icon"]),
     MenuCategory("表单", ["Input", "InputNumber", "Switch", "Radio", "Checkbox", "Rate", "Select", "Slider", "Form"]),
-    MenuCategory("数据", ["Table", "Pagination", "DatePicker", "DateRangePicker", "Tree", "Cascader", "Upload"]),
+    MenuCategory("数据", ["Table", "Collapse", "Pagination", "DatePicker", "DateRangePicker", "Tree", "Cascader", "Upload"]),
     MenuCategory("导航", ["Tabs", "Breadcrumb", "Steps", "Dropdown"]),
-    MenuCategory("反馈", ["Message", "Notification", "Loading", "Skeleton"]),
+    MenuCategory("反馈", ["Alert", "Message", "Notification", "Loading", "Skeleton"]),
     MenuCategory("遮罩层", ["Dialog", "Drawer", "Tooltip", "Popover"]),
     MenuCategory("展示", ["Progress", "Avatar", "Empty", "Descriptions", "Statistic", "Result"]),
     MenuCategory("高级", ["Markdown", "AutoScroll", "Reactive", "VirtualList", "DomTx"]),
@@ -91,6 +91,8 @@ class ShowcasePage <: Component {
     func renderDemo(sel: String): Array<IComponent> {
         match (sel) {
             case "Button" => demoButton(this.state)
+            case "Alert" => demoAlert(this.state)
+            case "Collapse" => demoCollapse(this.state)
             case "ButtonGroup" => demoButtonGroup(this.state)
             case "Card" => demoCard(this.state)
             case "RowCol" => demoRowCol(this.state)

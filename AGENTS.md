@@ -116,6 +116,8 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 
 ## 已知仓颉约束
 
+- **Cangjie 没有 `null` 字面量**（无引用空值），一律用 `Option<T>.None` / `None`（Alert.cj 首次写 `null` 编译报 undeclared identifier）
+
 - 枚举变体名不能与类型名相同
 - 方法名不能与字段名相同（`var fields` → 方法用 `setFields` 而非 `fields`）
 - `struct` `class` 使用 `init` 关键字定义构造函数（不是 `func new`）

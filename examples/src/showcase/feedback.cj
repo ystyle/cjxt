@@ -5,6 +5,19 @@ import cjxt.*
 import cjxt.components.*
 import std.collection.HashMap
 
+public func demoAlert(st: ShowcaseState): Array<IComponent> {
+    [
+        demoSection("信息提示", [
+            div([
+                Alert().title("成功提示").kind(AlertKind2.Success).showIcon().description("这是一条成功提示，显示描述信息").closable(),
+                Alert().title("警告信息").kind(AlertKind2.Warning).showIcon().description("注意数据版本，操作前请备份"),
+                Alert().title("错误信息").kind(AlertKind2.Error).showIcon().closable(),
+                Alert().title("普通信息").kind(AlertKind2.Info).showIcon().description("普通提示信息"),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+        ]),
+    ]
+}
+
 public func demoMessage(st: ShowcaseState): Array<IComponent> {
     let q = MessageQueue(st.messageItems)
     let successH: ActionHandler = { ctx => q.success("这是一条成功提示"); PatchResult.ReRender }
