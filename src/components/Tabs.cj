@@ -83,6 +83,16 @@ public class Tabs <: Component {
         for (pane in panes) {
             items.add(this.buildNavItem(pane, active))
         }
+        // line 类型：滑动 active-bar（前端 data-tabs-bar 测量并定位到 .is-active；card/border-card 无 bar）
+        if (this._type == "line") {
+            var barCls = "el-tabs__active-bar"
+            if (this._position == "left") { barCls = "${barCls} is-left" }
+            if (this._position == "right") { barCls = "${barCls} is-right" }
+            items.add(VNode("div", [], attrs: Some(HashMap<String, String>([
+                ("class", barCls),
+                ("data-tabs-bar", "true"),
+            ]))))
+        }
         let nav = VNode("div", items.toArray(), attrs: Some(HashMap<String, String>([("class", "el-tabs__nav"), ("role", "tablist")])))
         let navScroll = VNode("div", [nav], attrs: Some(HashMap<String, String>([("class", "el-tabs__nav-scroll")])))
         let navWrap = VNode("div", [navScroll], attrs: Some(HashMap<String, String>([("class", "el-tabs__nav-wrap")])))

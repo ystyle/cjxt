@@ -193,6 +193,7 @@ class CangjieUI {
         this.tree = msg.tree;
         this.container.innerHTML = '';
         this.renderTree(this.tree, this.container);
+        this.tabsBarAll();
         if (msg.path) {
             history.pushState(null, '', msg.path);
         }
@@ -724,6 +725,8 @@ class CangjieUI {
         this.autoScrollAll();
         // 自动滚动到选中项（data-scroll-active）：打开/更新后把 .is-active 项滚到容器中线
         this.scrollActiveAll();
+        // Tabs 滑动 active-bar 定位
+        this.tabsBarAll();
     }
     autoScrollAll() {
         document.querySelectorAll('[data-auto-scroll]').forEach((el) => {
@@ -738,6 +741,26 @@ class CangjieUI {
             const r = act.getBoundingClientRect();
             const cr = el.getBoundingClientRect();
             el.scrollTop += (r.top + r.height / 2) - (cr.top + cr.height / 2);
+        });
+    }
+    // Tabs 滑动 active-bar（data-tabs-bar）：把 bar 定位到 .el-tabs__item.is-active（EP 测量语义，rect 差值安全）
+    tabsBarAll() {
+        document.querySelectorAll('[data-tabs-bar]').forEach((bar) => {
+            const nav = bar.parentElement;
+            if (!nav) return;
+            const active = nav.querySelector('.el-tabs__item.is-active');
+            if (!active) return;
+            const vert = bar.classList.contains('is-left') || bar.classList.contains('is-right');
+            const p = bar.offsetParent;
+            const pr = p ? p.getBoundingClientRect() : { left: 0, top: 0 };
+            const ar = active.getBoundingClientRect();
+            if (vert) {
+                bar.style.height = ar.height + 'px';
+                bar.style.transform = 'translateY(' + (ar.top - pr.top) + 'px)';
+            } else {
+                bar.style.width = ar.width + 'px';
+                bar.style.transform = 'translateX(' + (ar.left - pr.left) + 'px)';
+            }
         });
     }
     // DOM 事务执行器（事件驱动）：执行服务端下发的 dom_command，needResult 时回 dom_result
