@@ -250,6 +250,7 @@ class CangjieUI {
         if (el.hasAttribute('data-vscroll')) this.attachVScroll(el);
         if (el.hasAttribute('data-slider')) this.attachSlider(el);
         if (el.hasAttribute('data-select')) this.attachSelect(el);
+        if (el.hasAttribute('data-rate')) this.attachRate(el);
         // 自动消失（Message/Notification 等）：data-auto-dismiss="ms" → 到时触发点击（关闭 action）
         if (el.hasAttribute('data-auto-dismiss')) this.attachAutoDismiss(el);
         // 上传：data-upload-trigger（点触发 file input）+ data-upload-input（change 后 XHR 上传）
@@ -286,6 +287,7 @@ class CangjieUI {
         if (el.hasAttribute('data-vscroll')) this.attachVScroll(el);
         if (el.hasAttribute('data-slider')) this.attachSlider(el);
         if (el.hasAttribute('data-select')) this.attachSelect(el);
+        if (el.hasAttribute('data-rate')) this.attachRate(el);
         if (el.hasAttribute('data-auto-dismiss')) this.attachAutoDismiss(el);
         if (el.hasAttribute('data-upload-trigger') || el.hasAttribute('data-upload-input')) this.attachUpload(el);
         return el;
@@ -386,6 +388,7 @@ class CangjieUI {
         if (el.hasAttribute('data-vscroll') && !el.__cjxtVScroll) { this.attachVScroll(el); el.__cjxtVScroll = true; }
         if (el.hasAttribute('data-slider') && !el.__cjxtSlider) { this.attachSlider(el); el.__cjxtSlider = true; }
         if (el.hasAttribute('data-select') && !el.__cjxtSelect) { this.attachSelect(el); el.__cjxtSelect = true; }
+        if (el.hasAttribute('data-rate') && !el.__cjxtRate) { this.attachRate(el); el.__cjxtRate = true; }
         if (el.hasAttribute('data-auto-dismiss') && !el.__cjxtAutoDismiss) { this.attachAutoDismiss(el); el.__cjxtAutoDismiss = true; }
         if ((el.hasAttribute('data-upload-trigger') || el.hasAttribute('data-upload-input')) && !el.__cjxtUpload) { this.attachUpload(el); el.__cjxtUpload = true; }
     }
@@ -509,6 +512,26 @@ class CangjieUI {
                 this.send({ type: 'bind', name: bid, value: String(el.scrollTop) });
             });
         });
+    }
+
+    // 评分：点击星左半（可半星）→ 手动派发 action（params.half=1），避免委托重复触发
+    attachRate(el) {
+        if (el.__cjxtRate) return;
+        el.__cjxtRate = true;
+        el.addEventListener('click', (e) => {
+            const item = e.target.closest('.el-rate__item');
+            if (!item) return;
+            // action 挂在 item 自身（onClick 在 item 上），querySelector 只搜后代——必须取属性
+            const actionName = item.getAttribute('data-action-click') || (item.querySelector('[data-action-click]') || {}).getAttribute?.('data-action-click');
+            if (!actionName) return;
+            // capture 阶段拦截：阻止冒泡到 container 的委托（委托会再派发一次）
+            e.stopPropagation();
+            // 以星图标自身 rect 判左右半（item 可能宽于星，导致左半判定偏移）
+            const iconEl = e.target.closest('.el-rate__icon') || item;
+            const rect = iconEl.getBoundingClientRect();
+            const half = (e.clientX !== 0 && e.clientX >= rect.left && e.clientX < rect.left + rect.width / 2);
+            this.send({ type: 'action', name: actionName, params: half ? { half: '1' } : {}, sessionId: this.sessionId });
+        }, true);
     }
 
     // 下拉选择（EP DOM 结构）：点击外部关闭 + 选项 hover 高亮类 + 搜索输入框键盘 preventDefault

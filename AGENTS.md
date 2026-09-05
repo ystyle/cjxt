@@ -224,6 +224,13 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
   （隐藏 input 不可见不可直接点击，action 由 label 主导，天然一次）。
 - 排查提示：服务端日志看到**同一 handler id 连续两条 dispatch** 就是这个症状。
 
+**教训 5（2026-09-05）：querySelector/closest 不匹配自身 — 服务端挂 action 的元素要在自身读取**
+- 现象：Rate 半星点击无效果；JS 拦截器 `item.querySelector('[data-action-click]')` 恒为 null。
+- 根因：`querySelector` 只搜**后代**，而 onClick 挂载的 data-action-click 属性在 item **自身**上。
+- 修复：`item.getAttribute('data-action-click')` 优先，再回退后代查找。
+- 通用规则：DOM 查询按"自身优先、后代回退"写；排查前端拦截类 JS 时用 dataset 标记定位
+  （attach 标记 + fired 标记）区分"监听器未挂载"与"监听器内提前 return"。
+
 **教训 3：Int64.parse 抛 Exception（非 Error）**
 - `catch (e: Error)` 捕不到 Int64.parse 的非数字异常（"Alice" 直接炸测试）；
   无害解析用 `catch (e: Exception)`（Badge.parseInt 旧代码用 Error 覆盖不到的路径）。

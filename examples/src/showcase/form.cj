@@ -23,6 +23,12 @@ public func demoInput(st: ShowcaseState): Array<IComponent> {
                 Input().placeholder("大号").size(ComponentSize.Large).clearable(),
             ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
         ]),
+        demoSection("文本域 / 前后缀", [
+            div([
+                Input().textarea().rows(3).placeholder("请输入备注").bind(st.inputArea),
+                Input().prepend("https://").append(".com").placeholder("域名").clearable(),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+        ]),
     ]
 }
 
@@ -66,6 +72,11 @@ public func demoRadio(st: ShowcaseState): Array<IComponent> {
                     Radio([Button("B")], "b"),
                 ]).bind(st.radioValue),
             ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([
+                Radio([text("是（独立 bind）")], "yes").bind(st.radioStandalone),
+                Radio([text("否")], "no").bind(st.radioStandalone),
+                Text([text("当前: ${st.radioStandalone.get()}")]).kind(ComponentKind.Info),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
         ]),
     ]
 }
@@ -84,6 +95,10 @@ public func demoCheckbox(st: ShowcaseState): Array<IComponent> {
                 Checkbox([text("单独复选")], "single"),
                 Checkbox([text("选中并禁用")], "x").disabled(),
             ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+            div([
+                Checkbox([text("同意条款（独立 bind）")], "agree").bind(st.checkAgree),
+                Text([text("当前: ${st.checkAgree.get()}")]).kind(ComponentKind.Info),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
         ]),
     ]
 }
@@ -96,6 +111,10 @@ public func demoRate(st: ShowcaseState): Array<IComponent> {
             ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
             div([
                 Rate().max(3).showText().texts(["差", "一般", "好"]).bind(st.rateValue),
+                Row([
+                    Rate().allowHalf().bind(st.rateValue),
+                    Text([text("当前: ${rateValueText(st.rateValue.get())}")]).kind(ComponentKind.Info),
+                ], gutter: 12),
             ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
             div([
                 Rate().disabled().bind(st.rateValue),
