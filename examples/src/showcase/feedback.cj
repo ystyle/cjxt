@@ -18,6 +18,17 @@ public func demoAlert(st: ShowcaseState): Array<IComponent> {
     ]
 }
 
+public func propsAlert(): IComponent {
+    div([
+        propRow("title", "String", "标题"),
+        propRow("kind", "Success | Warning | Error | Info", "类型"),
+        propRow("description", "String", "描述内容"),
+        propRow("closable", "false", "是否可关闭"),
+        propRow("showIcon", "false", "是否显示图标"),
+        propRow("center / effect", "false / light", "居中 / 主题"),
+    ], attrs: Some(HashMap<String, String>([("class", cls("row"))])))
+}
+
 public func demoMessage(st: ShowcaseState): Array<IComponent> {
     let q = MessageQueue(st.messageItems)
     let successH: ActionHandler = { ctx => q.success("这是一条成功提示"); PatchResult.ReRender }

@@ -24,6 +24,15 @@ public func demoCollapse(st: ShowcaseState): Array<IComponent> {
     ]
 }
 
+public func propsCollapse(): IComponent {
+    div([
+        propRow("accordion", "false", "手风琴模式（单开）"),
+        propRow("CollapseItem.title", "String", "面板标题"),
+        propRow("CollapseItem.name", "String", "唯一标识"),
+        propRow("CollapseItem.disabled", "false", "禁用面板"),
+    ], attrs: Some(HashMap<String, String>([("class", cls("row"))])))
+}
+
 public func demoTable(st: ShowcaseState): Array<IComponent> {
     let d = st.tableData
     if (d.get().size == 0) {

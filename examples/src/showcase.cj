@@ -151,6 +151,8 @@ class ShowcasePage <: Component {
     func renderProps(sel: String): IComponent {
         match (sel) {
             case "Button" => propsButton()
+            case "Alert" => propsAlert()
+            case "Collapse" => propsCollapse()
             case "ButtonGroup" => propsButtonGroup()
             case "Card" => propsCard()
             case "RowCol" => propsRowCol()
