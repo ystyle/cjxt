@@ -192,6 +192,12 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 
 ## 代码总结
 
+### 2026-09-06 Tabs 滑动 active-bar（文档计划 v1 遗留）
+
+**实现**：line 类型的 `.el-tabs__nav` 末尾渲染 `<div class="el-tabs__active-bar [is-left|is-right]" data-tabs-bar>`（card/border-card 不渲染，EP 语义）；前端新增 **`tabsBarAll()`**：对 `[data-tabs-bar]` 用 getBoundingClientRect 差值把 bar 定位到 `.el-tabs__item.is-active`（横向 width + translateX；vertical 用 height + translateY；rect 差值不依赖 offsetParent 归属，任意嵌套安全）。调用点：**初始渲染后**（renderTree(this.tree) 之后）与 **applyTreePatches 末尾**（切换标签后定位/过渡动画走 scss 的 width/transform transition）。
+
+**验证**：tests 39/39（+3：line 有 bar/card 无 bar/vertical is-left 类）；浏览器：初始 bar 宽 96=激活项宽、x 对齐；点第二个 tab → bar 宽 76、translateX(96px)、与激活项 x 一致（滑动条跟随）。docker 部署线上。
+
 ### 2026-09-06 TimePicker 用户反馈两处（输入框右侧竖线 / × 位置）
 
 **排查**：agent-browser 实测线上 DOM——三个 `.el-date-editor` 宽 220 一致；输入框右侧 20/40/80px 处 elementFromPoint 全是容器空白（无竖线元素）；clearable 的 ×（`.el-input__suffix` absolute right:8px）实测 x=769 在编辑器（579-799）内部右端，位置正确。判定用户截图与当前 DOM 不符（可能缓存/渲染快照），但仍做两处加固：
