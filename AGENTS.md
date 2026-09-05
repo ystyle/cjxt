@@ -192,6 +192,18 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 
 ## 代码总结
 
+### 2026-09-06 TimePicker 时间选择（Stage 5 时间组第 2 个）
+
+**实现**：`TimePicker().bind(Signal<String> "HH:mm:ss").placeholder().disabled().clearable()`；复用 DatePicker 弹层模型（el-date-editor 输入框 + 时钟前缀图标 + `el-picker__popper el-popper` absolute 面板）。面板对齐 EP：`el-time-panel > __content.has-seconds > el-time-spinner.has-seconds > __wrapper ×3(时/分/秒, max-height 192 滚动) > ul.__list > li.__item[.is-active](pad2 文本)` + `__footer > btn.cancel/.confirm`；点 li 即时写值（部件替换 + pad2 重组），取消/确定关闭。新增 `clock` 图标（element-plus-icons 官方 path）。
+
+**要点/坑**：
+- **面板恒渲染 + display:none（EP persistent 语义）**：条件渲染时单测无法触发内部 `_open`（私有信号）→ 改恒渲染、未开时 `display:none`；结构稳定、树路径稳定、可单测（与 EP v-show/persistent 一致）。
+- **spinner 打开不滚到选中项**：列表默认停在顶部（00…），EP 打开时选中项自动滚动到中线。新增前端通用机制 **`data-scroll-active`**：`applyTreePatches` 末尾 `scrollActiveAll()`，对容器把 `.is-active` 子元素滚到可视中线（getBoundingClientRect 差值，任意嵌套安全）；spinner `__wrapper`（滚动容器是 wrapper 不是 ul）挂该属性。
+- `break()` 不是仓颉表达式：while + Option 循环用 `searching` 标志（None 分支赋值退出）。
+- 测试包：countOccurrences 用 `String.indexOf(sub, from)` 循环数（app.cj 已有 indexOf with-from 先例）。
+
+**验证**：根包 259 + tests 36 全过（+3：面板结构/has-seconds/active 数量与值匹配/placeholder）；浏览器：打开面板 3 列 144 项、09/30/45 滚动到中线（scrollTop 精确 288/960/1440）、点分列 31 → 值 09:31:45 + 文本更新、确定关闭；docker 部署线上复验。
+
 ### 2026-09-06 Calendar 表头/补位格修复（用户反馈）
 
 **用户反馈**：日历页"周几那行有问题"+ 选中 7-30 无高亮。经核对日期事实（2026-08-01 周六、7-30 周四）渲染正确，实际是两个体验问题：
