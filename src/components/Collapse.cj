@@ -5,6 +5,13 @@ import cjxt.collapseToggleActive
 import cjxt.collapseIsActive
 import std.collection.{HashMap, ArrayList}
 
+// EP 结构（collapse-item.vue）：
+//   div.el-collapse-item [is-active] [is-disabled]
+//     div.el-collapse-item__header [is-active] [role=button] [aria-expanded] [aria-disabled] [tabindex]
+//       span.el-collapse-item__title
+//       span.el-collapse-item__arrow [is-active] > i.el-icon > svg(ArrowRight)
+//     div.el-collapse-item__wrap [role=region] [aria-hidden]   ← 仅激活时渲染（服务端 v-show）
+//       div.el-collapse-item__content
 public class CollapseItem <: Component {
     var _title: String
     var _name: String
@@ -35,35 +42,71 @@ public class CollapseItem <: Component {
         if (this._disabled) { cls = "${cls} is-disabled" }
         let attrs = HashMap<String, String>([("class", cls)])
 
-        // header：点击切换（disabled 无 action）；箭头 EP el-collapse-item__arrow rotate
+        // header
         var headerCls = "el-collapse-item__header"
         if (active) { headerCls = "${headerCls} is-active" }
-        let arrowIcon = Icon("arrow-down").size("14px").render()
-        let arrowStyle = if (active) { "transform: rotate(180deg)" } else { "transform: none" }
-        let arrow = VNode("span", [arrowIcon], attrs: Some(HashMap<String, String>([("class", "el-collapse-item__arrow"), ("style", arrowStyle)])))
-        let header = VNode("div", [
-            VNode("span", [text(this._title)], attrs: Some(HashMap<String, String>([("class", "el-collapse-item__header-text")]))),
-            arrow,
-        ], attrs: Some(HashMap<String, String>([("class", headerCls), ("role", "button"), ("aria-expanded", if (active) { "true" } else { "false" })])))
+        let headerAttrs = HashMap<String, String>([
+            ("class", headerCls),
+            ("role", "button"),
+            ("aria-expanded", if (active) { "true" } else { "false" }),
+            ("aria-disabled", if (this._disabled) { "true" } else { "false" }),
+        ])
+        if (!this._disabled) { headerAttrs["tabindex"] = "0" }
 
+        // 箭头：EP 用 ArrowRight；展开时 CSS .is-active { transform: rotate(90deg) }
+        let arrowIcon = Icon("arrow-right").size("14px").render()
+        var arrowCls = "el-collapse-item__arrow"
+        if (active) { arrowCls = "${arrowCls} is-active" }
+        let arrow = VNode("span", [arrowIcon], attrs: Some(HashMap<String, String>([("class", arrowCls)])))
+        let header = VNode("div", [
+            VNode("span", [text(this._title)], attrs: Some(HashMap<String, String>([("class", "el-collapse-item__title")]))),
+            arrow,
+        ], attrs: Some(headerAttrs))
+
+        // 点击 / 回车 / 空格切换（disabled 无交互）
         let headerEl = if (this._disabled) { header } else {
             let n = this._name
-            header.onClick({ ctx =>
+            let clickH: ActionHandler = { ctx =>
                 match (this._groupSignal) {
                     case Some(s) => s.set(collapseToggleActive(s.get(), n, this._accordion))
                     case None => ()
                 }
                 PatchResult.ReRender
-            })
+            }
+            let keyH: ActionHandler = { ctx =>
+                if (isToggleKey(ctx.keyEvent)) {
+                    match (this._groupSignal) {
+                        case Some(s) => s.set(collapseToggleActive(s.get(), n, this._accordion))
+                        case None => ()
+                    }
+                }
+                PatchResult.ReRender
+            }
+            header.on("click", clickH).on("keydown", keyH)
         }
 
         let childrenParts = ArrayList<IComponent>()
         childrenParts.add(headerEl)
-        // 仅激活时渲染内容（EP v-show 语义；服务端条件渲染，收起不占 DOM）
+        // 仅激活时渲染 wrap>content（EP v-show 语义；服务端条件渲染，收起不占 DOM）
         if (active) {
-            childrenParts.add(VNode("div", [VNode("div", this._children, attrs: Some(HashMap<String, String>([("class", "el-collapse-item__content-box")])))], attrs: Some(HashMap<String, String>([("class", "el-collapse-item__content")]))))
+            let wrap = VNode("div", [
+                VNode("div", this._children, attrs: Some(HashMap<String, String>([("class", "el-collapse-item__content")]))),
+            ], attrs: Some(HashMap<String, String>([
+                ("class", "el-collapse-item__wrap"),
+                ("role", "region"),
+                ("aria-hidden", "false"),
+            ])))
+            childrenParts.add(wrap)
         }
         VNode("div", childrenParts.toArray(), attrs: Some(attrs))
+    }
+}
+
+// 折叠面板触发键：Enter / Space（EP collapse-item 的 keydown.space.enter）
+func isToggleKey(ke: Option<KeyEvent>): Bool {
+    match (ke) {
+        case Some(k) => k.isEnter() || k.code == "Space" || k.key == " "
+        case None => false
     }
 }
 
