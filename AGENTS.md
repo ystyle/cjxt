@@ -192,6 +192,18 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 
 ## 代码总结
 
+### 2026-09-06 Popconfirm 气泡确认（客户端组件第 3 例）
+
+**实现**：`Popconfirm`（服务端组件）→ `ClientComponentNode("Popconfirm", props).on("confirm"/"cancel", h)`；前端 `popconfirm.js` 类渲染 EP 结构（`.el-popconfirm > __main(el-icon.question-filled #f90 + title) + __action(取消 is-text small / 确定 primary small)`，popper-class=el-popover）并用 FloatingUIDOM 定位（同 popover.js）；确认/取消按钮点击 → `window.ui.send({type:'action', name: container.getAttribute('data-action-'+ev), ...})` → 服务端标准 action 链路。icon QuestionFilled path 取自 element-plus-icons 仓库。
+
+**要点/坑**：
+- 主包测不了 `cjxt.components`（`cjpm test` 循环依赖 cjxt↔components）——组件渲染结构测试放 **`tests/` 独立包（cjxt_tests）**，`cd tests && cjpm test` 单独跑（根 `cjpm test` 只跑主包 259 个）。本次 4 个新测试 + 修正 1 个**预先存在**的失败断言（testTableCellNowrap：Table cell 已按 EP 对齐去掉强制 nowrap，tests 包还是旧断言）→ 22/22。
+- 客户端组件按钮在 `document.body` 的 popper 内，click 委派（挂 root container）够不着 → 类内直接 `window.ui.send` 派发（var ui 顶层即 window.ui；sessionId 取 `window.ui.sessionId`）。
+- host 验证分叉：本地 agent-browser 会话经 ~5 次 eval 后漂移（页面重置、按钮消失、WS 重连），服务端日志无 dispatch 是"按钮根本不在 DOM"而非链路故障；**每轮验证在单次 bash 内 open→…→assert 完成**（cancel/confirm 分两轮各验一次）。
+- 弹层定位：popper absolute 相对 container（relative），FloatingUI 坐标差在 container==trigger 包裹一致场景无偏差（与既有 Popover 行为一致）。
+
+**验证**：根包 259 + tests 22 全过；本地/线上点击「删除」弹气泡（icon+标题+取消/确定），取消 → onCancel 文本、确定 → onConfirm 文本；docker 部署后线上复验 confirmed=true。
+
 ### 2026-09-06 Collapse 折叠面板对齐 EP（样式/DOM 结构）
 
 **现象**：Collapse 页面全部面板渲染成一行行裸文本——无 48px 头高、无内边距、无条目分隔线、箭头方向也不对。
