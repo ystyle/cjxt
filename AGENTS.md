@@ -192,6 +192,22 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 
 ## 代码总结
 
+### 2026-09-06 MessageBox 弹框（Alert/Confirm/Prompt）
+
+**实现**：`MessageBox(visible: Signal<Bool>)` 外置可见信号（跨渲染持久化，同 Dialog）+ `kind(Alert|Confirm|Prompt)` + `title/message/confirmText/cancelText/icon(Success|Warning|Error|Info)` + `center/showClose/closeOnClickModal` + Prompt 的 `value(Signal<String>)/placeholder` + `onConfirm/onCancel`。DOM 对齐 EP：`el-overlay.is-message-box > el-overlay-message-box[role=dialog] > el-message-box[is-center] > __header(.show-close)/__content(> __container(__status icon + __message>p) / __input)/__btns`。确认/取消/回车关闭并回调；弹窗本体挂 **noop click 截断**（点击弹窗内委托命中自身，避免冒泡到 overlay 关闭 action）；遮罩点击关闭 = overlay 自身 action（弹窗内被 noop 截断）。
+
+**要点/坑**：
+- **Cangjie 枚举变体必须 `|` 分隔**（`| Success | Warning | Error | Info`），换行写不报语法提示但编译报 expected declaration。
+- **枚举变体优先级**：`Option<MessageBoxIcon2> = None` 报 "find multiple constructor 'None'"（枚举自己有 None 变体）→ 用 `Option<MessageBoxIcon2>.None` 全限定。
+- `PatchResult` 无 None 变体（只有 ReRender/Patch）——noop 需返回 ReRender。
+- **match arm 类型统一**：`case Some(hh) => hh(ctx)`（PatchResult）与 `case None => ()`（Unit）混用编译失败 → 提取 `runHandler(hh, ctx): Unit { let _ = hh(ctx) }` 让两臂都 Unit。
+- `Input` 组件新增 `onKeydown(h)` 透传（makeInner 里 `innerEl.on("keydown", h)`，供 MessageBox Prompt 回车确认等场景复用）。
+- **tests 包缓存**：`tests/target/release/cjxt` 是 path 依赖缓存，组件源码改动后不同步 → `rm -rf tests/target/release/cjxt` 再 `cjpm test`（AGENTS 已有此坑，本轮再次确认）。
+- 服务端 json 的 action 是 `{"keydown":"id"}` 对象；`data-action-keydown` 属性是前端渲染时写的——**tests 断言用 `json.contains("\"keydown\"")` 而不是 data-action- 字面量**。
+- Button.onClick 重载歧义（ActionHandler vs (ActionContext)->Unit）→ `func openXxxH(st): ActionHandler { let handler: ActionHandler = {...}; handler }` 包装（三处）。
+
+**验证**：根包 259 + tests 28 全过；本地点击「打开提示」Alert（唯一确定/关闭钮、遮罩居中）→ 确定关闭；「删除数据」Confirm（warning 图标单元素 `el-icon.el-message-box__status.el-message-box-icon--warning`、取消→已取消、删除→已确认删除）；「输入名称」Prompt（输入"星穹列车"回车 → 结果"已输入：星穹列车"）；docker 部署线上复验 closed=true。
+
 ### 2026-09-06 Popconfirm 气泡确认（客户端组件第 3 例）
 
 **实现**：`Popconfirm`（服务端组件）→ `ClientComponentNode("Popconfirm", props).on("confirm"/"cancel", h)`；前端 `popconfirm.js` 类渲染 EP 结构（`.el-popconfirm > __main(el-icon.question-filled #f90 + title) + __action(取消 is-text small / 确定 primary small)`，popper-class=el-popover）并用 FloatingUIDOM 定位（同 popover.js）；确认/取消按钮点击 → `window.ui.send({type:'action', name: container.getAttribute('data-action-'+ev), ...})` → 服务端标准 action 链路。icon QuestionFilled path 取自 element-plus-icons 仓库。
