@@ -4,6 +4,9 @@ import cjxt.*
 import std.collection.{HashMap, ArrayList}
 
 /// 泛型列配置：文本取值用 accessor（支持排序），富渲染用 render
+import cjxt.compareCellValues
+import cjxt.tableFixedOffset
+
 public class TableColumn<T> {
     var _colType: TableColumnType = TableColumnType.Default
     var _accessor: Option<(T) -> String> = None
@@ -81,6 +84,8 @@ public class Table<T> <: Component {
     // 内部 fallback 信号
     var _sortColumn: Signal<String>
     var _sortOrder: Signal<SortOrder>
+    var _expandRowKeysSignal: Option<Signal<ArrayList<String>>> = None
+    var _expandRowKeys: Signal<ArrayList<String>>
     var _selectedRows: Signal<ArrayList<T>>
     var _currentRow: Signal<Option<T>>
 
@@ -89,6 +94,7 @@ public class Table<T> <: Component {
         this._columns = ArrayList<TableColumn<T>>()
         this._sortColumn = Signal<String>("")
         this._sortOrder = Signal<SortOrder>(SortOrder.None)
+        this._expandRowKeys = Signal<ArrayList<String>>(ArrayList<String>())
         this._selectedRows = Signal<ArrayList<T>>(ArrayList<T>())
         let noneVal: Option<T> = None
         this._currentRow = Signal<Option<T>>(noneVal)
@@ -141,6 +147,7 @@ public class Table<T> <: Component {
 
     public func sortColumn(signal: Signal<String>): Table<T> { this._sortColumnSignal = Some(signal); this }
     public func sortOrder(signal: Signal<SortOrder>): Table<T> { this._sortOrderSignal = Some(signal); this }
+    public func expandRowKeys(signal: Signal<ArrayList<String>>): Table<T> { this._expandRowKeysSignal = Some(signal); this }
     public func selectedRows(signal: Signal<ArrayList<T>>): Table<T> { this._selectedRowsSignal = Some(signal); this }
     public func currentRow(signal: Signal<Option<T>>): Table<T> { this._currentRowSignal = Some(signal); this }
     public func onRowClick(fn: (T, Int64, ActionContext) -> PatchResult): Table<T> { this._onRowClick = Some(fn); this }
@@ -202,6 +209,42 @@ public class Table<T> <: Component {
     }
 
     // 按列 accessor 排序并写回数据信号
+    private func getExpandKeys(): ArrayList<String> {
+        match (this._expandRowKeysSignal) {
+            case Some(s) => s.get()
+            case None => this._expandRowKeys.get()
+        }
+    }
+    private func setExpandKeys(v: ArrayList<String>): Unit {
+        match (this._expandRowKeysSignal) {
+            case Some(s) => s.set(v)
+            case None => this._expandRowKeys.set(v)
+        }
+    }
+    private func isRowExpanded(row: T): Bool {
+        let key = this.getRowKey(row)
+        for (k in this.getExpandKeys()) {
+            if (k == key) { return true }
+        }
+        false
+    }
+    private func toggleRowExpand(row: T): Unit {
+        let key = this.getRowKey(row)
+        let keys = this.getExpandKeys()
+        var found = false
+        var idx: Int64 = 0
+        for (k in keys) {
+            if (k == key) { found = true; break }
+            idx = idx + 1
+        }
+        if (found) {
+            keys.remove(idx..idx + 1)
+        } else {
+            keys.add(key)
+        }
+        this.setExpandKeys(keys)
+    }
+
     private func toggleSort(col: TableColumn<T>): Unit {
         let currentCol = this.getSortColumn()
         let currentOrder = this.getSortOrder()
@@ -283,12 +326,8 @@ public class Table<T> <: Component {
             content.add(this.renderHeader())
         }
 
-        if (data.size == 0) {
-            content.add(this.renderEmpty())
-        } else {
-            let body = this.renderBody(data)
-            content.add(body)
-        }
+        let body = this.renderBody(data)
+        content.add(body)
 
         if (this._showSummary && data.size > 0) {
             content.add(this.renderSummary(data))
@@ -296,7 +335,8 @@ public class Table<T> <: Component {
 
         // 列宽总和超过容器时，允许 inner-wrapper 水平滚动，保证表头与表体一起滚动，
         // 同时保留外层 .el-table 的 overflow:hidden 以正确显示 EP 伪元素边框。
-        let innerStyle = "overflow-x: auto"
+        var innerStyle = "overflow-x: auto"
+        if (this._height != "" || this._maxHeight != "") { innerStyle = "${innerStyle};display:flex;flex-direction:column;overflow-y:hidden" }
         let inner = VNode("div", content.toArray(),
             attrs: Some(HashMap<String, String>([("class", "el-table__inner-wrapper"), ("style", innerStyle)])))
         VNode("div", [inner], attrs: Some(attrs))
@@ -331,7 +371,7 @@ public class Table<T> <: Component {
             headerRow.add(this.renderHeaderCell(col, ci))
             ci++
         }
-        var hRowCls = "el-table__header-row"
+        var hRowCls = ""
         match (this._headerRowClassName) {
             case Some(fn) =>
                 let extra = fn(0)
@@ -382,7 +422,7 @@ public class Table<T> <: Component {
         let cellAttrs = HashMap<String, String>([("class", cls)])
         if (col._width > 0) { cellAttrs.add("style", "width: ${col._width}px") }
         if (col._minWidth > 0) { cellAttrs.add("style", "min-width: ${col._minWidth}px") }
-        this.applyFixedStyle(col, cellAttrs)
+        this.applyFixedStyle(col, cellAttrs, ci)
 
         match (this._headerCellStyle) {
             case Some(fn) =>
@@ -410,6 +450,11 @@ public class Table<T> <: Component {
         }
 
         let cell = VNode("div", content.toArray(), attrs: Some(HashMap<String, String>([("class", "cell")])))
+        cellAttrs["class"] = "${cls} is-leaf"
+        if (sortActive) {
+            let ariaOrder = if (isAscending(currentOrder)) { "ascending" } else { "descending" }
+            cellAttrs["aria-sort"] = ariaOrder
+        }
         var th = VNode("th", [cell], attrs: Some(cellAttrs))
         if (col._sortable && col._accessor.isSome()) {
             let c = col
@@ -419,20 +464,37 @@ public class Table<T> <: Component {
         th
     }
 
-    private func applyFixedStyle(col: TableColumn<T>, attrs: HashMap<String, String>): Unit {
+    private func applyFixedStyle(col: TableColumn<T>, attrs: HashMap<String, String>, ci: Int64): Unit {
         match (col._fixed) {
-            case Some(f) => this.applyFixedStyleInner(f, attrs)
+            case Some(f) => this.applyFixedStyleInner(f, attrs, ci)
             case None => ()
         }
     }
 
-    private func applyFixedStyleInner(f: TableFixed, attrs: HashMap<String, String>): Unit {
-        let pos = this.fixedPos(f)
-        attrs.add("style", "position: sticky; ${pos}")
+    private func applyFixedStyleInner(f: TableFixed, attrs: HashMap<String, String>, ci: Int64): Unit {
+        let isLeft = f.asFixedAttr() == "left"
+        let offset = tableFixedOffset(this.columnWidths(), ci, !isLeft)
+        let cls = attrs.get("class")
+        let fixedCls = if (isLeft) { "el-table-fixed-column--left" } else { "el-table-fixed-column--right" }
+        match (cls) {
+            case Some(c) => attrs["class"] = "${c} ${fixedCls}"
+            case None => attrs["class"] = fixedCls
+        }
+        let pos = if (isLeft) { "position: sticky; left: ${offset}px" } else { "position: sticky; right: ${offset}px" }
+        let style = attrs.get("style")
+        match (style) {
+            case Some(st) => attrs["style"] = "${st};${pos}"
+            case None => attrs["style"] = pos
+        }
     }
 
-    private func fixedPos(f: TableFixed): String {
-        if (f.asFixedAttr() == "left") { "left: 0" } else { "right: 0" }
+    // 列宽数组（固定列 offset 累计用）
+    private func columnWidths(): Array<Int64> {
+        let res = ArrayList<Int64>()
+        for (col in this._columns) {
+            res.add(if (col._width > 0) { col._width } else { col._minWidth })
+        }
+        res.toArray()
     }
 
     private func buildSelectionHeader(content: ArrayList<IComponent>): Unit {
@@ -468,7 +530,7 @@ public class Table<T> <: Component {
         let rows = ArrayList<IComponent>()
         var idx: Int64 = 0
         for (row in data) {
-            rows.add(this.renderRow(row, idx))
+            for (r in this.renderRow(row, idx)) { rows.add(r) }
             idx++
         }
         let tableAttrs = HashMap<String, String>([
@@ -480,15 +542,30 @@ public class Table<T> <: Component {
         ])
         let table = VNode("table", [this.renderColGroup(), VNode("tbody", rows.toArray())],
             attrs: Some(tableAttrs))
-        let scroll = VNode("div", [table],
-            attrs: Some(HashMap<String, String>([("class", "el-table__body-wrapper")])))
+
+        let wrapperChildren = ArrayList<IComponent>()
+        wrapperChildren.add(table)
+        if (data.size == 0) {
+            // EP：body-wrapper 内空 body table + 独立 empty-block（el-table__empty-text 在 block 内）
+            let emptyText = VNode("span", [text(this._emptyText)],
+                attrs: Some(HashMap<String, String>([("class", "el-table__empty-text")])))
+            wrapperChildren.add(VNode("div", [emptyText],
+                attrs: Some(HashMap<String, String>([("class", "el-table__empty-block")]))))
+        }
+
+        var wrapperStyle = ""
+        if (this._height != "" || this._maxHeight != "") { wrapperStyle = "overflow-y:auto;flex:1;min-height:0" }
+        let scroll = VNode("div", wrapperChildren.toArray(),
+            attrs: Some(HashMap<String, String>([("class", "el-table__body-wrapper"), ("style", wrapperStyle)])))
         scroll
     }
 
-    private func renderRow(row: T, index: Int64): IComponent {
+    private func renderRow(row: T, index: Int64): Array<IComponent> {
         let cells = ArrayList<IComponent>()
+        var ci: Int64 = 0
         for (col in this._columns) {
-            cells.add(this.renderCell(col, row, index))
+            cells.add(this.renderCell(col, row, index, ci))
+            ci++
         }
         var rowCls = "el-table__row"
         if (this._stripe && index % 2 == 1) {
@@ -526,12 +603,44 @@ public class Table<T> <: Component {
             }
             tr = tr.onClick(wrapped)
         }
-        tr
+
+        let result = ArrayList<IComponent>()
+        result.add(tr)
+        // 展开行：expanded 时在行后插 tr.el-table__expanded-row > td(colspan) > div.el-table__expanded-cell（EP table-body render-helper）
+        if (this.hasExpandColumn() && this.isRowExpanded(row)) {
+            result.add(this.renderExpandedRow(row, index))
+        }
+        result.toArray()
     }
 
-    private func renderCell(col: TableColumn<T>, row: T, index: Int64): IComponent {
+    private func hasExpandColumn(): Bool {
+        for (col in this._columns) {
+            if (isExpandType(col._colType)) { return true }
+        }
+        false
+    }
+
+    private func renderExpandedRow(row: T, index: Int64): IComponent {
+        var colspan: Int64 = 0
+        var expandContent: IComponent = text("")
+        for (col in this._columns) {
+            colspan = colspan + 1
+            if (isExpandType(col._colType)) {
+                match (col._render) {
+                    case Some(fn) => expandContent = fn(row, index)
+                    case None => ()
+                }
+            }
+        }
+        let cell = VNode("td", [VNode("div", [expandContent], attrs: Some(HashMap<String, String>([("class", "el-table__expanded-cell")])))],
+            attrs: Some(HashMap<String, String>([("class", "el-table__cell"), ("colspan", colspan.toString())])))
+        VNode("tr", [cell], attrs: Some(HashMap<String, String>([("class", "el-table__expanded-row")])))
+    }
+
+    private func renderCell(col: TableColumn<T>, row: T, index: Int64, ci: Int64): IComponent {
         var cls = "el-table__cell"
         if (isSelectionType(col._colType)) { cls = "${cls} el-table-column--selection" }
+        if (isExpandType(col._colType)) { cls = "${cls} el-table-column--expand" }
         if (col._className != "") { cls = "${cls} ${col._className}" }
         let ac = col._align.asClass()
         if (ac != "") { cls = "${cls} is-${ac}" }
@@ -560,20 +669,37 @@ public class Table<T> <: Component {
             case None => ()
         }
 
-        this.applyFixedStyle(col, cellAttrs)
+        this.applyFixedStyle(col, cellAttrs, ci)
 
         let content = ArrayList<IComponent>()
 
         if (isSelectionType(col._colType)) {
             this.buildSelectionCell(row, content)
+        } else if (isExpandType(col._colType)) {
+            this.buildExpandCell(row, content)
         } else if (isIndexType(col._colType)) {
             this.buildIndexCell(index, content)
         } else {
             this.buildDefaultCell(col, row, index, content)
         }
 
-        let cell = VNode("div", content.toArray(), attrs: Some(HashMap<String, String>([("class", "cell"), ("style", "white-space: nowrap; overflow: hidden; text-overflow: ellipsis")])))
+        // EP 默认 .cell 自动换行（overflow-wrap: break-word）；旧实现强制 nowrap 与 EP 行为不符
+        let cell = VNode("div", content.toArray(), attrs: Some(HashMap<String, String>([("class", "cell")])))
         VNode("td", [cell], attrs: Some(cellAttrs))
+    }
+
+    // 展开列单元格：EP el-table__expand-icon（收起箭头；点击展开/收起）
+    private func buildExpandCell(row: T, content: ArrayList<IComponent>): Unit {
+        let expanded = this.isRowExpanded(row)
+        let iconCls = if (expanded) { "el-table__expand-icon is-expanded" } else { "el-table__expand-icon" }
+        let arrow = Icon("arrow-down").size("12px").render()
+        let icon = VNode("span", [arrow], attrs: Some(HashMap<String, String>([("class", iconCls)])))
+        let r = row
+        let wrapped: ActionHandler = { ctx =>
+            this.toggleRowExpand(r)
+            PatchResult.ReRender
+        }
+        content.add(icon.onClick(wrapped))
     }
 
     private func buildSelectionCell(row: T, content: ArrayList<IComponent>): Unit {
@@ -596,19 +722,10 @@ public class Table<T> <: Component {
                     case Some(f) => f(raw)
                     case None => raw
                 }
-                if (col._showOverflowTooltip && display.size > 30) {
-                    content.add(text(display[0..27] + "..."))
-                } else {
-                    content.add(text(display))
-                }
+                // showOverflowTooltip：旧实现 30 字符截断为假实现；
+                // 先恢复 EP 默认换行展示（tooltip 需客户端测量，P2）
+                content.add(text(display))
         }
-    }
-
-    private func renderEmpty(): IComponent {
-        let empty = VNode("div", [text(this._emptyText)],
-            attrs: Some(HashMap<String, String>([("class", "el-table__empty-text")])))
-        VNode("div", [empty],
-            attrs: Some(HashMap<String, String>([("class", "el-table__body-wrapper el-table__empty-block")])))
     }
 
     private func renderSummary(data: ArrayList<T>): IComponent {
@@ -665,7 +782,7 @@ public func sortByAccessor<T>(rows: ArrayList<T>, get: (T) -> String, order: Sor
         while (j < n) {
             let av = get(arr[i])
             let bv = get(arr[j])
-            let cmp = compareStr(av, bv)
+            let cmp = compareCellValues(av, bv)
             let needSwap = if (isAscending(order)) { cmp > 0 } else { cmp < 0 }
             if (needSwap) {
                 let tmp = arr[i]
@@ -715,6 +832,13 @@ func isSelectionType(t: TableColumnType): Bool {
 func isIndexType(t: TableColumnType): Bool {
     match (t) {
         case Index => true
+        case _ => false
+    }
+}
+
+func isExpandType(t: TableColumnType): Bool {
+    match (t) {
+        case Expand => true
         case _ => false
     }
 }

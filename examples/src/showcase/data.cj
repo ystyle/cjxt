@@ -21,23 +21,29 @@ public func demoTable(st: ShowcaseState): Array<IComponent> {
         .sortOrder(st.tableSortOrder)
         .selectedRows(st.tableSelectedRows)
         .currentRow(st.tableCurrentRow)
+        .add(TableColumn<TableRow>().colType(TableColumnType.Expand).width(48)
+            .render({ r, i => div([
+                text("订单详情： ${r.name} / ${r.address}"),
+            ])}))
         .add(TableColumn<TableRow>().colType(TableColumnType.Selection).width(50))
         .add(TableColumn<TableRow>().colType(TableColumnType.Index).label("#").width(60))
         .add(TableColumn<TableRow>().accessor({ r => r.date }).label("Date").width(120).sortable())
         .add(TableColumn<TableRow>().accessor({ r => r.name }).label("Name").width(120).sortable())
+        .add(TableColumn<TableRow>().accessor({ r => r.price }).label("Price").width(90).sortable())
         .add(TableColumn<TableRow>().accessor({ r => r.state }).label("State").width(120))
         .add(TableColumn<TableRow>().accessor({ r => r.city }).label("City").width(120))
         .add(TableColumn<TableRow>().accessor({ r => r.address }).label("Address").width(200).showOverflowTooltip())
     [
-        demoSection("带边框 / 斑马纹 / 高亮当前行 / 排序 / 多选", [
-            table.render(),
+        demoSection("带边框 / 斑马纹 / 高亮当前行 / 排序 / 多选 / 展开", [
+            div([table], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
         ]),
         demoSection("空数据表格", [
-            Table<TableRow>()
-                .data(Signal<ArrayList<TableRow>>(ArrayList<TableRow>()))
-                .add(TableColumn<TableRow>().accessor({ r => r.name }).label("Name").width(120))
-                .add(TableColumn<TableRow>().accessor({ r => r.city }).label("City").width(200))
-                .render(),
+            div([
+                Table<TableRow>()
+                    .data(Signal<ArrayList<TableRow>>(ArrayList<TableRow>()))
+                    .add(TableColumn<TableRow>().accessor({ r => r.name }).label("Name").width(120))
+                    .add(TableColumn<TableRow>().accessor({ r => r.city }).label("City").width(200)),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
         ]),
     ]
 }

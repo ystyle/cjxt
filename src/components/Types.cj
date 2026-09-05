@@ -217,13 +217,14 @@ public enum ComponentSize2 {
 }
 
 public enum TableColumnType {
-    | Default | Selection | Index
+    | Default | Selection | Index | Expand
 
     public func asClass(): String {
         match (this) {
             case Default => ""
             case Selection => "selection"
             case Index => "index"
+            case Expand => "expand"
         }
     }
 }

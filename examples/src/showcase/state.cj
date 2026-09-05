@@ -23,13 +23,15 @@ public struct TableRow {
     public let state: String
     public let city: String
     public let address: String
+    public let price: String
 
-    public init(date: String, name: String, state: String, city: String, address: String) {
+    public init(date: String, name: String, state: String, city: String, address: String, price: String) {
         this.date = date
         this.name = name
         this.state = state
         this.city = city
         this.address = address
+        this.price = price
     }
 }
 

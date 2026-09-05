@@ -190,6 +190,35 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 
 ## 代码总结
 
+### 2026-09-05 Table P1 对齐 + VNode.onClick 陷阱
+
+**Table P1 修复：**
+- 数值感知排序：compareCellValues（"2" < "10"；日期 yyyy-MM-dd 自然序；一方非数值回退字符串）
+- 展开行：TableColumnType.Expand（纯逻辑 isExpandType）+ tr.el-table__expanded-row > td(colspan) > div.el-table__expanded-cell；
+  展开键 `expandRowKeys(Signal<ArrayList<String>>)` 外置（内部默认值兜底）
+- height/maxHeight 纵向滚动：inner-wrapper flex column + body-wrapper overflow-y:auto;flex:1（EP 用 el-scrollbar 的替代）
+- 空数据 DOM：body-wrapper 内空 body table + div.el-table__empty-block > span.el-table__empty-text
+- 固定列：el-table-fixed-column--left/right 类 + 多列 offset 累加（tableFixedOffset；旧实现全部 left:0 重叠）
+- cell 去掉强制 nowrap（EP 默认换行）；showOverflowTooltip 30 字符截断移除；th 补 is-leaf/aria-sort；tr 删 el-table__header-row
+
+**教训 1（关键）：组件实例直接作为 children，不要 .render() 内联**
+- demoTable 用 `table.render()` 内联 → Table 内部 Signal（expand keys）订阅挂在错误作用域，
+  set 后组件不随 ReRender 重建 → 展开完全失效。
+- 修复：`div([table])` 传组件实例（expandTree 独立 scope）；自检：任何需要内部信号持久化的组件
+  在 demo/业务代码中都必须以组件实例传入，禁止 .render() 内联（与 Pagination sizes 旧坑同源）。
+
+**教训 2：VNode.onClick(h) 重建节点丢弃已有 handlers**
+- `onClick(h)` 构造新 VNode（vnode.cj:84-91），只带 click 的 actions/handlers，
+  节点原有的 handlers map（如 data-bind-id 对应的自定义 bind handler）全部丢失。
+- 表现：Select filterable 输入框 bind 失效（过滤不工作）——bind + click 混用即中招。
+- 修复：改用合并式 `on("click", h)` / `on("keydown", h)`（on() 克隆合并现有 actions/handlers）。
+- 排查提示：dispatchBind 静默 MISS（session.handlers 查不到 bid）时先检查是否被 onClick 链吞掉。
+
+**教训 3：Int64.parse 抛 Exception（非 Error）**
+- `catch (e: Error)` 捕不到 Int64.parse 的非数字异常（"Alice" 直接炸测试）；
+  无害解析用 `catch (e: Exception)`（Badge.parseInt 旧代码用 Error 覆盖不到的路径）。
+
+
 ### 2026-06-25 Table 组件修复与状态持久化
 
 **问题 1：排序表头渲染成了 `<button>`**

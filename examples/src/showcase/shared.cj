@@ -46,10 +46,10 @@ func propRow(name: String, typ: String, desc: String): IComponent {
 
 func initTableData(): ArrayList<TableRow> {
     let data = ArrayList<TableRow>()
-    data.add(TableRow("2016-05-03", "Tom", "California", "Los Angeles", "No. 189, Grove St, Los Angeles"))
-    data.add(TableRow("2016-05-02", "Jerry", "California", "San Francisco", "742 Evergreen Terrace, San Francisco"))
-    data.add(TableRow("2016-05-04", "Alice", "New York", "New York City", "350 Fifth Avenue, New York City, NY 10118"))
-    data.add(TableRow("2016-05-01", "Bob", "Texas", "Austin", "1100 Congress Ave, Austin, TX 78701"))
+    data.add(TableRow("2016-05-03", "Tom", "California", "Los Angeles", "No. 189, Grove St, Los Angeles", "12"))
+    data.add(TableRow("2016-05-02", "Jerry", "California", "San Francisco", "742 Evergreen Terrace, San Francisco", "2"))
+    data.add(TableRow("2016-05-04", "Alice", "New York", "New York City", "350 Fifth Avenue, New York City, NY 10118", "8"))
+    data.add(TableRow("2016-05-01", "Bob", "Texas", "Austin", "1100 Congress Ave, Austin, TX 78701", "10"))
     data
 }
 
