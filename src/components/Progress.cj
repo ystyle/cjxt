@@ -75,7 +75,9 @@ public class Progress <: Component {
 
         let barStyle = "width:${this._percentage}%;animation-duration:${this._duration}s;background-color:${this.getStatusColor()}"
         let outerStyle = "height:${this._strokeWidth}px"
-        var innerBar = VNode("div", [], attrs: Some(HashMap<String, String>([("class", barInnerCls), ("style", barStyle)])))
+        // text-inside：EP 结构为 outer > inner > innerText（progress.vue:30-48）。
+        // 旧实现把 inner 再包进同 class+style 的新 div → 宽度应用于两层，进度长度被"平方"（80% 显示 64%）
+        let innerChildren = ArrayList<IComponent>()
         if (this._textInside && (this._showText || this._children.size > 0)) {
             let textCls = "el-progress-bar__innerText"
             let textEl = if (this._children.size > 0) {
@@ -83,8 +85,9 @@ public class Progress <: Component {
             } else {
                 VNode("div", [text(this.getContentText())], attrs: Some(HashMap<String, String>([("class", textCls)])))
             }
-            innerBar = VNode("div", [innerBar, textEl], attrs: Some(HashMap<String, String>([("class", barInnerCls), ("style", barStyle)])))
+            innerChildren.add(textEl)
         }
+        let innerBar = VNode("div", innerChildren.toArray(), attrs: Some(HashMap<String, String>([("class", barInnerCls), ("style", barStyle)])))
 
         let bar = VNode("div", [VNode("div", [innerBar], attrs: Some(HashMap<String, String>([("class", "el-progress-bar__outer"), ("style", outerStyle)])))], attrs: Some(HashMap<String, String>([("class", "el-progress-bar")])))
 

@@ -30,9 +30,9 @@ public class Switch <: Component {
         if (this._disabled) { cls = "${cls} is-disabled" }
         let isChecked = this.currentValue()
         if (isChecked) { cls = "${cls} is-checked" }
-        let inputAttrs = HashMap<String, String>([("class", "el-switch__input"), ("type", "checkbox")])
-        if (this._disabled) { inputAttrs["disabled"] = "disabled" }
-        if (isChecked) { inputAttrs["checked"] = "checked" }
+        let inputAttrs = HashMap<String, String>([("class", "el-switch__input"), ("type", "checkbox"), ("role", "switch")])
+        if (this._disabled) { inputAttrs["disabled"] = "disabled"; inputAttrs["aria-disabled"] = "true" }
+        if (isChecked) { inputAttrs["checked"] = "checked"; inputAttrs["aria-checked"] = "true" } else { inputAttrs["aria-checked"] = "false" }
         let hiddenInput = VNode("input", [], attrs: Some(inputAttrs))
 
         let coreInner = VNode("div", [], attrs: Some(HashMap<String, String>([("class", "el-switch__inner")])))
@@ -53,10 +53,11 @@ public class Switch <: Component {
 
         let switchEl = VNode("div", children.toArray(), attrs: Some(HashMap<String, String>([("class", cls)])))
         match (this._signal) {
-            case Some(s) => switchEl.onClick({ ctx =>
+            // disabled 守卫：禁用态不挂 onClick（EP switch.vue switchValue() 首行 return）
+            case Some(s) => if (this._disabled) { switchEl } else { switchEl.onClick({ ctx =>
                 s.set(!isChecked)
                 PatchResult.ReRender
-            })
+            }) }
             case None => switchEl
         }
     }

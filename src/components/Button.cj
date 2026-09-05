@@ -56,7 +56,7 @@ public class Button <: Component {
         if (this._plain) { cls = "${cls} is-plain" }
         if (this._round) { cls = "${cls} is-round" }
         if (this._circle) { cls = "${cls} is-circle" }
-        if (this._disabled || this._loading) { cls = "${cls} is-disabled" }
+        if (this._disabled) { cls = "${cls} is-disabled" }
         if (this._loading) { cls = "${cls} is-loading" }
         if (this._text) { cls = "${cls} is-text" }
         if (this._link) { cls = "${cls} is-link" }
@@ -70,14 +70,16 @@ public class Button <: Component {
 
         let inner = ArrayList<IComponent>()
         if (this._loading) {
-            inner.add(Icon("loading").render())
+            inner.add(Icon("loading").cls("is-loading").render())
         } else {
             match (this._iconName) {
                 case Some(name) => inner.add(Icon(name).render())
                 case None => ()
             }
         }
-        for (c in this._children) { inner.add(c) }
+        // 默认插槽包 span（EP button.vue：`<span :class="{...expand: shouldAddSpace}"><slot/></span>`），
+        // 恢复 button.scss `> span` flex 与 `[class*='el-icon'] + span` 的图标间距
+        inner.add(VNode("span", this._children, attrs: Some(HashMap<String, String>())))
 
         let btn = button(inner.toArray(), attrs: Some(attrs))
         match (this._onClick) {

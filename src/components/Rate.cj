@@ -30,12 +30,14 @@ public class Rate <: Component {
         while (idx <= this._max) {
             let isActive = idx <= value
             let iconName = if (isActive) { "star-filled" } else { "star" }
-            let iconColor = if (isActive) { "#e6a23c" } else { "#c6d1de" }
+            // EP 默认填充色 --el-rate-fill-color: #f7ba2a（var.scss），激活星不得用 warning 色 #e6a23c
+            let iconColor = if (isActive) { "#f7ba2a" } else { "#c6d1de" }
             let starIcon = VNode("span", [Icon(iconName).size("18px")], attrs: Some(HashMap<String, String>([("class", "el-rate__icon"), ("style", "color:${iconColor}")])))
             let star = VNode("span", [starIcon], attrs: Some(HashMap<String, String>([("class", "el-rate__item"), ("style", "cursor:pointer")])))
             let captureIdx = idx
             match (this._signal) {
-                case Some(s) => items.add(star.onClick({ ctx => s.set(captureIdx); PatchResult.ReRender }))
+                // disabled 守卫：禁用态不挂 onClick（EP rate.vue selectValue 首行 return）
+                case Some(s) => if (this._disabled) { items.add(star) } else { items.add(star.onClick({ ctx => s.set(captureIdx); PatchResult.ReRender })) }
                 case None => items.add(star)
             }
             idx = idx + 1

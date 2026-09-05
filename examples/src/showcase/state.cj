@@ -46,6 +46,7 @@ public class ShowcaseState <: AppState {
     var groupValue = Signal<String>("")
     var multiSelectValue = Signal<ArrayList<String>>(ArrayList<String>(["a"]))
     var sliderValue = Signal<Int64>(30)
+    var tagVisible = Signal<Bool>(true)
     var paginationPage = Signal<Int64>(1)
     var paginationSize = Signal<Int64>(10)
     var dateValue = Signal<String>("2026-08-05")

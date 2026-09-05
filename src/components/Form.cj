@@ -113,7 +113,11 @@ public class FormItem <: Component {
         }
         var cls = "el-form-item"
         if (currentError != "") { cls = "${cls} is-error" } else if (this._valid) { cls = "${cls} is-success" }
-        if (this._required) { cls = "${cls} is-required" }
+        // 必填星号：EP form-item.scss is-required:not(.is-no-asterisk).asterisk-left 触发 ::before content:'*'，
+        // 默认 requireAsteriskPosition='left'（form-item.vue:143-144）——只加 is-required 星号不显示
+        if (this._required) { cls = "${cls} is-required asterisk-left" }
+        // EP 默认 labelPosition='right' → el-form-item--label-right（form-item.vue:147）；旧代码默认左对齐
+        if (this._labelPosition == "" || this._labelPosition == "right") { cls = "${cls} el-form-item--label-right" }
         if (this._labelPosition == "top") { cls = "${cls} el-form-item--label-top" }
         let children = ArrayList<IComponent>()
         if (this._label != "") {
@@ -183,6 +187,8 @@ public class Form <: Component {
 
     public func render(): IComponent {
         var cls = "el-form"
+        // EP 默认 labelPosition='right' → el-form--label-right（form.vue formClasses）
+        if (this._labelPosition == "" || this._labelPosition == "right") { cls = "${cls} el-form--label-right" }
         if (this._labelPosition == "top") { cls = "${cls} el-form--label-top" }
         if (this._labelPosition == "inline") { cls = "${cls} el-form--inline" }
         for (item in this._items) {

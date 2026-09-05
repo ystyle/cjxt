@@ -179,7 +179,18 @@ public func demoTag(st: ShowcaseState): Array<IComponent> {
             div([
                 Tag([text("Small")]).size(TagSize.Small).kind(ComponentKind.Primary),
                 Tag([text("Large")]).size(TagSize.Large).kind(ComponentKind.Danger),
-                Tag([text("可移除")]).kind(ComponentKind.Info).closable(),
+                if (st.tagVisible.get()) {
+                    Tag([text("可移除")]).kind(ComponentKind.Info).closable().onClose({ ctx =>
+                        st.tagVisible.set(false)
+                        PatchResult.ReRender
+                    })
+                } else {
+                    let restoreHandler: ActionHandler = { ctx =>
+                        st.tagVisible.set(true)
+                        PatchResult.ReRender
+                    }
+                    PrimaryButton("恢复标签").onClick(restoreHandler)
+                },
             ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
         ]),
     ]

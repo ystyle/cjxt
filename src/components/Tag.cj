@@ -33,7 +33,11 @@ public class Tag <: Component {
 
     public func render(): IComponent {
         var cls = "el-tag"
-        let kc = this._kind.asClass()
+        // EP 默认 type='primary'（tag.ts）；ComponentKind.Default 不产生修饰符 → 默认无 --el-tag-text-color
+        let kc = match (this._kind) {
+            case ComponentKind.Default => "primary"
+            case k => k.asClass()
+        }
         if (kc != "") { cls = "${cls} el-tag--${kc}" }
         let sc = this._size.asClass()
         if (sc != "") { cls = "${cls} el-tag--${sc}" }
@@ -50,7 +54,12 @@ public class Tag <: Component {
         if (this._closable) {
             let closeBtn = Icon("close").render()
             let closeEl = VNode("button", [closeBtn], attrs: Some(HashMap<String, String>([("class", "el-tag__close"), ("type", "button"), ("aria-label", "close")])))
-            content.add(closeEl)
+            // 前端点击委托 closest([data-action-click]) 取最近元素 —— 关闭按钮自身带 handler，
+            // 不会冒泡触发 tag 根 onClick（对齐 EP 的 @click.stop="handleClose"）
+            match (this._onClose) {
+                case Some(h) => content.add(closeEl.onClick(h))
+                case None => content.add(closeEl)
+            }
         }
 
         let el = VNode("span", content.toArray(), attrs: Some(attrs))

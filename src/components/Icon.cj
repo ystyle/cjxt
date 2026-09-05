@@ -7,17 +7,19 @@ public class Icon <: Component {
     var _name: String
     var _size: String = "1em"
     var _color: String = ""
+    var _cls: String = ""
 
     public init(name: String) { this._name = name }
     public func size(v: String): Icon { this._size = v; this }
     public func color(v: String): Icon { this._color = v; this }
+    public func cls(v: String): Icon { this._cls = v; this }
 
     public func render(): IComponent {
         let pathData = getIconSvg(this._name)
         let svgStyle = "width:${this._size};height:${this._size}"
         var iconStyle = "font-size:${this._size}"
         if (this._color != "") { iconStyle = "${iconStyle};color:${this._color}" }
-        let iconCls = HashMap<String, String>([("class", "el-icon"), ("style", iconStyle)])
+        let iconAttrs = HashMap<String, String>([("class", if (this._cls == "") { "el-icon" } else { "el-icon ${this._cls}" }), ("style", iconStyle)])
         let svgAttrs = HashMap<String, String>([
             ("xmlns", "http://www.w3.org/2000/svg"),
             ("viewBox", "0 0 1024 1024"),
@@ -30,6 +32,6 @@ public class Icon <: Component {
         }
         let pathAttrs = HashMap<String, String>([("fill", "currentColor"), ("d", d)])
         let pathEl = VNode("path", [], attrs: Some(pathAttrs))
-        VNode("span", [VNode("svg", [pathEl], attrs: Some(svgAttrs))], attrs: Some(iconCls))
+        VNode("span", [VNode("svg", [pathEl], attrs: Some(svgAttrs))], attrs: Some(iconAttrs))
     }
 }
