@@ -6,7 +6,7 @@ import std.collection.ArrayList
 
 public class Menu <: Component {
     var _mode: MenuMode = MenuMode.Vertical
-    var _items = ArrayList<MenuItem>()
+    var _items = ArrayList<IComponent>()
     // 暗色主题：通过 EP CSS 变量驱动（:root 默认浅色，元素级变量覆盖）
     var _dark: Bool = false
 
@@ -27,6 +27,12 @@ public class Menu <: Component {
         this
     }
 
+    // 分组/子菜单等容器项（MenuItemGroup/SubMenu 均 <: Component）
+    public func add(item: IComponent): Menu {
+        this._items.add(item)
+        this
+    }
+
     public func render(): IComponent {
         let modeCls = match (this._mode) {
             case MenuMode.Horizontal => "el-menu el-menu--horizontal"
@@ -38,7 +44,7 @@ public class Menu <: Component {
         }
         let items = ArrayList<IComponent>()
         for (i in 0..this._items.size) {
-            items.add(this._items[i].render())
+            items.add(this._items[i])
         }
         VNode("ul", items.toArray(), attrs: Some(attrs))
     }
@@ -92,5 +98,58 @@ public class MenuItem <: Component {
             case Some(h) => el.onClick(h)
             case None => el
         }
+    }
+}
+
+// EP menu-item-group：li.el-menu-item-group > div.__title + ul > items（分组标题不可点击）
+public class MenuItemGroup <: Component {
+    var _label: String
+    var _children: Array<IComponent>
+
+    public init(label: String, children: Array<IComponent>) {
+        this._label = label
+        this._children = children
+    }
+    public func getChildren(): Array<IComponent> { this._children }
+
+    public func render(): IComponent {
+        let title = div([text(this._label)], attrs: Some(HashMap<String, String>([("class", "el-menu-item-group__title")])))
+        VNode("li", [title, VNode("ul", this._children)], attrs: Some(HashMap<String, String>([("class", "el-menu-item-group")])))
+    }
+}
+
+// EP sub-menu：li.el-sub-menu[is-opened] > div.__title(@click 折叠，箭头 rotateZ) + ul.el-menu.el-menu--inline > items
+public class SubMenu <: Component {
+    var _title: String
+    var _children: Array<IComponent>
+    var _open: Signal<Bool>
+
+    public init(title: String, children: Array<IComponent>) {
+        this._title = title
+        this._children = children
+        this._open = Signal<Bool>(false)
+    }
+    public func getChildren(): Array<IComponent> { this._children }
+
+    public func render(): IComponent {
+        let isOpen = this._open.get()
+        var cls = "el-sub-menu"
+        if (isOpen) { cls = "${cls} is-opened" }
+        let attrs = HashMap<String, String>([("class", cls)])
+
+        // 标题行：点击折叠/展开（EP inline transform rotateZ 旋转箭头）
+        let arrowIcon = Icon("arrow-down").size("12px").render()
+        let arrowCls = "el-sub-menu__icon-arrow"
+        let arrowStyle = if (isOpen) { "transform: rotateZ(180deg)" } else { "transform: none" }
+        let arrow = VNode("span", [arrowIcon], attrs: Some(HashMap<String, String>([("class", arrowCls), ("style", arrowStyle)])))
+        let title = VNode("div", [span([text(this._title)]), arrow], attrs: Some(HashMap<String, String>([("class", "el-sub-menu__title")])))
+        let toggle: ActionHandler = { ctx =>
+            this._open.set(!this._open.get())
+            PatchResult.ReRender
+        }
+        let titleEl = title.onClick(toggle)
+
+        let inline = VNode("ul", this._children, attrs: Some(HashMap<String, String>([("class", "el-menu el-menu--inline")])))
+        VNode("li", [titleEl, inline], attrs: Some(attrs))
     }
 }

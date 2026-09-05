@@ -9,15 +9,27 @@ import cjxt.*
 import cjxt.macros.*
 import cjxt.components.*
 import examples.showcase.*
-import std.collection.HashMap
+import std.collection.{HashMap, ArrayList}
 
-let componentNames: Array<String> = [
-    "Button", "ButtonGroup", "Card", "RowCol", "Divider",
-    "Text", "Link", "Tag", "Badge", "Space", "Icon",
-    "Input", "InputNumber", "Switch", "Radio", "Checkbox",
-    "Rate", "Select", "Slider", "Form", "Table", "Dialog", "Drawer", "Tooltip", "Popover",
-    "Progress", "Avatar", "Empty", "Descriptions", "Statistic", "Result", "Pagination",
-    "DatePicker", "DateRangePicker", "Message", "Notification", "Loading", "Skeleton", "Tabs", "Markdown", "AutoScroll", "Reactive", "VirtualList", "DomTx", "Breadcrumb", "Steps", "Dropdown", "Tree", "Cascader", "Upload"
+// 侧边栏分组（对应 showcase/ 下 8 个分类文件；菜单分组标题不可点击）
+public struct MenuCategory {
+    let label: String
+    let names: Array<String>
+    public init(label: String, names: Array<String>) {
+        this.label = label
+        this.names = names
+    }
+}
+
+let menuGroups: Array<MenuCategory> = [
+    MenuCategory("基础", ["Button", "ButtonGroup", "Card", "RowCol", "Divider", "Text", "Link", "Tag", "Badge", "Space", "Icon"]),
+    MenuCategory("表单", ["Input", "InputNumber", "Switch", "Radio", "Checkbox", "Rate", "Select", "Slider", "Form"]),
+    MenuCategory("数据", ["Table", "Pagination", "DatePicker", "DateRangePicker", "Tree", "Cascader", "Upload"]),
+    MenuCategory("导航", ["Tabs", "Breadcrumb", "Steps", "Dropdown"]),
+    MenuCategory("反馈", ["Message", "Notification", "Loading", "Skeleton"]),
+    MenuCategory("遮罩层", ["Dialog", "Drawer", "Tooltip", "Popover"]),
+    MenuCategory("展示", ["Progress", "Avatar", "Empty", "Descriptions", "Statistic", "Result"]),
+    MenuCategory("高级", ["Markdown", "AutoScroll", "Reactive", "VirtualList", "DomTx"]),
 ]
 
 @Page["/showcase"]
@@ -46,16 +58,20 @@ class ShowcasePage <: Component {
 
     func sidebar(sel: String): IComponent {
         let menu = Menu().mode(MenuMode.Vertical)
-        for (name in componentNames) {
-            let active = name == sel
-            menu.add(
-                MenuItem(name, [text(name)]).active(active).onClick({ ctx =>
-                    this.state.selected.set(name)
-                })
-            )
+        for (g in menuGroups) {
+            let items = ArrayList<IComponent>()
+            for (name in g.names) {
+                let active = name == sel
+                items.add(
+                    MenuItem(name, [text(name)]).active(active).onClick({ ctx =>
+                        this.state.selected.set(name)
+                    })
+                )
+            }
+            menu.add(MenuItemGroup(g.label, items.toArray()))
         }
         let attrs = HashMap<String, String>([("class", "${cls("showcase-sidebar")} showcase-menu-wrap")])
-        div([menu.render()], attrs: Some(attrs))
+        div([menu], attrs: Some(attrs))
     }
 
     func demoArea(sel: String): IComponent {
