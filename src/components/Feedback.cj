@@ -72,13 +72,14 @@ public class MessageHost <: Component {
         for (item in items) {
             children.add(this.buildMessage(item))
         }
-        div(children.toArray(), attrs: Some(HashMap<String, String>([("class", "el-message__container"), ("style", "position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:3000;display:flex;flex-direction:column;align-items:center;gap:12px")])))
+        // 容器避让顶部导航栏(top 70)；width:max-content + max-width 防 100% 循环压窄换行
+        div(children.toArray(), attrs: Some(HashMap<String, String>([("class", "el-message__container"), ("style", "position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:3000;display:flex;flex-direction:column;align-items:center;gap:12px;width:max-content;max-width:90vw")])))
     }
 
     private func buildMessage(item: MessageItem): IComponent {
         let typeCls = "el-message--${item.kind}"
         let iconEl = VNode("span", [Icon(messageIcon(item.kind)).render()], attrs: Some(HashMap<String, String>([("class", "el-message__icon ${typeCls}")])))
-        let content = VNode("p", [text(item.text)], attrs: Some(HashMap<String, String>([("class", "el-message__content")])))
+        let content = VNode("p", [text(item.text)], attrs: Some(HashMap<String, String>([("class", "el-message__content"), ("style", "white-space:nowrap")])))
         let closeBtn = VNode("span", [Icon("close").render()], attrs: Some(HashMap<String, String>([("class", "el-message__closeBtn")])))
         let attrs = HashMap<String, String>([("class", "el-message ${typeCls}"), ("role", "alert"), ("data-auto-dismiss", "3000"), ("data-id", item.id.toString())])
         // EP scss 的 .el-message 本身 position:fixed（官方挂 body）——
@@ -161,7 +162,7 @@ public class NotificationHost <: Component {
         for (item in items) {
             children.add(this.buildNotification(item))
         }
-        div(children.toArray(), attrs: Some(HashMap<String, String>([("class", "el-notification__container"), ("style", "position:fixed;top:16px;right:16px;z-index:3000;display:flex;flex-direction:column;gap:12px")])))
+        div(children.toArray(), attrs: Some(HashMap<String, String>([("class", "el-notification__container"), ("style", "position:fixed;top:70px;right:16px;z-index:3000;display:flex;flex-direction:column;gap:12px;width:330px")])))
     }
 
     private func buildNotification(item: NotificationItem): IComponent {
