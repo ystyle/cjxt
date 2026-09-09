@@ -464,47 +464,56 @@ public class App {
     }
 
     private func listenLoop(ws: WebSocket, state: SessionState, session: Session): Unit {
-        while (true) {
-            let frame = ws.read()
-            if (frame.frameType == WebSocketFrameType.TextWebFrame) {
-                let raw = String.fromUtf8(frame.payload)
-                let t = readField(raw, "type")
-                if (t == "ack") {
-                    let ev = readField(raw, "event")
-                    if (ev == "mount") {
-                        // mount ack — 不重复调 onMount（this.data 已由 startSession 设置）
-                    } else if (ev == "update") {
-                        state.page.onUpdate(LifecycleContext("", HashMap<String, String>(), None, None))
+        try {
+            while (true) {
+                let frame = ws.read()
+                if (frame.frameType == WebSocketFrameType.TextWebFrame) {
+                    let raw = String.fromUtf8(frame.payload)
+                    let t = readField(raw, "type")
+                    if (t == "ack") {
+                        let ev = readField(raw, "event")
+                        if (ev == "mount") {
+                            // mount ack — 不重复调 onMount（this.data 已由 startSession 设置）
+                        } else if (ev == "update") {
+                            state.page.onUpdate(LifecycleContext("", HashMap<String, String>(), None, None))
+                        }
+                    } else if (t == "action") {
+                        let name = readField(raw, "name")
+                        if (name != "") {
+                            let params = readActionParams(raw)
+                            this.dispatchAction(ws, state, session, name, params)
+                        }
+                    } else if (t == "bind") {
+                        let name = readField(raw, "name")
+                        let value = readBindValue(raw)
+                        if (name != "") { this.dispatchBind(ws, state, session, name, value) }
+                    } else if (t == "navigate") {
+                        let path = readField(raw, "path")
+                        if (path != "") { this.handleNavigate(ws, state, session, path) }
+                    } else if (t == "dom_result") {
+                        let txId = readField(raw, "txId")
+                        let results = readResults(raw)
+                        if (txId != "") { this.dispatchDomResult(ws, state, session, txId, results) }
+                    } else if (t == "upload_begin") {
+                        this.handleUploadBegin(ws, state, session, raw)
                     }
-                } else if (t == "action") {
-                    let name = readField(raw, "name")
-                    if (name != "") {
-                        let params = readActionParams(raw)
-                        this.dispatchAction(ws, state, session, name, params)
-                    }
-                } else if (t == "bind") {
-                    let name = readField(raw, "name")
-                    let value = readBindValue(raw)
-                    if (name != "") { this.dispatchBind(ws, state, session, name, value) }
-                } else if (t == "navigate") {
-                    let path = readField(raw, "path")
-                    if (path != "") { this.handleNavigate(ws, state, session, path) }
-                } else if (t == "dom_result") {
-                    let txId = readField(raw, "txId")
-                    let results = readResults(raw)
-                    if (txId != "") { this.dispatchDomResult(ws, state, session, txId, results) }
-                } else if (t == "upload_begin") {
-                    this.handleUploadBegin(ws, state, session, raw)
+                } else if (frame.frameType == WebSocketFrameType.BinaryWebFrame) {
+                    this.handleUploadBinary(ws, state, session, frame)
+                } else if (frame.frameType == WebSocketFrameType.PingWebFrame) {
+                    // 协议要求：收到 ping 一定要回 pong（保持连接活性）
+                    ws.writePongFrame(frame.payload)
+                } else if (frame.frameType == WebSocketFrameType.CloseWebFrame) {
+                    ws.writeCloseFrame()
+                    break
                 }
-            } else if (frame.frameType == WebSocketFrameType.BinaryWebFrame) {
-                this.handleUploadBinary(ws, state, session, frame)
-            } else if (frame.frameType == WebSocketFrameType.PingWebFrame) {
-                // 协议要求：收到 ping 一定要回 pong（保持连接活性）
-                ws.writePongFrame(frame.payload)
-            } else if (frame.frameType == WebSocketFrameType.CloseWebFrame) {
-                ws.writeCloseFrame()
-                break
             }
+        } finally {
+            // 连接断开（正常 Close 帧 break、对端直接断连抛 ConnectionException、
+            // 或处理中任意异常逃逸）都必须关闭底层连接，否则 CLOSE_WAIT/fd 泄漏
+            // （与 mcp-cj SSE 长连接同款问题——每次进界面/刷新/关页即泄漏一条）。
+            // 对端断开时 stdx read() 抛 ConnectionException，不会自动 closeConn，
+            // 必须在这里兜底显式关闭。
+            ws.closeConn()
         }
         // 连接断开：清理进行中的上传（删除半成品文件）
         this.cleanupUpload(session)

@@ -192,6 +192,20 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 
 ## 代码总结
 
+### 2026-09-09 @defineCSS 内联泄漏 `"""` 定界符（已修复）
+
+**现象**：`@defineCSS("""...""")` 内联真实 CSS 后，`public/css/bundle.css` 首尾带着 `"""`——CSS 能 scoped、`cls()` 取值正确，但文件带多余定界符，进浏览器解析有风险。
+
+**根因**：`@defineCSS` 内联此前用 `input.toString()` 拼合 CSS。对 `"""..."""`（`MULTILINE_STRING`）token，`toString()` 会连定界符一起返回；而 `importCSS` 读的是**文件路径**（`input[0].value`），所以产物干净。
+
+**修复**：`define_css.cj` 新增 `inlineCssRaw()`——对字符串类 token（`STRING_LITERAL`/`MULTILINE_STRING`/`MULTILINE_RAW_STRING`/`SINGLE_QUOTED_STRING_LITERAL`/`JSTRING_LITERAL`）取 `token.value`（**不含定界符**，实测 `.value=[.row { color: red; }\n]`），仅旧式 token 序列 `@defineCSS(.card {})` 回退 `toString()`。两个 `defineCSS` 重载都改用它，并对齐 `importCSS` 补 `addCssEntry`（返回 `_css`）。
+
+**坑**：
+- `Token.value` 对字符串字面量返回**不含引号/定界符**的内容，`Token.toString()`（及 `Tokens.toString()`）包含定界符——取源文本用 `.value`，别用 `toString()`。
+- 宏参数里单个 `"""..."""` 是 `MULTILINE_STRING` token（`cangjieLex` 会额外带 END token 使 size=2，但宏实参只有实参 token）。
+
+**验证**：主包 263 单测全过（+3：scoping/无 `"""`/scss 无 `"""`），`tests/` 39 全过；`bundle.css` 无 `"""`（grep=0）。新增 `src/css_define_inline_test.cj`。
+
 ### 2026-09-06 Tooltip/Popover/Popconfirm 接入 EP .el-popper 样式
 
 **背景**：三个弹层组件此前靠 JS 手写 cssText（bg/border/padding/radius/shadow），与 EP 视觉不一致且不可维护；经查 **popover.scss 从未被 element-plus.scss 引入**（一直没生效，纯手写撑着）。

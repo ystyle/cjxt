@@ -5,11 +5,15 @@ Status: Draft
 
 ## Problem
 
-Cangjie 1.1.0 的 tokenizer 在宏参数上下文 `()` / `[]` 中只识别 `STRING_LITERAL`，且 `STRING_LITERAL` 不允许 `{}` 字符（被当作插值语法起始）。CSS 规则必须含 `{}`，因此无法通过 `@defineCSS("...{...}")` 的方式将多行 CSS 传入宏。宏系统也无法生成含 `{}` 的 `STRING_LITERAL` token 输出。
+> **更新（Cangjie 1.1.3）**：本方案的原始问题只存在于 Cangjie 1.1.0 —— 其 tokenizer 在宏参数上下文 `()` / `[]` 中只识别 `STRING_LITERAL`，且 `STRING_LITERAL` 不允许 `{}`（被当作插值语法起始），导致 CSS 无法经内联字符串传入宏。该限制在 **Cangjie 1.1.3 已解除**：`@defineCSS("""...""")` 内联多行真实 CSS（含 `{}`、`#hex`、`rgba()`）现可正常解析并 scoped，`cjxt-consumer-test` 已实证。下方「Solution」的设计取舍即在此版本下落地为现状实现。
+
+原始问题（保留备查）：Cangjie 1.1.0 的 tokenizer 在宏参数上下文 `()` / `[]` 中只识别 `STRING_LITERAL`，且 `STRING_LITERAL` 不允许 `{}` 字符（被当作插值语法起始）。CSS 规则必须含 `{}`，因此无法通过 `@defineCSS("...{...}")` 的方式将多行 CSS 传入宏。宏系统也无法生成含 `{}` 的 `STRING_LITERAL` token 输出。
 
 ## Solution
 
 将 CSS 作为**编译期静态资源**处理，不经过 Cangjie 字符串系统。宏在编译期将 CSS 写入 `public/css/bundle.css` 文件，运行时通过 `<link>` 加载。仓颉代码只保留 class 名映射，不包含任何 CSS 文本。
+
+> 说明：`@defineCSS`（内联）与 `@importCSS`（外部文件）是同一方案的两个等价入口，均 hash class 名并追加写入 `bundle.css`、返回 `CssModule` 映射。区别在 CSS 源码位置：`@importCSS` 经路径 `input[0].value` 读取外部 `.css`/`.scss` 文件（examples 即用 `@importCSS("style.css")` 承载共享样式表）；`@defineCSS` 内联 `"""..."""` 经 `token.value`（不含定界符）取内容——两者产物均干净。大型共享样式表建议用 `@importCSS`，小段页面局部样式用 `@defineCSS` 内联。
 
 ## Architecture
 

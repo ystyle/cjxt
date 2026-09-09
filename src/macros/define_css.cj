@@ -162,26 +162,39 @@ func mappingToArray(map: HashMap<String, String>): Array<(String, String)> {
 
 // ---- Macros ----
 
-// @defineCSS( .card { color: red; } ) — inline pure CSS
-// Note: CSS syntax is NOT valid Cangjie token sequences.
-// Only extremely simple CSS (no rgba, no #hex, no vendor prefixes) may work.
-// For real CSS, use @importCSS("file.css") instead.
+// 提取内联 CSS 原文：
+// - 字符串字面量（含 `"..."`、`"""..."""` 多行字符串、`#"..."#` raw string）→ 取 token.value，
+//   它不含定界符（`@defineCSS("""...""")` 的 input.toString() 会带 `"""` 泄入 bundle，这里避免）
+// - 其他（如旧式 token 序列 `@defineCSS(.card {})`）→ 回退 toString() 拼合
+func inlineCssRaw(input: Tokens): String {
+    if (input.size >= 1) {
+        let k = input[0].kind
+        if (k == TokenKind.STRING_LITERAL || k == TokenKind.MULTILINE_STRING ||
+            k == TokenKind.MULTILINE_RAW_STRING || k == TokenKind.SINGLE_QUOTED_STRING_LITERAL ||
+            k == TokenKind.JSTRING_LITERAL) {
+            return input[0].value
+        }
+    }
+    input.toString()
+}
+
+// @defineCSS("""...""") — 内联纯 CSS；支持多行真实 CSS（含 {}、#hex、rgba()）
 public macro defineCSS(input: Tokens): Tokens {
-    let raw = input.toString()
+    let raw = inlineCssRaw(input)
     if (raw == "") { return Tokens() }
     let (css, entries) = processCSSGet(raw)
     writeCSSBundle(css)
-    cssModuleTokens(entries)
+    cssModuleTokens(addCssEntry(entries, css))
 }
 
-// @defineCSS[sass]( .card { $c: red; color: $c; } ) — inline Sass (same limitation)
+// @defineCSS[sass]("""...""") — 内联 Sass（需系统安装 sass）
 public macro defineCSS(attr: Tokens, input: Tokens): Tokens {
-    let raw = input.toString()
+    let raw = inlineCssRaw(input)
     if (raw == "") { return Tokens() }
     let compiled = compile(raw)
     let (css, entries) = processCSSGet(compiled)
     writeCSSBundle(css)
-    cssModuleTokens(entries)
+    cssModuleTokens(addCssEntry(entries, css))
 }
 
 // @importCSS("style.css") or @importCSS("style.scss") — file-based
