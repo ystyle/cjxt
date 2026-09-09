@@ -192,6 +192,18 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 
 ## 代码总结
 
+### 2026-09-09 @Page 多行字符串支持（string kind 分类 + trimAscii）
+
+**背景/现象**：`@Page` 判定字符串入参只用 `TokenKind.STRING_LITERAL`（单行双引号），若用 `"""..."""` 多行字符串写路径/标题，kind 是 `MULTILINE_STRING` 会被忽略 → `path==""` 时不注册路由。
+
+**修复**：`page_macro.cj` 抽 `isStringKind(k)` 统一识别所有字符串 kind（`STRING_LITERAL`/`MULTILINE_STRING`/`MULTILINE_RAW_STRING`/`SINGLE_QUOTED_STRING_LITERAL`/`JSTRING_LITERAL`），path/title 各加 `trimAscii()` 去首尾空白。新增 `src/page_macro_test.cj`（`@Page["""..."""]` 多行路径 → `RouteRegistry.global().create` 能解析）。
+
+**API/坑**：
+- **Cangjie String 有 `trimAscii()`**：去首尾空白（`[0009,000D]` + `[0020]`，即 `\t \n \r ` 和空格）。**没有 `.trim()`**（报 "not a member of struct String"），别记错，去除首尾空白用 `trimAscii()`。
+- **`"""..."""` 多行字符串必须紧跟换行开头**：`@Page["""/path"""]` 是编译错误（"multi-line string must start with newline character"），必须写 `@"\n/path\n""` 的 `"""\n/path\n"""` 形式，且 `.value` 会带首尾换行——所以要用 `trimAscii()` 清理。
+
+**验证**：主包 264 单测全过（+1 PageMacroTest）。顺带：宏里取字符串字面量统一 `token.value`（不带定界符），别用 `input.toString()`（带定界符）。
+
 ### 2026-09-09 @defineCSS 内联泄漏 `"""` 定界符（已修复）
 
 **现象**：`@defineCSS("""...""")` 内联真实 CSS 后，`public/css/bundle.css` 首尾带着 `"""`——CSS 能 scoped、`cls()` 取值正确，但文件带多余定界符，进浏览器解析有风险。

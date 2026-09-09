@@ -3,6 +3,13 @@ macro package cjxt.macros
 import std.ast.*
 import std.collection.ArrayList
 
+// 判断是否为字符串字面量 token（含多行 """..."""、#"..."# raw string、单引号/J 字符串）
+func isStringKind(k: TokenKind): Bool {
+    k == TokenKind.STRING_LITERAL || k == TokenKind.MULTILINE_STRING ||
+    k == TokenKind.MULTILINE_RAW_STRING || k == TokenKind.SINGLE_QUOTED_STRING_LITERAL ||
+    k == TokenKind.JSTRING_LITERAL
+}
+
 public macro Page(attr: Tokens, input: Tokens): Tokens {
     if (attr.size == 0) { return input }
 
@@ -10,11 +17,12 @@ public macro Page(attr: Tokens, input: Tokens): Tokens {
     var title = ""
     var strIdx = 0
     for (i in 0..attr.size) {
-        if (attr[i].kind == TokenKind.STRING_LITERAL) {
+        if (isStringKind(attr[i].kind)) {
             if (strIdx == 0) {
-                path = attr[i].value; strIdx = 1
+                // trimAscii：多行 """...""" 的 .value 会带首尾换行/空格，先清理再作为 path
+                path = attr[i].value.trimAscii(); strIdx = 1
             } else if (strIdx == 1) {
-                title = attr[i].value; strIdx = 2
+                title = attr[i].value.trimAscii(); strIdx = 2
             }
         }
     }
@@ -24,7 +32,7 @@ public macro Page(attr: Tokens, input: Tokens): Tokens {
     let idents = ArrayList<String>()
     var afterStr = false
     for (i in 0..attr.size) {
-        if (attr[i].kind == TokenKind.STRING_LITERAL) { afterStr = true }
+        if (isStringKind(attr[i].kind)) { afterStr = true }
         if (afterStr && attr[i].kind == TokenKind.IDENTIFIER) {
             idents.add(attr[i].value)
         }
