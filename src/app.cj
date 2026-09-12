@@ -8,7 +8,7 @@ import std.time.DateTime
 import std.reflect.*
 import std.sync.Mutex
 import std.time.*
-import stdx.net.http.{WebSocket, WebSocketFrame, WebSocketFrameType, HttpRequestDistributor}
+import stdx.net.http.{WebSocket, WebSocketFrame, WebSocketFrameType, HttpRequestDistributor, ServerBuilder}
 import tang.{Tang, TangHttpContext}
 import stdx.encoding.json.stream.{JsonWriter, JsonSerializable}
 import stdx.encoding.base64.fromBase64String
@@ -34,6 +34,8 @@ public class App {
     // 会话上下文工厂（应用可选注册；None = 用默认实现 SessionContextState）。
     // 每会话唯一的上下文按接口类型持有，因此不需要 AppState 那套类型名索引
     var sessionContextFactory: Option<(HashMap<String, String>) -> SessionContext> = None
+    // stdx ServerBuilder 定制（默认空操作；见 serverBuilder()）
+    var builderFn: (ServerBuilder) -> Unit = { _ => () }
     var cssBlobs = HashMap<String, String>()
     var jsBlobs = HashMap<String, String>()
     var staticRoutes = ArrayList<(String, String)>()
@@ -191,9 +193,19 @@ public class App {
         this.tangApp.getRouter()
     }
 
+    /// 定制 stdx `ServerBuilder`（build 前调用）：可配置 TLS、超时、请求体上限等。
+    ///
+    /// 常见用途：`app.serverBuilder({ sb => sb.maxRequestBodySize(-1) })`
+    /// —— stdx 默认请求体上限 **2MB**，超过会被服务端拒绝（413/连接重置），
+    /// 上传类应用（文件上传、包发布等）必须放宽。
+    public func serverBuilder(f: (ServerBuilder) -> Unit): App {
+        this.builderFn = f
+        this
+    }
+
     public func serve(): Unit {
         this.setupRoutes()
-        this.tangApp.setHost(this.bindHost).setPort(this.bindPort).listen()
+        this.tangApp.setHost(this.bindHost).setPort(this.bindPort).listen(this.builderFn)
     }
 
     private func makeWildcard(path: String): String {
