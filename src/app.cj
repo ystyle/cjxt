@@ -800,6 +800,10 @@ public class App {
                 case PatchResult.ReRender => if (!flag.done) { this.markPushPending(sid) }
                 case _ => ()
             }
+            // 与 runAction 对齐：推送回调里也可能写会话上下文（如「先出 loading 补丁、
+            // 异步完成登录再推送」的模式），token 变化同样要同步给前端 localStorage，
+            // 否则刷新后拿不到 token 会丢登录态。
+            this.syncAuthToken(ws, session)
         } catch (e: Exception) {
             state.page.onError(ErrorContext("", "push", e))
         } finally {
