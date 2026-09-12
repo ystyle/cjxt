@@ -192,6 +192,39 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 
 ## 代码总结
 
+### 2026-09-12 会话管理可运行示例 + 文档章节扩写（issue #11）
+
+**交付**：
+1. `examples/src/session.cj`（新增，package examples）：**可运行的完整会话示例**——
+   内存用户表（admin/editor/viewer，密码 123456）+ `validateDemoToken` 令牌钩子 +
+   `requireLogin` 守卫 + 三个页面：`/session`（公开页，渲染期读 `SessionContextState` 决定入口）、
+   `/session/login`（表单校验 + 回车提交 → `setContext` + `route.push`）、
+   `/session/profile`（守卫保护，按角色裁剪按钮 + 服务端操作级校验 + 切换账号/登出）。
+   入口接线：`examples/src/entry.cj` 加 `.state<SessionDemoState>()` + `.auth(...)`；
+   `counter.cj` 的 `renderTabs` 加「用户会话」标签。
+2. `docs-site/docs/scaling-up/session.md`：从「字段清单 + 消息表」扩写为
+   **快速上手完整主线**（注册状态/钩子 → 登录 → 守卫 → 渲染期读上下文 → 操作级校验 →
+   登出/切换账号 → 三条链路时序）+ **不同权限用户切换**（角色表 + 动手验证步骤）+
+   **约定与常见坑表**；末尾参考章节补齐 `auth` / `dom_command` / `upload_*` 消息，
+   并修正过期描述（`ack(mount)` **不**重复调 `onMount`）。
+3. **删除死目录 `docs-site/advanced/`**：`session.md`、`macros.md` 与 `docs/scaling-up/` 下
+   同名文件逐字节相同，且 config.ts 与全站 md 里零引用（sidebar 只指 `/docs/scaling-up/*`）。
+
+**验证**（`agent-browser` 全流程实测，服务临时用 18080 端口——本机 8080 被其它进程占用）：
+匿名 `/session` → 「未登录（匿名会话）」；admin 登录 → `uid=1/role=admin` + 2 个角色按钮 +
+「用户管理」执行成功；切换账号 → viewer 登录 → 角色按钮 0 个 + 「模拟越权调用」被服务端**拒绝**；
+刷新 `/session/profile`（带令牌）→ deferred 恢复成个人中心；刷新 `/session`（公开页，带令牌）→
+`rerenderInPlace` 恢复成「已登录 / viewer」。`cjpm build`（examples）+ `pnpm run build`（vitepress，
+无死链）通过。
+
+**坑**：
+- **交互式 bash 的 `!` 历史展开**：`agent-browser eval "... if(!b) ..."` 会报 `bash: !b: event not found`
+  且**整行不执行**；持久终端里先 `set +H`，或把 `!x` 写成 `x === undefined`。
+- **`/tmp` 跨调用不可见**：`tea issues edit --description "$(cat /tmp/x.md)"` 里 cat 失败会传空串，
+  **直接把 issue 正文清空**（本次踩到，已用 Gitea API PATCH 恢复）。写文件放工作区内，或直接用 API。
+- 文档站两份 session/macros 内容长期重复（`advanced/` 是死副本）——改文档前先 grep 引用面，
+  只改 sidebar 真正指向的那份。
+
 ### 2026-09-10 会话上下文响应式化（SessionContextState）+ 令牌恢复后重渲
 
 **背景（cjreg Q2「登录后才显示管理入口」）**：`Session.context`（uid/isAdmin/token）是鉴权权威，
