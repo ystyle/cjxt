@@ -192,6 +192,40 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 
 ## 代码总结
 
+### 2026-09-10 会话上下文响应式化（SessionContextState）+ 令牌恢复后重渲
+
+**背景（cjreg Q2「登录后才显示管理入口」）**：`Session.context`（uid/isAdmin/token）是鉴权权威，
+但渲染期读不到（`LifecycleContext` 不带它）、变化也订阅不到（`restoreToken` 写完后没人知道）；
+且 `resumeSession` 只在 `deferred` 分支重渲，**公开页刷新带 token 重连后会沿用 HTTP 首屏那棵
+「未登录」树**——三处叠加导致入口永远不出现。
+
+**实现**：
+1. 新增 `src/session_context.cj`：`SessionContextState <: AppState`，与 `Session.context`
+   **共享同一 HashMap 引用** + 内部 `Signal<Int64> version`；`get/has/isAdmin/uid/username/token/snapshot/subscribe`。
+   `App.initStates` 每会话自动注入（已存在则不重建）；`ActionContext.setContext` 与
+   `App.restoreToken` 写完后经 `notifySessionContext(states)` bump → 页面被标脏 → 标准补丁链路。
+2. `resumeSession`：`restoreToken` 改返回 `Bool`；deferred 分支之外**新增** `else if (restored)`
+   → `rerenderInPlace(session)`（同实例重渲，`renderWithScope + expandTree + applyLayout`），
+   使刷新后带 token 的公开页读到新上下文。
+3. `Session.getContext()`：返回上下文**副本**（外部模块可读，改副本不影响鉴权态）。
+4. 拆出 `App.applyRestoredContext(session, validated, token)`（`restoreToken` 只做钩子调用），
+   与 `initStates`/`rerenderInPlace` 一样**不标 private**——同包测试要覆盖。
+
+**关键约定（写进 design.md §3.11.4）**：页面必须在 **`render()` 里**读 `SessionContextState`，
+不要只在 `onMount` 里缓存成普通字段——`rerenderInPlace` 有意**不重跑 `onMount`**（避免重置页面级信号）。
+
+**坑**：
+- **Cangjie 类的 `==` 不能直接用**：`@Expect(a == b)` 报 `invalid binary operator '==' on type 'Class-X'`，
+  要比"是不是同一实例"就换成**行为断言**（订阅旧引用仍能收到通知）。
+- **顶层/成员 `private` 语义不同**：顶层 `private` = 仅本文件可见（测试在别的 `.cj` 里调不到），
+  成员不加修饰符 = internal（同包可见，现有 `session.handlers`、`app.sessions` 均被测试直接访问）。
+- `match` 臂里多语句 + 返回值要拆：`case None => return false` 后主体写在 match 外（沿用 `rerenderDeferred` 的写法）。
+
+**验证**：主包 278 单测全绿（基线 264 + 新增 14：同源/默认值/订阅通知/render scope 订阅/
+`setContext` 通知/恢复写入与拒绝/状态注入/就地重渲读出入口/副本不可篡改）；
+cjreg 122 全绿（+4 导航入口）；浏览器冒烟：匿名 `/` 导航「登录」→ localStorage 注入管理员 token
+后重开 `/` 导航变「管理后台」（关键回归点）；带 token 进 `/admin` 仍正常出管理端侧栏。
+
 ### 2026-09-09 @Page 多行字符串支持（string kind 分类 + trimAscii）
 
 **背景/现象**：`@Page` 判定字符串入参只用 `TokenKind.STRING_LITERAL`（单行双引号），若用 `"""..."""` 多行字符串写路径/标题，kind 是 `MULTILINE_STRING` 会被忽略 → `path==""` 时不注册路由。

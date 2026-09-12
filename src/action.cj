@@ -169,9 +169,12 @@ public struct ActionContext {
         this.sessionId
     }
 
-    /// 会话上下文写入（守卫/鉴权用）。上下文与会话绑定，可跨 HTTP 恢复
+    /// 会话上下文写入（守卫/鉴权用）。上下文与会话绑定，可跨 HTTP 恢复；
+    /// 写入后额外通知响应式视图（SessionContextState），使 render 期读过上下文的
+    /// 页面被标脏 → 走标准重渲染/补丁链路（登录后入口出现即靠这条）
     public func setContext(key: String, value: String): Unit {
         this.context[key] = value
+        notifySessionContext(this.sessionStates)
     }
 
     /// 会话上下文读取（守卫/鉴权用），返回与会话绑定的上下文 map

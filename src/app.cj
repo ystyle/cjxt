@@ -192,9 +192,15 @@ public class App {
         String.join(result.toArray(), delimiter: "/")
     }
 
-    private func initStates(session: Session): Unit {
+    /// 会话状态初始化：应用注册的 AppState 工厂各建一份 + 框架内置的会话上下文状态。
+    /// （不标 private：同包测试需覆盖注入行为）
+    func initStates(session: Session): Unit {
         for (reg in this.stateRegs) {
             session.states.add(reg.typeName, reg.factory())
+        }
+        // 会话上下文响应式视图（与 session.context 共享同一 map，供渲染期读取）
+        if (session.states.get(SessionContextState.stateKey()).isNone()) {
+            session.states.add(SessionContextState.stateKey(), SessionContextState(session.context))
         }
     }
 
@@ -350,9 +356,10 @@ public class App {
         session.wsState = WsState.Connected
         session.ws = Some(ws)
         session.touch()
-        // 令牌恢复：连接携带的 token → 应用钩子校验 → 写会话上下文（uid/角色等）
+        // 令牌恢复：连接携带的 token → 应用钩子校验 → 写会话上下文（uid/角色等）+ 通知订阅者
+        var restored = false
         if (token != "") {
-            this.restoreToken(session, token)
+            restored = this.restoreToken(session, token)
         }
         // HTTP 阶段守卫未通过时渲染的是登录页占位；令牌就绪后按 session.path
         // 重新渲染（守卫再次执行：通过 → 原页面，未通过 → 登录页）
@@ -360,6 +367,10 @@ public class App {
         if (session.deferred) {
             sendFull = this.rerenderDeferred(session)
             session.deferred = false
+        } else if (restored) {
+            // 公开页（HTTP 期守卫放行）不会走 deferred 分支：令牌恢复后必须就地重渲
+            // 一次，否则首屏「未登录」版本（如公开导航里的管理入口）会被原样沿用
+            this.rerenderInPlace(session)
         }
         let state = SessionState(session.page, session.path)
         let tree = RenderContext.expandTree(applyLayout(session.path, session.tree), "")
@@ -377,21 +388,39 @@ public class App {
         this.listenLoop(ws, state, session)
     }
 
-    /// 令牌校验并写会话上下文（校验回调返回的信息 + 令牌本身）
-    private func restoreToken(session: Session, token: String): Unit {
+    /// 令牌校验并写会话上下文（校验回调返回的信息 + 令牌本身）。
+    /// 返回 true 表示校验通过（调用方据此决定是否按新上下文就地重渲当前页）
+    private func restoreToken(session: Session, token: String): Bool {
         match (AuthHooks.global()) {
-            case Some(hooks) =>
-                match (hooks.doValidateToken(token)) {
-                    case Some(ctxMap) =>
-                        for ((k, v) in ctxMap) {
-                            session.context[k] = v
-                        }
-                        session.context[TOKEN_KEY] = token
-                        session.syncedToken = token
-                    case None => ()
-                }
-            case None => ()
+            case Some(hooks) => this.applyRestoredContext(session, hooks.doValidateToken(token), token)
+            case None => false
         }
+    }
+
+    /// 应用令牌校验结果：写会话上下文 + 同步令牌 + 通知响应式视图（SessionContextState）。
+    /// None = 校验失败，不写任何上下文。
+    /// （不标 private：同包测试需覆盖「恢复 → 上下文可见 / 订阅者被通知」）
+    func applyRestoredContext(session: Session, validated: Option<HashMap<String, String>>, token: String): Bool {
+        let ctxMap = match (validated) {
+            case Some(m) => m
+            case None => return false
+        }
+        for ((k, v) in ctxMap) {
+            session.context[k] = v
+        }
+        session.context[TOKEN_KEY] = token
+        session.syncedToken = token
+        notifySessionContext(session.states)
+        true
+    }
+
+    /// 令牌恢复后的就地重渲：同一页面实例重新 render（**不重跑 onMount**，避免
+    /// 重置页面级信号）。因此页面必须在 render() 内读会话上下文
+    /// （`SessionContextState`），不要只在 onMount 里缓存成普通字段。
+    /// （不标 private：同包测试需覆盖「恢复 → 树里入口出现」）
+    func rerenderInPlace(session: Session): Unit {
+        let raw = session.page.renderWithScope()
+        session.tree = RenderContext.expandTree(applyLayout(session.path, raw), "")
     }
 
     /// 延迟页面重渲：按 session.path 重新解析并渲染（守卫未通过 → 守卫指定页面）

@@ -94,6 +94,19 @@ public class Session {
         this.ws
     }
 
+    /**
+     * 会话上下文只读快照（uid/username/isAdmin/token 等）。
+     * 返回**副本**：外部模块可读，但改副本不影响会话（防外部篡改鉴权态）；
+     * 渲染期请用 `SessionContextState`（响应式，变化会触发重渲）。
+     */
+    public func getContext(): HashMap<String, String> {
+        let c = HashMap<String, String>()
+        for ((k, v) in this.context) {
+            c[k] = v
+        }
+        c
+    }
+
     public func isExpired(ttlMillis: Int64): Bool {
         nowMillis() - this.lastActiveAt > ttlMillis
     }
