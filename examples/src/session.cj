@@ -9,8 +9,9 @@
 //   editor / 内容编辑（editor）—— 可编辑资料，不可用户管理
 //   viewer / 只读访客（viewer）—— 只能看
 //
-// 关键约定：渲染期判断登录态/角色必须读 SessionContextState（并在 render() 里读，
+// 关键约定：渲染期判断登录态/角色必须读 SessionContext（并在 render() 里读，
 // 不要只在 onMount 缓存快照）；Session.context 才是鉴权权威，UI 隐藏按钮不算安全。
+// 本示例还把默认的 SessionContextState 换成了自定义实现 SessionDemoContext。
 package examples
 
 import cjxt.*
@@ -37,6 +38,14 @@ func isAdminRole(r: DemoRole): Bool {
     match (r) {
         case DemoRole.Admin => true
         case _ => false
+    }
+}
+
+func parseRoleName(v: String): DemoRole {
+    match (v) {
+        case "admin" => DemoRole.Admin
+        case "editor" => DemoRole.Editor
+        case _ => DemoRole.Viewer
     }
 }
 
@@ -86,6 +95,55 @@ func demoContext(u: DemoUser): HashMap<String, String> {
     m["role"] = roleName(u.role)
     m["isAdmin"] = if (isAdminRole(u.role)) { "1" } else { "0" }
     m
+}
+
+// ==================== 会话上下文：换成应用自己的实现 ====================
+//
+// 框架默认用 SessionContextState；这里演示换实现：
+//   - 保留默认行为（get 里读版本信号 → 渲染期自动订阅；onContextChanged 里通知）
+//   - 加类型化角色属性 role（接口只约定 get/isAdmin/uid/username/token）
+//   - 加上下文变更审计（onContextChanged 钩子：登录 / 登出 / 令牌恢复都会触发）
+// 注册方式见 entry.cj：.sessionContext<SessionDemoContext>({ m => SessionDemoContext(m) })
+public class SessionDemoContext <: SessionContext {
+    let data: HashMap<String, String>
+    let version: Signal<Int64>
+    // 上下文变更次数（自定义审计）
+    var changes = Signal<Int64>(0)
+
+    public init(data: HashMap<String, String>) {
+        this.data = data
+        this.version = Signal<Int64>(1)
+    }
+
+    public func get(key: String): Option<String> {
+        this.version.get()
+        this.data.get(key)
+    }
+
+    public prop raw: HashMap<String, String> {
+        get() {
+            this.data
+        }
+    }
+
+    public func onContextChanged(): Unit {
+        this.version.update({ n => n + 1 })
+        this.changes.update({ n => n + 1 })
+    }
+
+    public func subscribe(fn: () -> Unit): Int64 {
+        this.version.subscribe(fn)
+    }
+
+    /// 自定义扩展：类型化角色（调换角色名 → 枚举）
+    public prop role: DemoRole {
+        get() {
+            match (this.get("role")) {
+                case Some(v) => parseRoleName(v)
+                case None => DemoRole.Viewer
+            }
+        }
+    }
 }
 
 // ==================== 令牌校验钩子（App.auth 注册）====================
@@ -170,18 +228,19 @@ public class SessionDemoState <: AppState {
 @Page["/session", "会话示例"]
 class SessionHomePage <: Component {
     var state: Option<SessionDemoState> = None
-    var sctx: Option<SessionContextState> = None
+    var sctx: Option<SessionContext> = None
 
     public func onMount(ctx: LifecycleContext): Unit {
         this.state = Some(ctx.getState<SessionDemoState>())
-        this.sctx = Some(ctx.getState<SessionContextState>())
+        // 面向接口取用：换成自己的实现也不必改页面代码
+        this.sctx = ctx.getSessionContext()
     }
 
     // 在 render() 里读上下文：令牌恢复后的就地重渲不重跑 onMount
-    func ctxOf(): SessionContextState {
+    func ctxOf(): SessionContext {
         match (this.sctx) {
             case Some(s) => s
-            case None => throw Exception("SessionContextState 未取到")
+            case None => throw Exception("会话上下文未注入")
         }
     }
 
@@ -201,7 +260,7 @@ class SessionHomePage <: Component {
 
     public func render(): IComponent {
         let s = this.ctxOf()
-        let logged = s.uid() > 0
+        let logged = s.uid > 0
         let notice = this.state.getOrThrow()
 
         let actions = ArrayList<IComponent>()
@@ -232,6 +291,15 @@ class SessionHomePage <: Component {
         sessionRows.add(infoRow("uid", this.textOf("uid")))
         sessionRows.add(infoRow("username", this.textOf("username")))
         sessionRows.add(infoRow("role", this.textOf("role")))
+        // 自定义实现的扩展能力：向下转型拿审计计数（接口本身不约定它）
+        let changes = match (this.sctx) {
+            case Some(c) => match (c) {
+                case d: SessionDemoContext => d.changes.get()
+                case _ => 0
+            }
+            case None => 0
+        }
+        sessionRows.add(infoRow("上下文变更", "${changes} 次（自定义实现的审计钩子）"))
 
         div([
             renderTabs("/session"),
@@ -239,7 +307,7 @@ class SessionHomePage <: Component {
                 div([text("会话与权限示例")], attrs: Some(HashMap<String, String>([("class", cls("card-title"))]))),
                 Alert()
                     .title("本页是公开页（无守卫）")
-                    .description("HTTP 首屏没有凭据（token 在前端 localStorage），所以一定按「未登录」渲染；WS 连上并校验令牌后，框架会按新上下文就地重渲一次。下面是渲染期读 SessionContextState 的结果：")
+                    .description("HTTP 首屏没有凭据（token 在前端 localStorage），所以一定按「未登录」渲染；WS 连上并校验令牌后，框架会按新上下文就地重渲一次。下面是渲染期读 SessionContext（接口）的结果：")
                     .kind(AlertKind2.Info)
                     .showIcon(),
                 div(sessionRows.toArray(), attrs: Some(HashMap<String, String>([("class", cls("card"))]))),
@@ -356,17 +424,17 @@ class SessionLoginPage <: Component {
 @Page["/session/profile", "个人中心", requireLogin]
 class SessionProfilePage <: Component {
     var state: Option<SessionDemoState> = None
-    var sctx: Option<SessionContextState> = None
+    var sctx: Option<SessionContext> = None
 
     public func onMount(ctx: LifecycleContext): Unit {
         this.state = Some(ctx.getState<SessionDemoState>())
-        this.sctx = Some(ctx.getState<SessionContextState>())
+        this.sctx = ctx.getSessionContext()
     }
 
-    func ctxOf(): SessionContextState {
+    func ctxOf(): SessionContext {
         match (this.sctx) {
             case Some(s) => s
-            case None => throw Exception("SessionContextState 未取到")
+            case None => throw Exception("会话上下文未注入")
         }
     }
 

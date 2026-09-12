@@ -448,7 +448,7 @@ Element Plus 组件库的样式采用单独路径：EP 原始 SCSS 编译为独�
 | 局部状态 | `var` 字段 | Component 实例 | 表单输入、临时变量 |
 | 响应式状态 | `Signal<T>` / `Store<S>` | Component 字段或模块级 | 需要自动追踪变更的状态 |
 | Session 级状态 | `AppState` 接口 | Session 级别，跨导航持久 | 用户信息、全局配置 |
-| 会话上下文 | `SessionContextState`（框架自动注册） | Session 级别 | 渲染期判断登录态/角色（鉴权权威仍是 `Session.context`） |
+| 会话上下文 | `SessionContext` 接口（默认实现 `SessionContextState`） | 每会话唯一 | 渲染期判断登录态/角色（鉴权权威仍是 `Session.context`） |
 
 #### 3.11.1 Signal\<T\>
 
@@ -519,32 +519,49 @@ App()
 
 **访问**：Action handler / onMount 中 `ctx.getState<T>()`。
 
-#### 3.11.4 SessionContextState（会话上下文的响应式视图）
+#### 3.11.4 SessionContext（会话上下文的响应式视图：接口 + 默认实现）
 
 `Session.context`（uid/username/isAdmin/token）是**鉴权权威存储**：路由守卫
 （`resolveGuard(path, HashMap)`）与 `ActionContext.getContext()` 读的都是它。但它
-本身是裸 HashMap——渲染期读不到、变化也订阅不到。框架在每个会话自动注册
-`SessionContextState`（与 `Session.context` 共享同一 map），把这层状态接进
-AppState 通道：
+本身是裸 HashMap——渲染期读不到、变化也订阅不到。框架用一个**接口 + 默认实现**
+把这层视图接出来：
 
 ```cangjie
-public class SessionContextState <: AppState {
-    func get(key: String): Option<String>   // render 作用域内读 → 订阅上下文变化
-    func isAdmin(): Bool
-    func uid(): Int64
-    func username(): String
-    func token(): String
-    func snapshot(): HashMap<String, String> // 副本，不订阅
+public interface SessionContext {              // 框架契约，应用可实现替换
+    func get(key: String): Option<String>      // render 作用域内读 → 订阅上下文变化
+    prop raw: HashMap<String, String>          // 权威 map（框架持有，约定只读）
+    func onContextChanged(): Unit              // 框架在 登录/登出/令牌恢复 后调用
+    func subscribe(fn: () -> Unit): Int64
+
+    // 默认实现：按需覆写
+    func has(key: String): Bool
+    func snapshot(): HashMap<String, String>   // 副本，不订阅
+    prop isAdmin: Bool
+    prop uid: Int64
+    prop username: String
+    prop token: String
 }
+
+public class SessionContextState <: SessionContext { /* 默认实现：共享 map + 版本信号 */ }
 ```
 
+- **每会话唯一 → 按接口类型持有**：`Session.sessionContext: Option[SessionContext]`。
+  不像一般 `AppState` 需要按类型名索引，因此**不需要反射**——注册用泛型约束
+  `App.sessionContext<T>(factory) where T <: SessionContext`，工厂被收窄成接口类型。
+- **取用**：`LifecycleContext.getSessionContext()`（页面 onMount 取引用）、
+  `ActionContext.getSessionContext()`（handler 里类型化访问）。
 - **写入方**：`ActionContext.setContext`（登录/登出）与令牌恢复（`App.restoreToken`），
-  写完后版本 +1 → 订阅它的页面组件被标脏 → 走标准重渲染/补丁链路。
+  写完后调 `onContextChanged()` → 订阅它的页面组件被标脏 → 走标准重渲染/补丁链路。
 - **恢复后重渲**：WS 带 token 重连时，`resumeSession` 在守卫 deferred 分支之外**再**
   补一次就地重渲（`rerenderInPlace`），否则公开页首屏「未登录」版本会被原样沿用。
-- **页面写法**（如 cjreg「登录后才显示管理入口」）：
-  `onMount` 取 `ctx.getState<SessionContextState>()`，**在 `render()` 里**读
-  `isAdmin()`——就地重渲不重跑 `onMount`，不要只在 onMount 缓存快照。
+- **页面写法**（如 cjreg「登录后才显示管理入口」）：`onMount` 取
+  `ctx.getSessionContext()`，**在 `render()` 里**读 `isAdmin`（属性，无括号）——
+  就地重渲不重跑 `onMount`，不要只在 onMount 缓存快照。
+- **换实现**：`.sessionContext<MyContext>({ m => MyContext(m) })`。自定义实现可加
+  类型化访问器、审计钩子等；**响应式要自己保证**（`get()` 读信号、`onContextChanged()`
+  写信号），只做纯读实现则登录/恢复后不自动重渲。
+- **边界**：抽象的是**视图与通知**，不是存储——权威存储始终是 `Session.context`
+  （守卫签名 / `ActionContext.getContext()` / `AuthHooks` 都是 HashMap）。
 - **外部模块**：`App.getSession(sid).getContext()` 返回上下文副本（防越权篡改）。
 
 ### 3.12 数据绑定

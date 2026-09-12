@@ -30,6 +30,13 @@ public class Session {
     var lastActiveAt: Int64
     let context: HashMap<String, String>
     var states: HashMap<String, AppState>
+    // 会话上下文视图（框架契约，每会话唯一）：默认实现 SessionContextState，
+    // 或应用通过 App.sessionContext<T>(factory) 注册的实现。
+    // 按接口类型持有即可，不需要按类型名索引（AppState 那套反射键是给任意多份状态用的）
+    var sessionContext: Option<SessionContext>
+    // 会话状态是否已初始化：initStates 的幂等判据。
+    // 不能用 states.size == 0 判断——应用可能一个 AppState 都不注册
+    var statesInitialized: Bool
     // HTTP 阶段守卫未通过时渲染的是登录页占位，WS 连接（令牌恢复）后需按 path 重渲
     var deferred: Bool
     // 已同步给前端的 token（登录/登出后 context["token"] 变化时触发 AuthMsg）
@@ -51,6 +58,8 @@ public class Session {
         this.lastActiveAt = nowMillis()
         this.context = HashMap<String, String>()
         this.states = HashMap<String, AppState>()
+        this.sessionContext = None
+        this.statesInitialized = false
         this.deferred = false
         this.syncedToken = ""
         this.upload = None

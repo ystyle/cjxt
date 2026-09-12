@@ -192,6 +192,48 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 
 ## 代码总结
 
+### 2026-09-12 会话上下文接口化（SessionContext：接口 + 默认实现，可替换）
+
+**动机**：上一版把会话上下文做成具体类 `SessionContextState` 并塞进 `AppState` 表
+（按 `TypeInfo` 反射键索引）。但它**每会话唯一**，用反射键索引是多余的；且应用想换实现
+（加类型化访问器 / 审计 / 别种缓存）时无处下手。
+
+**改动**（按"泛型约束 + 接口类型持有，不用反射"）：
+1. `SessionContext` 改成**接口**（不再继承 `AppState`，不再有 `stateKey()`）：
+   必须实现 `get(key)` / `prop raw` / `onContextChanged()` / `subscribe(fn)`；
+   其余（`has` / `snapshot` / `prop isAdmin` / `uid` / `username` / `token`）都是
+   **接口默认实现**，由 `get` 派生。
+2. `Session.sessionContext: Option<SessionContext>`：**按接口类型持有**（每会话唯一，
+   不需要类型名索引）。另加 `statesInitialized` 显式标志——原来的
+   `session.states.size == 0` 判据依赖"框架总会注入一个 state"，去掉注入后必须换掉。
+3. 注册 API 用泛型约束收窄：`App.sessionContext<T>(factory: (HashMap<String,String>) -> T)
+   where T <: SessionContext`，内部存成 `(HashMap) -> SessionContext`，零反射。
+4. 取用：`LifecycleContext.getSessionContext()` / `ActionContext.getSessionContext()`
+   （都是新增可选字段，named-default 参数，老构造点不用改）。
+5. 写入路径 `ActionContext.setContext` 与 `App.applyRestoredContext` →
+   `notifySessionContext(Option<SessionContext>)` → `onContextChanged()`。
+6. 示例真换了实现：`examples/src/session.cj` 的 `SessionDemoContext`（加 `prop role` 类型化
+   角色 + 上下文变更审计），`entry.cj` 里 `.sessionContext<SessionDemoContext>(...)` 注册。
+
+**仓颉特性实测（探针验证后删除）**：接口可有**默认实现的实例属性 getter**；实现类型可
+覆写；接口可作 `match` 类型模式；接口名可访问**静态默认方法**；自定义实现可 downcast 取
+自己的扩展成员。（`isAdmin` 由方法改成属性 → 调用点写 `s.isAdmin`，无括号。）
+
+**边界**：抽象的是**视图与通知**，不是存储——守卫签名 / `ActionContext.getContext()` /
+`AuthHooks` / `Session.getContext()` 仍是 `HashMap`，`Session.context` 仍是权威。
+
+**验证**：主包 280 单测全绿（会话上下文类 16 例：默认实现同源/默认属性/覆写/通知/
+幂等注入/**自定义实现被使用且审计钩子生效**/生命周期与 action 上下文可见性/恢复重渲）；
+cjreg 122 全绿（`isAdmin` 属性 + `ctx.getSessionContext()`）；examples 构建通过；
+浏览器：匿名 `/session` 审计 0 次 → admin 登录 → 刷新公开页显示「上下文变更 1 次」
+（自定义实现的 `onContextChanged` 在令牌恢复路径被调用）。
+
+**坑**：
+- 改代码时把 `<T>` 写成 `[T]` 两次（`Option[SessionContextState]`）→ 编译报
+  `expected ';' or '<NL>', found '['`；`edit`/python 的 `old_string` 也会因此匹配不上，
+  **替换泛型类型时用正则 `Option.SessionContextState.` 避开定界符**最稳。
+- 去掉"框架注入的 AppState"后，任何 `states.size == 0` 式的隐含判据都要换成显式标志。
+
 ### 2026-09-12 会话管理可运行示例 + 文档章节扩写（issue #11）
 
 **交付**：

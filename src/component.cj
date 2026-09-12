@@ -116,13 +116,17 @@ public struct LifecycleContext {
     let componentKey: Option<String>
     let triggerAction: Option<String>
     let states: HashMap<String, AppState>
+    // 会话上下文视图（uid/isAdmin/… 或应用自定义实现）。渲染期读登录态用它，
+    // 且必须在 render() 里读（令牌恢复后的就地重渲不重跑 onMount）
+    let sessionContext: Option<SessionContext>
 
-    public init(sessionId: String, routeParams: HashMap<String, String>, componentKey: Option<String>, triggerAction: Option<String>, states!: HashMap<String, AppState> = HashMap<String, AppState>()) {
+    public init(sessionId: String, routeParams: HashMap<String, String>, componentKey: Option<String>, triggerAction: Option<String>, states!: HashMap<String, AppState> = HashMap<String, AppState>(), sessionContext!: Option<SessionContext> = None) {
         this.sessionId = sessionId
         this.route = RouteContext(params: routeParams)
         this.componentKey = componentKey
         this.triggerAction = triggerAction
         this.states = states
+        this.sessionContext = sessionContext
     }
 
     public func getState<T>(): T where T <: AppState {
@@ -131,6 +135,14 @@ public struct LifecycleContext {
             case Some(s) => doGetState<T>(s)
             case None => throw Exception("AppState not registered: ${key}")
         }
+    }
+
+    /**
+     * 会话上下文视图（页面在 onMount 取引用、render 里读属性）。
+     * 未注入（如 onUnmount 的空上下文）时返回 None。
+     */
+    public func getSessionContext(): Option<SessionContext> {
+        this.sessionContext
     }
 
     /**

@@ -31,6 +31,9 @@ public class App {
     var bindHost: String
     var bindPort: UInt16
     let stateRegs = ArrayList<StateReg>()
+    // 会话上下文工厂（应用可选注册；None = 用默认实现 SessionContextState）。
+    // 每会话唯一的上下文按接口类型持有，因此不需要 AppState 那套类型名索引
+    var sessionContextFactory: Option<(HashMap<String, String>) -> SessionContext> = None
     var cssBlobs = HashMap<String, String>()
     var jsBlobs = HashMap<String, String>()
     var staticRoutes = ArrayList<(String, String)>()
@@ -69,6 +72,20 @@ public class App {
     public func state<T>(factory: () -> T): App where T <: AppState {
         let name = TypeInfo.of<T>().qualifiedName
         this.stateRegs.add(StateReg(factory, name))
+        this
+    }
+
+    /// 替换会话上下文的实现（视图与通知层；权威存储仍是 Session.context）。
+    /// 不调用则使用默认实现 `SessionContextState`。
+    ///
+    /// ```cangjie
+    /// App().sessionContext<MyContext>({ m => MyContext(m) })
+    /// ```
+    /// 泛型约束 `T <: SessionContext` 把工厂收窄成接口类型，框架按接口持有，
+    /// 无需反射即可在每会话注入（页面用 `ctx.getSessionContext()` 取用）。
+    public func sessionContext<T>(factory: (HashMap<String, String>) -> T): App where T <: SessionContext {
+        let f: (HashMap<String, String>) -> SessionContext = { m => factory(m) }
+        this.sessionContextFactory = Some(f)
         this
     }
 
@@ -192,15 +209,25 @@ public class App {
         String.join(result.toArray(), delimiter: "/")
     }
 
-    /// 会话状态初始化：应用注册的 AppState 工厂各建一份 + 框架内置的会话上下文状态。
-    /// （不标 private：同包测试需覆盖注入行为）
+    /// 会话状态初始化：应用注册的 AppState 工厂各建一份 + 会话上下文视图
+    /// （默认实现或应用通过 `App.sessionContext<T>()` 注册的实现）。幂等。
     func initStates(session: Session): Unit {
+        if (session.statesInitialized) {
+            return
+        }
         for (reg in this.stateRegs) {
             session.states.add(reg.typeName, reg.factory())
         }
-        // 会话上下文响应式视图（与 session.context 共享同一 map，供渲染期读取）
-        if (session.states.get(SessionContextState.stateKey()).isNone()) {
-            session.states.add(SessionContextState.stateKey(), SessionContextState(session.context))
+        session.sessionContext = Some(this.createSessionContext(session))
+        session.statesInitialized = true
+    }
+
+    /// 建会话上下文实例：应用注册了自定义实现就用它，否则用默认实现。
+    /// 用泛型约束（T <: SessionContext）把工厂收窄成接口类型，全程无需反射。
+    func createSessionContext(session: Session): SessionContext {
+        match (this.sessionContextFactory) {
+            case Some(f) => f(session.context)
+            case None => SessionContextState(session.context)
         }
     }
 
@@ -259,7 +286,7 @@ public class App {
 
     private func renderPageIntoInner(ctx: TangHttpContext, session: Session, page: IComponent, routeParams: HashMap<String, String>): Unit {
         this.initStates(session)
-        page.onMount(LifecycleContext(session.id, routeParams, None, None, states: session.states))
+        page.onMount(LifecycleContext(session.id, routeParams, None, None, states: session.states, sessionContext: session.sessionContext))
         let tree = RenderContext.expandTree(page.renderWithScope(), "")
         session.page = page
         session.tree = tree
@@ -410,7 +437,7 @@ public class App {
         }
         session.context[TOKEN_KEY] = token
         session.syncedToken = token
-        notifySessionContext(session.states)
+        notifySessionContext(session.sessionContext)
         true
     }
 
@@ -431,8 +458,8 @@ public class App {
             case Some(target) =>
                 match (RouteRegistry.global().create(target)) {
                     case Some(fallbackPage) =>
-                        if (session.states.size == 0) { this.initStates(session) }
-                        fallbackPage.onMount(LifecycleContext(session.id, HashMap<String, String>(), None, None, states: session.states))
+                        this.initStates(session)
+                        fallbackPage.onMount(LifecycleContext(session.id, HashMap<String, String>(), None, None, states: session.states, sessionContext: session.sessionContext))
                         session.page = fallbackPage
                         session.path = target
                         session.tree = RenderContext.expandTree(fallbackPage.renderWithScope(), "")
@@ -443,8 +470,8 @@ public class App {
         }
         match (RouteRegistry.global().resolve(path)) {
             case Some(rm) =>
-                if (session.states.size == 0) { this.initStates(session) }
-                rm.component.onMount(LifecycleContext(session.id, rm.params, None, None, states: session.states))
+                this.initStates(session)
+                rm.component.onMount(LifecycleContext(session.id, rm.params, None, None, states: session.states, sessionContext: session.sessionContext))
                 session.page = rm.component
                 session.tree = RenderContext.expandTree(rm.component.renderWithScope(), "")
                 return true
@@ -470,8 +497,8 @@ public class App {
         let session = sessions.save(sid, page, div([text("")]))
         session.wsState = WsState.Connected
         session.ws = Some(ws)
-        if (session.states.size == 0) { this.initStates(session) }
-        let mountCtx = LifecycleContext(sid, HashMap<String, String>(), None, None, states: session.states)
+        this.initStates(session)
+        let mountCtx = LifecycleContext(sid, HashMap<String, String>(), None, None, states: session.states, sessionContext: session.sessionContext)
         page.onMount(mountCtx)
         let state = SessionState(page, "/")
         session.path = "/"
@@ -504,7 +531,7 @@ public class App {
                         if (ev == "mount") {
                             // mount ack — 不重复调 onMount（this.data 已由 startSession 设置）
                         } else if (ev == "update") {
-                            state.page.onUpdate(LifecycleContext("", HashMap<String, String>(), None, None))
+                            state.page.onUpdate(LifecycleContext("", HashMap<String, String>(), None, None, sessionContext: session.sessionContext))
                         }
                     } else if (t == "action") {
                         let name = readField(raw, "name")
@@ -697,7 +724,7 @@ public class App {
         let keyEvent = parseKeyEvent(params)
         let ctx = ActionContext(session.id, session.context, params, router, pushFn: { patches =>
             wsSendJson(ws, PushMsg(patches))
-        }, sessionStates: session.states, keyEvent: keyEvent, dom: Some(DomApi(this, ws, session)))
+        }, sessionStates: session.states, keyEvent: keyEvent, dom: Some(DomApi(this, ws, session)), sessionContext: session.sessionContext)
         try {
             let t0 = DateTime.now().toUnixTimeStamp().toMilliseconds()
             match (fn(ctx)) {
@@ -767,7 +794,7 @@ public class App {
         let router = Router("", { path => this.execNavAction(ws, state, session, flag, path) })
         let ctx = ActionContext(sid, session.context, HashMap<String, String>(), router, pushFn: { patches =>
             wsSendJson(ws, PushMsg(patches))
-        }, sessionStates: session.states, dom: Some(DomApi(this, ws, session)))
+        }, sessionStates: session.states, dom: Some(DomApi(this, ws, session)), sessionContext: session.sessionContext)
         try {
             match (update(ctx)) {
                 case PatchResult.ReRender => if (!flag.done) { this.markPushPending(sid) }
@@ -848,7 +875,7 @@ public class App {
                     let router = Router("", { path => this.execNavAction(ws, state, session, flag, path) })
                     let ctx = ActionContext(session.id, session.context, HashMap<String, String>(), router, pushFn: { patches =>
                         wsSendJson(ws, PushMsg(patches))
-                    }, sessionStates: session.states, dom: Some(DomApi(this, ws, session)))
+                    }, sessionStates: session.states, dom: Some(DomApi(this, ws, session)), sessionContext: session.sessionContext)
                     match (k(results)) {
                         case PatchResult.ReRender => if (!flag.done) { this.sendPatch(ws, state, session) }
                         case _ => ()
@@ -882,7 +909,7 @@ public class App {
         let router = Router("", { path => this.execNavAction(ws, state, session, flag, path) })
         let ctx = ActionContext(session.id, session.context, params, router, pushFn: { patches =>
             wsSendJson(ws, PushMsg(patches))
-        }, sessionStates: session.states, dom: Some(DomApi(this, ws, session)))
+        }, sessionStates: session.states, dom: Some(DomApi(this, ws, session)), sessionContext: session.sessionContext)
         try {
             match (fn(ctx)) {
                 case PatchResult.ReRender =>
@@ -917,7 +944,7 @@ public class App {
     private func applyNav(ws: WebSocket, state: SessionState, session: Session, newPage: IComponent, path: String, routeParams: HashMap<String, String>): Unit {
         state.page = newPage
         state.path = path
-        let mountCtx = LifecycleContext(session.id, routeParams, None, None, states: session.states)
+        let mountCtx = LifecycleContext(session.id, routeParams, None, None, states: session.states, sessionContext: session.sessionContext)
         newPage.onMount(mountCtx)
         let raw = newPage.renderWithScope()
         let tree = RenderContext.expandTree(applyLayout(path, raw), "")

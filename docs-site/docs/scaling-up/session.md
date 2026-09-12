@@ -4,7 +4,7 @@
 前端用它建立 WebSocket；此后页面渲染、事件分发、令牌恢复都走这条连接。
 
 - **会话数据**：`Session`（`context` 鉴权上下文 + `states` 应用状态）
-- **渲染期读会话**：`SessionContextState`（`context` 的响应式视图）
+- **渲染期读会话**：`SessionContext` 接口（默认实现 `SessionContextState`，可换成自己的）
 - **刷新恢复**：`App.auth(validateToken)` 钩子 + 前端 `localStorage` 里的令牌
 
 > **可运行示例**：`examples/src/session.cj`（路由 `/session`、`/session/login`、`/session/profile`）。
@@ -114,31 +114,87 @@ public func requireLogin(ctx: HashMap<String, String>): Option<String> {
 class SessionProfilePage <: Component { /* ... */ }
 ```
 
-### 4. 渲染期读登录态：`SessionContextState`
+### 4. 渲染期读登录态：`SessionContext` 接口
 
-页面要按登录态/角色渲染，必须在 **`render()` 里**读会话上下文。`SessionContextState` 与
-`Session.context` 共享同一份数据，读取时会自动订阅变化（登录、登出、令牌恢复都会触发重渲）：
+页面要按登录态/角色渲染，必须在 **`render()` 里**读会话上下文。框架提供的是
+**一个接口 + 一个默认实现**：接口约定"怎么读、变化怎么通知"，实现可以是框架默认的
+`SessionContextState`，也可以换成应用自己的（见下一节）。取用走
+`ctx.getSessionContext()`（在 `onMount` 里取引用，`render` 里读属性）：
 
 ```cangjie
 class SessionHomePage <: Component {
-    var sctx: Option<SessionContextState> = None
+    var sctx: Option<SessionContext> = None          // 面向接口，与具体实现解耦
 
     public func onMount(ctx: LifecycleContext): Unit {
-        // 只取引用；不要在 onMount 里把上下文缓存成普通字段
-        this.sctx = Some(ctx.getState<SessionContextState>())
+        this.sctx = ctx.getSessionContext()           // 只取引用；不要缓存成快照
     }
 
     public func render(): IComponent {
-        let s = this.ctxOf()
-        let logged = s.uid() > 0
-        let role = s.get("role")           // 读取即订阅
+        let s = match (this.sctx) {
+            case Some(c) => c
+            case None => return div([text("加载中")])
+        }
+        let logged = s.uid > 0                        // 属性读（无括号）
+        let role = s.get("role")                      // 读取即订阅
         // ... 按 logged / role 渲染入口与按钮
     }
 }
 ```
 
-可用方法：`get(key)` / `has(key)` / `isAdmin()` / `uid()` / `username()` / `token()` /
-`snapshot()`（副本，不订阅）/ `subscribe(fn)`。
+| 成员 | 类型 | 说明 |
+|---|---|---|
+| `get(key)` | 方法 | 读任意键；render 期调用会订阅变化 |
+| `raw` | 属性 | 权威上下文 map（框架持有，约定只读） |
+| `has(key)` | 方法 | 键是否存在（默认实现） |
+| `isAdmin` | 属性 | 是否已登录管理员（默认实现） |
+| `uid` | 属性 | 用户 id，未登录为 0（默认实现） |
+| `username` / `token` | 属性 | 用户名 / 令牌，未登录为空串（默认实现） |
+| `snapshot()` | 方法 | 上下文副本（不订阅） |
+| `onContextChanged()` | 方法 | **实现方**响应框架的写入通知 |
+| `subscribe(fn)` | 方法 | 订阅变化（返回订阅 id） |
+
+### 4.1 换成自己的实现（可选）
+
+接口的实现方是应用，所以可以按需替换——比如加类型化访问器、加审计、换缓存策略。
+注册用泛型约束（`T <: SessionContext`）把工厂收窄成接口类型，框架**按接口持有**，
+不需要反射：
+
+```cangjie
+// 1) 实现接口（只需这四个成员；其余用默认实现）
+public class MyContext <: SessionContext {
+    let data: HashMap<String, String>
+    let version: Signal<Int64>
+    var changes = Signal<Int64>(0)
+
+    public init(data: HashMap<String, String>) {
+        this.data = data
+        this.version = Signal<Int64>(1)
+    }
+
+    public func get(key: String): Option<String> {
+        this.version.get()            // ← 读自己的响应式源，render 期才会订阅
+        this.data.get(key)
+    }
+    public prop raw: HashMap<String, String> { get() { this.data } }
+    public func onContextChanged(): Unit {       // ← 框架写入后通知
+        this.version.update({ n => n + 1 })
+        this.changes.update({ n => n + 1 })      // 顺手做审计
+    }
+    public func subscribe(fn: () -> Unit): Int64 { this.version.subscribe(fn) }
+
+    // 自定义扩展：接口没约定的能力（页面 downcast 后可用）
+    public prop role: Role { get() { /* 解析 data["role"] */ } }
+}
+
+// 2) 注册（不调用则用默认实现 SessionContextState）
+App().sessionContext<MyContext>({ m => MyContext(m) })
+```
+
+可运行示例见 `examples/src/session.cj` 的 `SessionDemoContext`（它加了 `role` 类型化属性
+与上下文变更审计）与 `examples/src/entry.cj` 的注册调用。
+
+> ⚠️ **响应式要自己保证**：`get()` 里要读自己的信号、`onContextChanged()` 里要写它。
+> 只做纯读实现也能跑，但登录/令牌恢复后**不会自动重渲**，只能等下次导航。
 
 ### 5. 操作级权限校验（服务端权威）
 
@@ -244,13 +300,13 @@ actions.add(Button([text("模拟越权调用「用户管理」")]).onClick(doMan
 
 | 事项 | 约定 |
 |---|---|
-| 渲染期读登录态 | 用 `SessionContextState`，且**必须在 `render()` 里读**；`onMount` 里只存引用 |
+| 渲染期读登录态 | 用 `SessionContext` 接口（`ctx.getSessionContext()`），且**必须在 `render()` 里读**；`onMount` 里只存引用 |
 | 为什么不能缓存在 `onMount` | 令牌恢复后的就地重渲**不会重跑 `onMount`**（避免重置页面级信号），缓存下来的快照会是脏的 |
-| 鉴权权威 | 永远是 `Session.context`（守卫与 `ctx.getContext()` 读它）；`SessionContextState` 只是它的响应式视图（共享同一份数据） |
+| 鉴权权威 | 永远是 `Session.context`（守卫与 `ctx.getContext()` 读它）；`SessionContext` 只是它的**视图与通知**，自定义实现拿到的也是同一个 map |
 | 外部模块读上下文 | `App.getSession(sid).getContext()`，返回**副本**，改副本不影响会话鉴权态 |
 | 前端令牌存放 | `localStorage["cjxt_token"]`（框架自动写入/清除），不要在业务代码里直接读写 |
 | 首屏一定没有登录态 | 令牌只在前端 `localStorage`，HTTP 阶段拿不到 → 公开页首屏按未登录渲染，WS 校验令牌后再重渲一次（两段式） |
-| 状态注册时机 | 自定义 `AppState` 由 `App.state<T>()` 注册；`SessionContextState` 由框架每会话自动注入 |
+| 状态注册时机 | 自定义 `AppState` 由 `App.state<T>()` 注册；会话上下文由框架每会话自动注入（默认 `SessionContextState`，可用 `App.sessionContext<T>()` 替换） |
 
 ---
 
@@ -268,7 +324,8 @@ public class Session {
     var createdAt: Int64                  // 创建时间戳
     var lastActiveAt: Int64               // 最后活跃时间
     let context: HashMap<String, String>  // 会话上下文（鉴权权威，包内可见）
-    var states: HashMap<String, AppState> // AppState 实例（含框架注入的 SessionContextState）
+    var states: HashMap<String, AppState> // AppState 实例（应用注册的状态）
+    var sessionContext: Option<SessionContext>  // 会话上下文视图（默认实现或应用注册的实现）
     var deferred: Bool                    // HTTP 阶段被守卫拒绝，WS 令牌就绪后需重渲
     var syncedToken: String               // 已同步给前端的令牌
 

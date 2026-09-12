@@ -138,8 +138,10 @@ public struct ActionContext {
     public let keyEvent: Option<KeyEvent>
     // DOM 事务入口（事件驱动）：fire-and-forget 命令 + 查询续体。App 注入，None 表示不可用
     public let dom: Option<DomApi>
+    // 会话上下文视图（默认实现或应用自定义实现）；handler 里要类型化访问时用
+    public let sessionContext: Option<SessionContext>
 
-    public init(sessionId: String, context: HashMap<String, String>, params: HashMap<String, String>, router: Router, pushFn!: (Array<PatchEntryMsg>) -> Unit = { _ => () }, sessionStates!: HashMap<String, AppState> = HashMap<String, AppState>(), keyEvent!: Option<KeyEvent> = None, dom!: Option<DomApi> = None) {
+    public init(sessionId: String, context: HashMap<String, String>, params: HashMap<String, String>, router: Router, pushFn!: (Array<PatchEntryMsg>) -> Unit = { _ => () }, sessionStates!: HashMap<String, AppState> = HashMap<String, AppState>(), keyEvent!: Option<KeyEvent> = None, dom!: Option<DomApi> = None, sessionContext!: Option<SessionContext> = None) {
         this.sessionId = sessionId
         this.context = context
         this.params = params
@@ -149,6 +151,7 @@ public struct ActionContext {
         this.route = RouteContext(params: HashMap<String, String>(), pushFn: Some({ p => router.push(p) }))
         this.keyEvent = keyEvent
         this.dom = dom
+        this.sessionContext = sessionContext
     }
 
     public func push(patches: Array<PatchEntryMsg>): Unit {
@@ -169,12 +172,17 @@ public struct ActionContext {
         this.sessionId
     }
 
+    /// 会话上下文视图（默认实现或应用自定义实现；未注入时 None）
+    public func getSessionContext(): Option<SessionContext> {
+        this.sessionContext
+    }
+
     /// 会话上下文写入（守卫/鉴权用）。上下文与会话绑定，可跨 HTTP 恢复；
-    /// 写入后额外通知响应式视图（SessionContextState），使 render 期读过上下文的
+    /// 写入后额外通知响应式视图（SessionContext），使 render 期读过上下文的
     /// 页面被标脏 → 走标准重渲染/补丁链路（登录后入口出现即靠这条）
     public func setContext(key: String, value: String): Unit {
         this.context[key] = value
-        notifySessionContext(this.sessionStates)
+        notifySessionContext(this.sessionContext)
     }
 
     /// 会话上下文读取（守卫/鉴权用），返回与会话绑定的上下文 map
