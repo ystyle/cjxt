@@ -7,11 +7,11 @@ output-type = "static"
 compile-option = "-Woff unused"
 link-option = ""
 # 制品清单（include/exclude 用 gitignore 风格的模式）：
-#   include：只装"编译这个库需要的东西" —— 框架源码 + 编译期被 @EmbedString 读取的
-#            CSS / 客户端 JS（少了消费方编译不过）
-#   exclude：挡掉开发期目录（文档站 / 示例 / 测试工程 / 脚本）
-# 少了 include，整棵工作树都会进制品（docs-site/ 整个站点 + examples/ + tests/ + AGENTS.md）。
-include = ["src", "public/css/element-plus.css", "public/js/*"]
+#   include：只装"编译这个库需要的东西" —— 框架源码（*_test.cj 按约定一起带）+ 编译期被
+#            @EmbedString 读取的 CSS / 客户端 JS（少了消费方编译不过）+ 许可证
+#   exclude：挡掉开发期目录（文档 / 文档站 / 示例 / 测试工程 / 脚本）
+# 少了 include，整棵工作树都会进制品（docs-site/ 整个站点 + examples/ + docs/ + AGENTS.md）。
+include = ["src", "public/css/element-plus.css", "public/js/*", "LICENSE"]
 exclude = ["scripts", "examples", "docs", "docs-site", "tests"]
 license = ["MIT"]
 authors = ["ystyle"]
