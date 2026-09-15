@@ -100,6 +100,19 @@ public class SignalTracker {
         scopeStack.remove(scopeStack.size - 1..scopeStack.size)
     }
 
+    // 把组件移出脏队列（组件离树后不再参与补丁）。
+    // 按 uid 比对：语言层没有引用相等算子，不能拿组件实例直接比较。
+    public static func removeDirty(c: Component): Unit {
+        var i = 0
+        while (i < dirtyComponents.size) {
+            if (dirtyComponents[i].uid() == c.uid()) {
+                dirtyComponents.remove(i..i + 1)
+            } else {
+                i += 1
+            }
+        }
+    }
+
     public static func currentSub(): Option<() -> Unit> {
         if (scopeStack.size > 0) { Some(scopeStack[scopeStack.size - 1]) } else { None }
     }

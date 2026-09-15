@@ -299,7 +299,7 @@ public class App {
     private func renderPageIntoInner(ctx: TangHttpContext, session: Session, page: IComponent, routeParams: HashMap<String, String>): Unit {
         this.initStates(session)
         page.onMount(LifecycleContext(session.id, routeParams, None, None, states: session.states, sessionContext: session.sessionContext))
-        let tree = RenderContext.expandTree(page.renderWithScope(), "")
+        let tree = this.renderPageTree(session, { => RenderContext.expandTree(page.renderWithScope(), "") })
         session.page = page
         session.tree = tree
 
@@ -415,8 +415,9 @@ public class App {
         let tree = RenderContext.expandTree(applyLayout(session.path, session.tree), "")
         session.refreshHandlers(tree)
         session.refreshRefs(tree)
-        // 初始渲染/恢复后清理脏标记（渲染出口统一清理，防止残留污染后续补丁）
-        RenderContext.clearDirty()
+        // 初始渲染/恢复后清理脏标记（渲染出口统一清理，防止残留污染后续补丁）。
+        // 只清本会话的：别的会话的脏标记由它自己的 sendPatch 处理
+        RenderContext.clearDirtyForSession(session)
         wsSendJson(ws, ConnectedMsg())
         if (sendFull) {
             wsSendJson(ws, FullTreeMsg(tree, path: session.path))
@@ -458,8 +459,8 @@ public class App {
     /// （`SessionContextState`），不要只在 onMount 里缓存成普通字段。
     /// （不标 private：同包测试需覆盖「恢复 → 树里入口出现」）
     func rerenderInPlace(session: Session): Unit {
-        let raw = session.page.renderWithScope()
-        session.tree = RenderContext.expandTree(applyLayout(session.path, raw), "")
+        session.tree = this.renderPageTree(session,
+            { => RenderContext.expandTree(applyLayout(session.path, session.page.renderWithScope()), "") })
     }
 
     /// 延迟页面重渲：按 session.path 重新解析并渲染（守卫未通过 → 守卫指定页面）
@@ -474,7 +475,8 @@ public class App {
                         fallbackPage.onMount(LifecycleContext(session.id, HashMap<String, String>(), None, None, states: session.states, sessionContext: session.sessionContext))
                         session.page = fallbackPage
                         session.path = target
-                        session.tree = RenderContext.expandTree(fallbackPage.renderWithScope(), "")
+                        session.tree = this.renderPageTree(session,
+                            { => RenderContext.expandTree(fallbackPage.renderWithScope(), "") })
                         return true
                     case None => return false
                 }
@@ -485,7 +487,8 @@ public class App {
                 this.initStates(session)
                 rm.component.onMount(LifecycleContext(session.id, rm.params, None, None, states: session.states, sessionContext: session.sessionContext))
                 session.page = rm.component
-                session.tree = RenderContext.expandTree(rm.component.renderWithScope(), "")
+                session.tree = this.renderPageTree(session,
+                    { => RenderContext.expandTree(rm.component.renderWithScope(), "") })
                 return true
             case None => return false
         }
@@ -505,6 +508,25 @@ public class App {
         }
     }
 
+    /**
+     * 整页渲染：本轮渲染出的组件按「整页」归属登记到会话。
+     *
+     * 换页只替换 session.tree，不会自动解除旧页面组件在共享信号上的订阅；
+     * 旧组件一旦被标脏，就会按**旧路径**把旧页面内容补丁进新页面
+     * （实测：发布计划详情页下半个表格被计划列表覆盖）。所以每次整页渲染
+     * 都要登记归属并让离树组件退订。
+     */
+    private func renderPageTree(session: Session, build: () -> IComponent): IComponent {
+        RenderContext.beginCapture(session.id)
+        var tree: IComponent = text("")
+        try {
+            tree = build()
+        } finally {
+            session.adoptPageComponents(RenderContext.endCapture())
+        }
+        tree
+    }
+
     private func startSession(ws: WebSocket, sid: String, page: IComponent): Unit {
         let session = sessions.save(sid, page, div([text("")]))
         session.wsState = WsState.Connected
@@ -522,13 +544,13 @@ public class App {
     }
 
     private func initSignals(ws: WebSocket, state: SessionState, session: Session): Unit {
-        let raw = state.page.renderWithScope()
-        let tree = RenderContext.expandTree(applyLayout(state.path, raw), "")
+        let tree = this.renderPageTree(session,
+            { => RenderContext.expandTree(applyLayout(state.path, state.page.renderWithScope()), "") })
         session.refreshHandlers(tree)
         session.refreshRefs(tree)
         session.tree = tree
         // 初始渲染后清理脏标记（渲染出口统一清理，防止残留污染后续补丁）
-        RenderContext.clearDirty()
+        RenderContext.clearDirtyForSession(session)
     }
 
     private func listenLoop(ws: WebSocket, state: SessionState, session: Session): Unit {
@@ -587,7 +609,8 @@ public class App {
         this.cleanupUpload(session)
         session.wsState = WsState.Disconnected
         session.ws = None
-        session.tree = RenderContext.expandTree(state.page.renderWithScope(), "")
+        session.tree = this.renderPageTree(session,
+            { => RenderContext.expandTree(state.page.renderWithScope(), "") })
     }
 
     // ============ WS 二进制帧流式上传 ============
@@ -962,8 +985,8 @@ public class App {
         state.path = path
         let mountCtx = LifecycleContext(session.id, routeParams, None, None, states: session.states, sessionContext: session.sessionContext)
         newPage.onMount(mountCtx)
-        let raw = newPage.renderWithScope()
-        let tree = RenderContext.expandTree(applyLayout(path, raw), "")
+        let tree = this.renderPageTree(session,
+            { => RenderContext.expandTree(applyLayout(path, newPage.renderWithScope()), "") })
         session.refreshHandlers(tree)
         session.refreshRefs(tree)
         session.updatePage(newPage, tree)
@@ -971,7 +994,8 @@ public class App {
         // 导航后清理脏标记：旧页面实例（如登录页）的 markDirty 残留会在下次
         // sendPatch 被误渲染并整树替换（path="" 时 replace 整个页面）。
         // 所有渲染出口必须统一清理，否则残留脏组件污染后续增量补丁。
-        RenderContext.clearDirty()
+        // 只清本会话的：别的会话的更新由它自己的 sendPatch 处理
+        RenderContext.clearDirtyForSession(session)
         println("cjxt-diag applyNav path=" + path + " sid=" + session.id + " treeBytes=" + serializeSubtree(tree, HashMap<String, ActionHandler>()).size.toString())
         wsSendJson(ws, FullTreeMsg(tree, path: path))
         sendTitle(ws, path)
@@ -987,30 +1011,40 @@ public class App {
     private func sendPatch(ws: WebSocket, state: SessionState, session: Session): Unit {
         App.sendPatchCount += 1
         SignalTracker.pendingRender = false
-        let dirty = RenderContext.collectDirty()
+        // 只补丁本会话**当前页面树**上的组件：补丁路径是会话树内的位置，
+        // 旧页面/其它会话的组件按同路径套用会替换掉本页面的节点
+        let dirty = RenderContext.collectOwnedDirty(session)
         if (dirty.size == 0) { return }
 
         for (component in dirty) {
             let path = component.getPath()
-            // renderWithScope 直接返回渲染结果 VNode，嵌套组件的组件级事件
-            // （Component.on）由 expandTree 的 Component 分支挂载；根组件的事件
-            // 需在此挂载，否则 patch 后 data-action-* 丢失（如输入框回车失效）
-            let newSubtree = match (component) {
-                case c: Component => attachComponentEvents(c, c.renderWithScope(path), path)
-                case _ => component.renderWithScope(path)
+            RenderContext.beginCapture(session.id)
+            var expanded: IComponent = component
+            try {
+                // renderWithScope 直接返回渲染结果 VNode，嵌套组件的组件级事件
+                // （Component.on）由 expandTree 的 Component 分支挂载；根组件的事件
+                // 需在此挂载，否则 patch 后 data-action-* 丢失（如输入框回车失效）
+                let newSubtree = match (component) {
+                    case c: Component => attachComponentEvents(c, c.renderWithScope(path), path)
+                    case _ => component.renderWithScope(path)
+                }
+                expanded = RenderContext.expandTree(newSubtree, path)
+            } finally {
+                // 本轮渲染出的组件接替该子树路径下的旧实例（旧实例退订作废）
+                session.adoptSubtreeComponents(path, RenderContext.endCapture())
             }
-            let expanded = RenderContext.expandTree(newSubtree, path)
             let json = serializeSubtree(expanded, HashMap<String, ActionHandler>())
             session.tree = RenderContext.replaceTreeAtPath(session.tree, path, expanded)
 
             let msg = "{\"kind\":\"patch\",\"trees\":[{\"op\":\"replace\",\"path\":\"${path}\",\"tree\":${json}}]}"
             wsSendText(ws, msg)
+            // 已下发的组件清脏；未下发的（别的会话）留在队列里等各自会话处理
+            component.clearDirty()
         }
 
         session.handlers.clear()
         RenderContext.collectHandlersFromTree(session.tree, session.handlers)
         session.refreshRefs(session.tree)
-        RenderContext.clearDirty()
     }
 }
 

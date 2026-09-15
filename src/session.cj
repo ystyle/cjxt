@@ -43,6 +43,11 @@ public class Session {
     var syncedToken: String
     // 进行中的 WS 二进制上传（单流：binary 帧无元数据，同一连接一个活跃上传）
     var upload: Option<UploadState>
+    // 当前页面树上的组件：路径 → 组件实例（渲染时登记）。
+    // 用途：① 换页/重渲时退订旧组件——旧组件仍订阅着共享信号，被标脏后会按
+    //       旧路径把旧页面内容补丁进新页面；
+    //      ② 补丁只认本会话当前树上的组件，别的会话的脏标记不得套用本树路径。
+    var components: HashMap<String, Component>
 
     public init(id: String, page: IComponent, tree: IComponent) {
         this.id = id
@@ -63,6 +68,55 @@ public class Session {
         this.deferred = false
         this.syncedToken = ""
         this.upload = None
+        this.components = HashMap<String, Component>()
+    }
+
+    /**
+     * 该组件是否属于本会话**当前**页面树（按路径查到的实例是不是它自己）。
+     * 旧页面的组件即使路径与新页面某节点相同，实例也不同 → 不归本树。
+     */
+    public func ownsComponent(c: Component): Bool {
+        match (this.components.get(c.getPath())) {
+            case Some(cur) => cur.uid() == c.uid()
+            case None => false
+        }
+    }
+
+    /// 整页渲染后登记组件归属：不在本轮渲染结果里的旧组件全部退订作废
+    public func adoptPageComponents(captured: ArrayList<Component>): Unit {
+        this.adoptComponents(captured, "", true)
+    }
+
+    /// 子树补丁渲染后登记组件归属：只作废该子树路径下的旧组件
+    /// （rootPath 为空 = 根组件重渲，渲染结果覆盖整棵树，按整页处理）
+    public func adoptSubtreeComponents(rootPath: String, captured: ArrayList<Component>): Unit {
+        this.adoptComponents(captured, rootPath, rootPath == "")
+    }
+
+    private func adoptComponents(captured: ArrayList<Component>, rootPath: String, wholePage: Bool): Unit {
+        let keep = HashMap<Int64, Bool>()
+        for (c in captured) { keep[c.uid()] = true }
+        let stalePaths = ArrayList<String>()
+        for ((p, old) in this.components) {
+            if (keep.contains(old.uid())) { continue }
+            if (wholePage || p == rootPath || p.startsWith("${rootPath}/")) {
+                old.dispose()
+                stalePaths.add(p)
+            }
+        }
+        for (p in stalePaths) { this.components.remove(p) }
+        this.registerComponents(captured)
+    }
+
+    // 登记本轮渲染出的组件：同路径的旧实例（组件实例不跨渲染复用）立即退订作废
+    private func registerComponents(captured: ArrayList<Component>): Unit {
+        for (c in captured) {
+            match (this.components.get(c.getPath())) {
+                case Some(prev) => if (prev.uid() != c.uid()) { prev.dispose() }
+                case None => ()
+            }
+            this.components[c.getPath()] = c
+        }
     }
 
     public func touch(): Unit {

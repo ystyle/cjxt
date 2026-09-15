@@ -192,6 +192,48 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 
 ## 代码总结
 
+### 2026-09-15 脏组件归属：补丁只下发本会话当前页面树上的组件
+
+**现象**：换页后，新页面上的一格被**旧页面**的内容覆盖（实测：发布计划详情页「发布项」
+表格变成计划列表，刷新页面才恢复）；触发点是旧页面读过、新页面也在用的共享信号发生变化。
+
+**根因**：脏组件的归属没有约束，链路是「订阅 → 标脏 → 按 path 补丁」三步都没有"还在不在树上"的检查：
+- 组件在 `render()` 里 `get()` 信号时订阅 `markDirty`，订阅**只在组件销毁时**才能解除，
+  而换页只替换 `session.tree`、从不销毁旧页面的组件实例 → 旧组件一直监听着共享信号；
+- `sendPatch` 取的是**全局** `dirtyComponents`，把每个脏组件按**它自己记录的 path**
+  渲染成补丁下发（`op:replace` + path），而 path 是"树里的位置"——旧树的位置在新树上
+  往往同样存在（两页版式相似：page → layout → card → table），于是旧页面的表格被塞进新页面同路径节点；
+- `RenderContext.clearDirty()` 是全局清空，还会把**别的会话**尚未下发的脏标记一起清掉（丢更新）。
+
+`applyNav` 里原有的 `clearDirty()` 只清了**脏标记**、没解订阅，所以只是把问题推迟到下一次信号变化。
+
+**修复**（归属 + 退订，两层都要）：
+1. `Component` 渲染前退订上一次的依赖并重新收集（`beginRenderScope/endRenderScope` +
+   `DepEntry`，与 Computed/Effect 同一套 collector 机制），`dispose()` = 退订 + 清脏 + 移出脏队列；
+   顺带把 `renderWithScope` 的 `exitScope()` 放进 `finally`（render 抛异常原本会让 scope 栈残留）。
+2. 渲染时登记「会话 + 本轮渲染出了哪些组件」（`RenderContext.beginCapture/endCapture` +
+   `Session.components` 路径→实例），整页/子树渲染后 `adoptPageComponents/adoptSubtreeComponents`
+   接管：被顶替或消失的旧实例立即 `dispose()`（同路径新实例接管、旧实例作废）。
+3. `sendPatch` 改用 `RenderContext.collectOwnedDirty(session)`：只挑 `session.ownsComponent`
+   的组件（按 path 查到的实例是不是它自己）；别的会话的放回队列，本会话旧页面残留直接作废；
+   渲染出口的清理改 `clearDirtyForSession(session)`（只清本会话，不动别人的待下发标记）。
+
+**验证**：
+- `src/stale_page_dirty_e2e_test.cj`（真实 WS：A 页嵌套组件读共享信号 → 导航到 B 页 →
+  改信号，断言补丁里不得出现 A 的内容且 B 的更新照常下发）——修复前红、修复后绿；
+- `src/component_ownership_test.cj` 4 例：换页退订 / 跨会话不互相下发与清理 /
+  就地重渲保留新订阅 / 子树补丁接管新子实例；
+- 主包 285/285、`tests/` 39/39；cjreg 287/287；
+- 浏览器 A/B（本地 QA 实例，演示包 + 断网上游，同一流程）：旧构建点「开始执行」后
+  详情页「发布项」表格立即变成计划列表并保持；新构建同一操作后表格正常，
+  抓到的 3 条补丁全部是本页面的根/子树路径，且无一条含计划列表的列头。
+
+**坑**：
+- `foreign` 是仓颉关键字（FFI），局部变量别用它（本次改名 `otherSession`）。
+- 组件实例不能用 `==` 比身份（"invalid binary operator"）→ 用自增 `uid()` 比对。
+- 归属登记**必须排除本轮捕获到的实例**再清旧的，否则把刚渲染、刚重新订阅的组件顺手 `dispose`，
+  更新会静默失效（`testInPlaceReRenderKeepsFreshSubscriptions` 就是钉这条）。
+
 ### 2026-09-12 会话上下文接口化（SessionContext：接口 + 默认实现，可替换）
 
 **动机**：上一版把会话上下文做成具体类 `SessionContextState` 并塞进 `AppState` 表

@@ -1,7 +1,8 @@
 package cjxt
 
-import std.collection.HashMap
+import std.collection.{HashMap, ArrayList}
 import std.reflect.*
+import std.sync.AtomicInt64
 import stdx.encoding.json.stream.{JsonWriter, JsonSerializable, JsonDeserializable}
 
 public type ActionHandler = (ActionContext) -> PatchResult
@@ -22,11 +23,23 @@ public interface IComponent <: JsonSerializable {
         SignalTracker.pendingRender = true
     }
 
+    // 渲染作用域进入/退出钩子（默认空实现）。Component 覆写它登记
+    // 「本轮渲染出在哪个会话的页面树上」并收集信号依赖——依赖要能退订，
+    // 否则组件离树后仍会因共享信号变化被标脏，进而污染新页面的补丁。
+    func beginRenderScope(): Unit {}
+    func endRenderScope(): Unit {}
+
     func renderWithScope(path: String): IComponent {
         this.setPath(path)
+        this.beginRenderScope()
         SignalTracker.enterScope({ => this.markDirty() })
-        let tree = this.render()
-        SignalTracker.exitScope()
+        // render 抛异常也必须退出作用域，否则 scope 栈残留、后续渲染全挂在错误作用域上
+        let tree = try {
+            this.render()
+        } finally {
+            this.endRenderScope()
+            SignalTracker.exitScope()
+        }
         tree
     }
 
@@ -65,11 +78,19 @@ public interface IComponent <: JsonSerializable {
     }
 }
 
+// 组件唯一 id：归属比对用（语言层没有引用相等算子，用自增 id 判"是不是同一个实例"）
+private let componentUidSeq = AtomicInt64(1)
+
 // 自定义组件的唯一基类。继承此类即可获得脏追踪、路径、事件注册等能力
 public abstract class Component <: IComponent {
     var _dirty: Bool = false
     var _path: String = ""
     var _events = HashMap<String, ActionHandler>()
+    let _uid: Int64 = componentUidSeq.fetchAdd(1)
+    // 本轮渲染建立在本组件上的信号订阅：重渲前退订重收，离树时一并解除
+    var _deps = ArrayList<DepEntry>()
+    // 最后一次渲染归属的会话 id（空 = 不在任何会话页面上）
+    var _ownerSid: String = ""
 
     public init() {}
 
@@ -85,6 +106,36 @@ public abstract class Component <: IComponent {
     public func clearDirty(): Unit { this._dirty = false }
     public func getPath(): String { this._path }
     public func setPath(p: String): Unit { this._path = p }
+    public func uid(): Int64 { this._uid }
+    public func ownerSid(): String { this._ownerSid }
+    func setOwnerSid(sid: String): Unit { this._ownerSid = sid }
+
+    // 渲染前：退订上一次渲染的依赖（订阅不随重渲累积），并登记本轮归属
+    public func beginRenderScope(): Unit {
+        this.unbindDeps()
+        RenderContext.registerRendered(this)
+        SignalTracker.pushCollector({ src, id => this._deps.add(DepEntry(src, id)) })
+    }
+
+    public func endRenderScope(): Unit {
+        SignalTracker.popCollector()
+    }
+
+    // 组件已离开页面树：退订全部信号 + 清脏标记 + 移出脏队列。
+    // 不退订的后果：旧页面组件仍监听共享信号，被标脏后按**旧路径**把旧页面内容
+    // 补丁进新页面（同路径节点被覆盖）。
+    public func dispose(): Unit {
+        this.unbindDeps()
+        this.clearDirty()
+        SignalTracker.removeDirty(this)
+    }
+
+    func unbindDeps(): Unit {
+        for (d in this._deps) {
+            d.source.unsubscribe(d.id)
+        }
+        this._deps.clear()
+    }
 
     // 注册事件回调
     public func on(ev: String, h: ActionHandler): Component {
