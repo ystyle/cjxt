@@ -1272,7 +1272,12 @@ cjxt 只拷了容器那个。`.el-collapse-item__header` 的全部规则（min-h
 
 - **域名**：`cjxt.mini.ystyle.top` / `cjxt.ystyle.top`（Caddyfile: `~/docker/caddy/Caddyfile` → `reverse_proxy 192.168.3.6:8062`）
 - **compose**：`~/docker/cjxt-demo/docker-compose.yml`（统一 `~/docker` 管理；容器名 `cjxt-demo`，`8062:8080`，restart unless-stopped）
-- **构建**：`Dockerfile` 在项目 `examples/`（Ubuntu 26.04 + 拷贝 `target/release/bin/main` + `public/`）；`examples/.dockerignore` 只放行 public 与 release/bin/main（控制 context 体积）
+- **构建**：`Dockerfile` 在项目 `examples/`（**`archlinux:latest`** + 拷贝 `target/release/bin/main` + `public/`，另装 tzdata/ca-certificates）；`examples/.dockerignore` 只放行 public 与 release/bin/main（控制 context 体积）
+- **基础镜像必须与宿主 glibc 对齐**（2026-09-23 实测踩到，代价是演示站崩溃循环）：宿主编译的二进制动态依赖
+  libc/libm/libstdc++/libgcc_s —— 宿主 Arch 是 glibc 2.44，而 `ubuntu:26.04` 只有 2.43，
+  容器里直接 `/app/main: /usr/lib/x86_64-linux-gnu/libm.so.6: version 'GLIBC_2.44' not found` 无限重启。
+  换镜像前对一下：`objdump -T <bin> | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1` vs `docker run --rm <base> ldd --version`
+  （`archlinux:latest` = 2.44，且自带 libstdc++/libgcc_s，无需额外包）。
 - **网络**：复用 `examples_default`（external，避免 docker 子网池耗尽——本机 40+ compose 项目）
 - **更新流程**：
   ```bash
@@ -1280,5 +1285,36 @@ cjxt 只拷了容器那个。`.el-collapse-item__header` 的全部规则（min-h
   docker compose -f ~/docker/cjxt-demo/docker-compose.yml build
   docker compose -f ~/docker/cjxt-demo/docker-compose.yml up -d
   ```
+  > 改过 cjxt 源码后要先 `rm -rf examples/target/release/cjxt`（cjpm 的 path 依赖缓存），否则打包进去的还是旧框架。
 - **访问统计**：`~/docker/caddy/stat_cjxt.sh`（caddy 日志解析，含 OpenHarmony 设备 UA 识别）
 - 教训：**发布构建前确认 examples/src/entry.cj 端口为 8080**（本地 dev 用 18090 的临时改动不能让进发布二进制）。
+- 教训：容器重建后要确认真的起来了 —— `docker ps` 看到 `Restarting` 就是崩溃循环，`docker logs` 第一行通常就是原因
+  （本仓踩到的是 glibc；同系列 cjreg 也踩过同款）。
+
+## 文档站部署（GitHub Actions → Pages + 华为云 CDN）
+
+- **站点**：<https://ystyle.top/cjxt/>（`cjpm.toml` 的 `homepage` / `documentation` 指向它）
+- **流水线**：`.github/workflows/docs-deploy.yml`，push 到 **GitHub 镜像仓**的 `master` 触发：
+  - `build`：`cd docs-site && pnpm install --frozen-lockfile && DOCS_BASE=/cjxt/ pnpm build`
+    （`docs-site/.vitepress/config.ts` 是 `base: process.env.DOCS_BASE || '/cjxt/'`，本地不设也能构建）；
+  - `deploy`：`actions/upload-pages-artifact` → `actions/deploy-pages`（GitHub Pages），
+    末尾 `ystyle/hwcdn-cache@master` 刷 CDN：`TYPE=directory`、`URLS=https://ystyle.top/cjxt/`
+    —— 依赖仓库 secrets `ACCESS_KEY_ID` / `SECRET_ACCESS_KEY`。
+- **发布路径（关键）**：本仓主 remote 是私有 gitea，GitHub 只是镜像 —— 所以
+  **推 gitea ≠ 文档站已更新**：要等 gitea 的 push mirror 把提交同步到 GitHub，Actions 才会跑。
+  改动只在 gitea 上时，文档站保持旧版是正常现象，别去 GitHub 上找提交。
+- **本地自检**（改完 `docs-site/` 先跑一遍；vitepress 构建会做死链检查）：
+  ```bash
+  cd docs-site && pnpm install --frozen-lockfile && DOCS_BASE=/cjxt/ pnpm build
+  ```
+- **镜像同步**：gitea 仓 `ystyle/cjxt` 配了两条 push mirror（`sync_on_commit = true`、间隔 8h）——
+  AtomGit 与 GitHub。查看状态 / 手动重触发：
+  ```bash
+  TOKEN=$(grep -A2 'mini.ystyle.top' ~/.config/tea/config.yml | grep token | awk '{print $2}')
+  curl -sk -H "Authorization: token $TOKEN" https://git.mini.ystyle.top:2024/api/v1/repos/ystyle/cjxt/push_mirrors
+  curl -sk -X POST -H "Authorization: token $TOKEN" https://git.mini.ystyle.top:2024/api/v1/repos/ystyle/cjxt/push_mirrors-sync
+  ```
+  已知偶发失败（推 GitHub 那条）：`push failed: ... TLS connect error: error:0A000126:SSL routines::unexpected eof while reading`。
+  同一时刻本机 `curl https://github.com/` 与 `127.0.0.1:1081` 代理往往也不通 → 是出口网络问题，不是仓库配置；
+  `sync_on_commit` 会在下次提交时再试，或点上面的 sync 接口重试（本机 `api.github.com` 通、`github.com` 不通时属同类现象）。
+
