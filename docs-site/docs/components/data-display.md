@@ -78,7 +78,7 @@ Empty().image("/empty-custom.png").imageSize("200")
 | `slotImage(v)` | `Array<IComponent>` | 自定义图片区域 |
 | `slotDescription(v)` | `Array<IComponent>` | 自定义描述区域 |
 
-不传 `image` 时显示 Element Plus 默认 SVG 插图。
+不传 `image` 时内联 Element Plus 官方插图（`img-empty.vue`，随主题变量着色；渐变 id 逐实例唯一）。
 
 ## Descriptions 描述列表
 

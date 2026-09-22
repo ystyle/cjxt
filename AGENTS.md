@@ -192,6 +192,47 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 
 ## 代码总结
 
+### 2026-09-23 Empty 默认插图换成 EP 官方那张（原来那张是手绘仿制品）
+
+**背景**：起因是问"这个 empty 的图片是 svg 吗？EP 那边的能复用吗"。查下来两件事：
+1. **EP 没有可复用的图片资源**：默认插图在 `packages/components/empty/src/img-empty.vue` 的
+   `<template>` 里内联，编译进 JS（`dist/index.full.js` 里也是同一段字符串）；theme-chalk 里
+   `.svg` 资源 0 个。所以"复用"只有内联 path 数据一条路，CSS 只负责尺寸（`.el-empty__image{width:160px}`
+   + `.el-empty__image svg{width/height:100%}`）。
+2. **`9f309bf` 那张不是 EP 的**：EP 从 element-ui 2.15.14、EP 2.0.0 / 2.5.0 / 2.13.0 / 2.13.7 到 master
+   都是同一幅（2 个渐变 `linearGradient-1/2`、用到 `fill-color-1..9`）；旧插图是 3 个渐变、只用到 1..7，
+   图元坐标在上游任何版本里都搜不到 —— 照 EP 风格手绘的仿制品（只借了 `viewBox="0 0 79 86"` 与灰阶配色），
+   而提交信息与代码注释都写着"EP 官方全量 path"。
+
+**改动**：`Empty.renderDefaultSvg` 逐元素翻译 EP 官方插图。翻译**由脚本生成**（避免手抄：
+`.qa-shots/empty-svg/gen_empty_svg.py` 读 `img-empty.vue` → 静态标记，含 `ET.fromstring` 良构校验）。
+与 EP 模板的四处必要偏差都写在方法注释里：
+① 渐变 id 用组件 `uid()` 拼后缀（EP 用 `useId()`）—— 旧实现写死 `el-empty-g1..3`，同页多个空态是重复 id；
+② `:fill/:stop-color` 的 `var(...)` 落成 `--el-empty-fill-color-N`（EP 的 `ns.cssVarBlockName('fill-color-N')` 拼的就是这个名字）；
+③ `<use xlink:href="#path-3">` 内联成等价 `<rect>`（少一个 id 与 xlink 依赖）；
+④ 不复制 EP 源码里**悬空**的 `:mask="url(#mask-4-…)"`（defs 未定义；发布的 dist 里也只有引用）；
+⑤ 去掉两个相互抵消的 translate 组（`-1268,-535` + `1268,535`）。
+
+**顺带**：标记改用 `"""` 多行字符串承载（每元素一行、按嵌套缩进），`Empty.cj` 的
+"possibly confusing line terminator" 警告从 30 条降到 0（全项目编译警告 31 → 14）。
+
+**验证**：
+- 单测 4 例（`src/components/empty_test.cj`）：配色变量名与组件 CSS 一致 / 是官方画法（2 个渐变、
+  用到 8-9 色阶、官方独有坐标；仿制品特征不残留、不再依赖 xlink）/ 渐变 id 逐实例唯一且 `url(#…)`
+  指向自身 / 每个 `url(#x)` 都能找到 `id="x"`（悬空引用一律挡下）。主包 292/292、`tests/` 39/39；
+- **等价性**：新标记与 EP 原版（含悬空 mask）分别放进真实 `.el-empty` 结构、用本仓 vendored EP CSS
+  渲染，Chrome 截图**逐字节相同**（sha256 一致）—— 即 ④ 的悬空引用实测无影响；
+- 浏览器实际空态截图确认。
+
+**坑**：
+- 删"相互抵消的 `<g>`"要在**标签流上做栈式配对**：只删两个开标签会留下多余 `</g>`，生成的 SVG
+  标签不配平（HTML 解析器容错，所以"看起来没坏"）。生成脚本里补了配平断言。
+- `"""` 多行字符串里**单个 `"` 不用转义**（探针实测：引号、`${}` 插值、缩进都按原样保留）；
+  而 `+` 续行拼接会触发 "possibly confusing line terminator" 警告（`+` 与上一行同缩进时的歧义），
+  多行字符串一次规避。
+- 组件内部方法（`renderDefaultSvg`）与 `VNode._attrs` 都是包内可见，单测直接取 `innerHTML`
+  属性拿原始标记，比断言序列化后的 JSON 干净（JSON 里引号是转义的）。
+
 ### 2026-09-15 脏组件归属：补丁只下发本会话当前页面树上的组件
 
 **现象**：换页后，新页面上的一格被**旧页面**的内容覆盖（实测：发布计划详情页「发布项」
