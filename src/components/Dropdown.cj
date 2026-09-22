@@ -33,6 +33,8 @@ public class Dropdown <: Component {
     let _trigger: IComponent
     var _items: Array<IComponent> = []
     var _onCommand: Option<(String) -> Unit> = None
+    // 带 ActionContext 的命令回调（见 onCommandCtx）
+    var _onCommandCtx: Option<(ActionContext, String) -> Unit> = None
     var _open = Signal<Bool>(false)
 
     public init(trigger: IComponent) {
@@ -46,6 +48,16 @@ public class Dropdown <: Component {
 
     public func onCommand(h: (String) -> Unit): Dropdown {
         this._onCommand = Some(h)
+        this
+    }
+
+    /// 带 ActionContext 的命令回调。
+    ///
+    /// 为什么需要它：菜单项点击本身就在一个 action 里（框架已经给了 ctx），而按命令做事的调用方
+    /// 往往要**按操作者**鉴权或写审计（谁点的这一项）。只给命令字符串的话，调用方要么拿不到 ctx，
+    /// 要么自己再拼一份下拉结构 —— 所以这里把 ctx 一并交出去。两者同时设置时以本回调优先。
+    public func onCommandCtx(h: (ActionContext, String) -> Unit): Dropdown {
+        this._onCommandCtx = Some(h)
         this
     }
 
@@ -65,9 +77,15 @@ public class Dropdown <: Component {
             }
             let itemH: ActionHandler = { ctx =>
                 this._open.set(false)
-                match (this._onCommand) {
-                    case Some(cb) => if (!item._disabled) { cb(item._command) }
-                    case None => ()
+                if (!item._disabled) {
+                    match (this._onCommandCtx) {
+                        case Some(cb) => cb(ctx, item._command)
+                        case None =>
+                            match (this._onCommand) {
+                                case Some(cb) => cb(item._command)
+                                case None => ()
+                            }
+                    }
                 }
                 PatchResult.ReRender
             }
