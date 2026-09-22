@@ -8878,17 +8878,36 @@
   box-shadow: var(--el-box-shadow-dark);
   transition: all var(--el-transition-duration);
 }
-.el-drawer .rtl {
+/* 方向类定位：vendored 的 EP 样式里这几条被漏掉了（只剩上面那种 `.el-drawer .rtl`
+   的**后代**选择器，等于没定位），于是 Drawer 渲染出来停在 overlay 的左上角、而不是
+   贴边滑出。尺寸由组件内联的 width/height（--el-drawer-size）给出，这里只补"贴哪条边"。 */
+.el-drawer.rtl {
+  top: 0;
+  right: 0;
+  bottom: 0;
   transform: translate(0, 0);
 }
-.el-drawer .ltr {
+.el-drawer.ltr {
+  top: 0;
+  left: 0;
+  bottom: 0;
   transform: translate(0, 0);
 }
-.el-drawer .ttb {
+.el-drawer.ttb {
+  top: 0;
+  left: 0;
+  right: 0;
   transform: translate(0, 0);
 }
-.el-drawer .btt {
+.el-drawer.btt {
+  left: 0;
+  right: 0;
+  bottom: 0;
   transform: translate(0, 0);
+}
+/* 抽屉铺满可视高度（overlay 是 fixed 全屏，抽屉是它内部的 absolute） */
+.el-drawer.rtl, .el-drawer.ltr {
+  height: 100%;
 }
 .el-drawer__sr-focus:focus {
   outline: none !important;
