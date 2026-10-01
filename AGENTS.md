@@ -192,6 +192,36 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 
 ## 代码总结
 
+### 2026-10-02 初始化窗口内的推送不得抢在初始树之前（补丁按下发，回调照旧同步执行）
+
+**现象**：`onMount` 里发起的更新（刷新数据 / 推列表）在浏览器里看不到 —— 页面停在初始树，
+刷新后依然空，要再发一条业务消息才补上。诊断日志显示 `pushUi`/`pushUpdate` 返回 `true`。
+
+**根因**：`onMount` 提前到初始渲染之前（`07e29a8`）之后，挂载期起的线程/回调可以在
+**初始树还没下发**时调用 `pushUpdate`：客户端此刻只有空壳，补丁落到空处，而框架**静默丢弃**，
+调用方拿到的仍是"成功"。
+
+**修复**：会话进入「初始化窗口」——`App.suspendPushes(session)`（建立连接 + 下发整树期间）
+到 `App.drainPushes(session)`（开闸后把窗口内攒下的补丁补一次）。窗口内的 `pushUpdate`
+**回调照旧同步执行**（调用方依赖它写状态；窗口内写下的状态会被紧随其后的初始渲染带上），
+只把**补丁下发**推迟；`pushUpdate` 的返回契约不变。
+
+**配套**：`ErrorContext` 字段放开（`public let`）+ `pushUpdate` 的 catch 留痕 —— 此前 `onError`
+只能拿到空壳（这份修复一度只存在于未合并分支上，master 侧因此看不到诊断）。
+
+**验证**：`src/push_init_window_e2e_test.cj`（真实 WS；用 `suspendPushes` + `App.sendPatchCount`
+**确定性**钉住机制 —— 去掉窗口机制实测即红）；`testBurstCoalescesIntoOnePatch` 改为
+"扫帧到补丁为止"（原断言假设"下一帧就是补丁"，并发下会飘）。主包 293 + `tests/` 39 全绿。
+
+**坑**：
+- **不能把 `pushUpdate` 整体入队**：那是"回调也推迟"，会破坏返回契约与"回调同步执行"的既有
+  断言（`testThrowingPushUpdateReleasesExecMutex` 等）→ 只推迟补丁，回调留在原线程。
+- **框架层静默丢弃最难查**：入口处留计数（`App.sendPatchCount`）才能把"没发出去"与"发了没用"
+  分开；只加日志会被并发帧淹没。
+
+**发版**：本修复随 `v1.1.1` 发中心仓（制品 146 文件，与 1.1.0 制品逐文件比对只多出本回归用例；
+`include`/`exclude` 一并补锚定写法 `["/src", …]`）。
+
 ### 2026-09-23 Empty 默认插图换成 EP 官方那张（原来那张是手绘仿制品）
 
 **背景**：起因是问"这个 empty 的图片是 svg 吗？EP 那边的能复用吗"。查下来两件事：
