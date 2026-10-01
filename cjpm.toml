@@ -2,7 +2,7 @@
 cjc-version = "1.1.0"
 name = "cjxt"
 description = "Cangjie server-driven UI framework for enterprise applications"
-version = "1.1.0"
+version = "1.1.1"
 output-type = "static"
 compile-option = "-Woff unused"
 link-option = ""
@@ -11,8 +11,10 @@ link-option = ""
 #            @EmbedString 读取的 CSS / 客户端 JS（少了消费方编译不过）+ 许可证
 #   exclude：挡掉开发期目录（文档 / 文档站 / 示例 / 测试工程 / 脚本）
 # 少了 include，整棵工作树都会进制品（docs-site/ 整个站点 + examples/ + docs/ + AGENTS.md）。
-include = ["src", "public/css/element-plus.css", "public/js/*", "LICENSE"]
-exclude = ["scripts", "examples", "docs", "docs-site", "tests"]
+# 两个模式都用锚定写法（前导 /）：未锚定模式的含义是"任意层级同名" —— include 未锚定会把
+# examples/src、tests/src 一并打进制品，exclude 未锚定则可能连 src/ 下的同名目录一起挡掉。
+include = ["/src", "/public/css/element-plus.css", "/public/js/*", "/LICENSE"]
+exclude = ["/scripts", "/examples", "/docs", "/docs-site", "/tests"]
 license = ["MIT"]
 authors = ["ystyle"]
 category = ["UI", "Infrastructure"]
