@@ -840,6 +840,10 @@ public class App {
             // 否则刷新后拿不到 token 会丢登录态。
             this.syncAuthToken(ws, session)
         } catch (e: Exception) {
+            // 对齐 runAction：onError 默认是 no-op，框架层不留痕的话，推送回调抛的异常
+            // 在整条链路上完全不可见（表现为「界面没反应」却查不到原因）
+            println("cjxt pushUpdate ERROR: " + TypeInfo.of(e).name + " " + e.message)
+            println("cjxt-diag stack " + e.getStackTrace().toString())
             state.page.onError(ErrorContext("", "push", e))
         } finally {
             SignalTracker.execMutex.unlock()
