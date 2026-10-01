@@ -532,6 +532,8 @@ public class App {
         session.wsState = WsState.Connected
         session.ws = Some(ws)
         this.initStates(session)
+        // onMount 里起的推送要等初始树发下去（见 suspendPushes 的注释）
+        this.suspendPushes(session)
         let mountCtx = LifecycleContext(sid, HashMap<String, String>(), None, None, states: session.states, sessionContext: session.sessionContext)
         page.onMount(mountCtx)
         let state = SessionState(page, "/")
@@ -540,6 +542,7 @@ public class App {
         wsSendJson(ws, ConnectedMsg())
         wsSendJson(ws, CombinedPatchMsg([], [TreePatchEntry("replace", "", Some(session.tree))]))
         sendTitle(ws, "/")
+        this.drainPushes(session)
         this.listenLoop(ws, state, session)
     }
 
@@ -813,13 +816,53 @@ public class App {
             case Some(s) => s
             case None => return false
         }
+        // 先守住原有契约：会话不存在 / 未连接 / 无连接引用 → false（调用方据此判断"推没推出去"）
         match (session.wsState) {
             case WsState.Connected => ()
             case _ => return false
         }
+        match (session.ws) {
+            case Some(_) => ()
+            case None => return false
+        }
+        // 回调**同步执行**（调用方依赖它改状态）；初始树尚未下发时，补丁由 runPush 压住，
+        // 等树发完 drainPushes 再补（见 suspendPushes）
+        this.runPush(session, update)
+        true
+    }
+
+    /**
+     * 初始化窗口：onMount 到「初始树下发」之间挂起推送。
+     *
+     * 为什么需要：onMount 必须早于初始渲染（页面在那里注入 states），而 onMount 里起线程
+     * 或直接推补丁是很自然的写法。那段时间客户端只有空壳，补丁到了也无处可施——此前是
+     * **静默丢弃**（pushUpdate 返回 true、界面却永远停在初始状态，直到下一次操作才补上）。
+     */
+    // 同包可见：单测要能直接驱动初始化窗口的开/合（行为本身在 startSession 里自动发生）
+    func suspendPushes(session: Session): Unit {
+        session.pushSuspended = true
+    }
+
+    /** 初始树下发后：开闸；窗口内被压住的补丁在这里补发（一次，反映最终状态） */
+    // 同包可见（同上）
+    func drainPushes(session: Session): Unit {
+        session.pushSuspended = false
+        if (session.pendingPatch) {
+            session.pendingPatch = false
+            this.markPushPending(session.id)
+        }
+    }
+
+    /** 推送的实际执行（与用户操作共用同一套脏追踪/补丁机制）；返回 Unit，会话不在线即跳过 */
+    private func runPush(session: Session, update: (ActionContext) -> PatchResult): Unit {
+        let sid = session.id
+        match (session.wsState) {
+            case WsState.Connected => ()
+            case _ => return
+        }
         let ws: WebSocket = match (session.ws) {
             case Some(w) => w
-            case None => return false
+            case None => return
         }
         let state = SessionState(session.page, session.path)
         session.refreshHandlers(session.tree)
@@ -832,7 +875,16 @@ public class App {
         }, sessionStates: session.states, dom: Some(DomApi(this, ws, session)), sessionContext: session.sessionContext)
         try {
             match (update(ctx)) {
-                case PatchResult.ReRender => if (!flag.done) { this.markPushPending(sid) }
+                case PatchResult.ReRender =>
+                    if (!flag.done) {
+                        // 初始树还没下发：客户端手上是空壳，补丁发过去也无处可施 —— 压住，
+                        // 等整树发完由 drainPushes 补一次（回调本身已经同步跑过了）
+                        if (session.pushSuspended) {
+                            session.pendingPatch = true
+                        } else {
+                            this.markPushPending(sid)
+                        }
+                    }
                 case _ => ()
             }
             // 与 runAction 对齐：推送回调里也可能写会话上下文（如「先出 loading 补丁、
@@ -848,7 +900,6 @@ public class App {
         } finally {
             SignalTracker.execMutex.unlock()
         }
-        true
     }
 
     /**

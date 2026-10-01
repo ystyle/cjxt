@@ -22,6 +22,12 @@ public class Session {
     // 统一写入这里，listenLoop 分发 action/bind 也查这里——保证异步
     // pushUpdate 渲染出的新 handler（如会话列表删除按钮）不丢失。
     var handlers: HashMap<String, ActionHandler>
+    // 初始化窗口：onMount 早于初始渲染（页面在那里注入 states），此时客户端还没拿到页面，
+    // 补丁发出去也无处可施。窗口内**回调照常同步执行**（调用方依赖它改状态），
+    // 只把补丁压住，等初始树发下去再补一次。
+    var pushSuspended: Bool = false
+    var pendingPatch: Bool = false
+
     // 挂起的 DOM 事务续体：txId → (results) -> PatchResult（dom_result 到达后由 listenLoop 调用）
     var pendingTx: HashMap<String, (HashMap<String, String>) -> PatchResult>
     // 命名引用注册表：ref 名 → 树路径（DOM 事务寻址用，每次渲染后 refreshRefs 重建）

@@ -75,10 +75,18 @@ public class PushCoalesceE2ETest {
         // 等待 flush 窗口（15ms）+ 下发余量
         sleep(Duration.millisecond * 150)
 
-        // 客户端读取合并后的 patch
-        let f3 = ws.read()
-        let text = String.fromUtf8(f3.payload)
-        
+        // 客户端读取合并后的 patch。
+        // 不能假设"下一帧就是补丁"：连接建立后还可能插入其它帧（标题等），并发跑时顺序会飘。
+        // 扫到含 "patch" 的那一帧为止（有界），断言才只对着契约（合并成一次、内容反映全部更新）。
+        var text = ""
+        for (i in 0..5) {
+            let f = ws.read()
+            let candidate = String.fromUtf8(f.payload)
+            if (candidate.contains("\"kind\":\"patch\"")) {
+                text = candidate
+                break
+            }
+        }
 
         @Expect(App.sendPatchCount, 1) // 5 次 pushUpdate → 1 次 sendPatch
         @Expect(text.contains("\"kind\":\"patch\""), true)
