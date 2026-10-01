@@ -205,9 +205,11 @@ public struct LifecycleContext {
 }
 
 public struct ErrorContext {
-    let sessionId: String
-    let actionName: String
-    let error: Exception
+    // 字段必须 public：onError 钩子已导出，字段包内可见时**包外实现只能拿到空壳**
+    // （应用实现 onError 想打日志 / 上报，读 actionName 与 error 都会编译不过）
+    public let sessionId: String
+    public let actionName: String
+    public let error: Exception
 
     public init(sessionId: String, actionName: String, error: Exception) {
         this.sessionId = sessionId
