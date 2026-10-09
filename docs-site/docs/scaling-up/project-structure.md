@@ -180,3 +180,9 @@ src/
 - 包名通常使用小写，多级用 `.` 分隔：`project.components`
 - 宏包使用 `macro package` 声明，只能导出宏定义
 - 循环引用：`package A` 引用 `package B`，`package B` 不能再引用 `package A`
+- **子包里的 `@Page` 必须被根包 import，否则页面静默 404**：`@Page` 的注册代码落在定义它的包里，
+  而 `cjpm` 只链接「从根包 import 可达」的包。上一节「大型项目（多子包）」那种
+  `pages/user/`、`pages/order/` 的嵌套结构正是高发场景 —— 页面放进去、编译无警告、访问 404。
+  处理方式（根包聚合 import / 脚本生成 / 路由守卫）见[路由系统 → 把页面放进子包](/docs/basics/routing#把页面放进子包-务必读)。
+- **中间层目录必须有 `.cj` 文件**：如 `src/pages/` 下若没有直接放 `.cj`，`cjpm` 会跳过整个
+  `pages/` 子树（提示 `there is no '.cj' file in directory ...`），其下所有页面都不会被编译。

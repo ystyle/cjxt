@@ -125,3 +125,22 @@ handleNavigate → state.page.onUnmount()
               → applyNav → newPage.onMount()
               → renderWithScope → fullTree
 ```
+
+## ⚠️ 页面放进子包时：必须让根包 import 它
+
+`@Page` 展开出的注册代码落在**定义它的那个包里**，而 `cjpm` 只把**从根包 import 可达**的包
+链进产物。子包没被任何包 import 时，它不进链接图、包初始化不执行，页面**静默 404**：
+编译成功、无任何警告、二进制里连该页面的符号都没有。
+
+```cangjie
+// src/main.cj —— 拆包后必须显式 import（纯 import 就够，无需调用其函数）
+import myapp.ui.admin.*    // ← 少了这行，/admin 就 404
+import myapp.ui.public.*
+```
+
+- 子包多 / 频繁加页面时，改用脚本从源码扫描 `@Page` 自动生成聚合 import（附 `--check` 供 CI 校验）；
+- **不要用 `nm` / 符号表判断是否注册成功** —— 未链接的包符号根本不在二进制里；即使强塞入符号，
+  包初始化依然不执行。判据取运行时路由表或 HTTP 探测。
+
+完整说明（含可直接使用的生成脚本、路由守卫、中间层目录必须有 `.cj` 等坑）见
+[路由系统 → 把页面放进子包](/docs/basics/routing#把页面放进子包-务必读)。
