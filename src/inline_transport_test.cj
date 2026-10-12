@@ -316,3 +316,45 @@ class Utf8ParsingTest {
 func readFieldOf(raw: String, field: String): String {
     readBindValue(raw.replace("\"${field}\"", "\"value\""))
 }
+
+// ── 静态承载的首屏必须不依赖宿主 ─────────────────────────────────────
+//
+// 守的契约：`selfContainedPage` 生成的 HTML 必须**内联首屏整树**
+// （`window.__CJXT_INITIAL_TREE__`）。
+//
+// 只拼骨架（`selfContainedShell`）时，首屏完全依赖与宿主的往返：宿主一旦不可用
+// （WebView 没注入桥、应答超宿主缓冲被截断、常驻进程没起来），页面就是**全白且
+// 没有任何可观察的错误** —— 比报错更难查。HTTP 承载一直是内联的，静态承载必须对齐。
+@Test
+class SelfContainedPageTest {
+
+    @TestCase
+    func testSelfContainedPageInlinesInitialTree(): Unit {
+        let app = App().addCSS("body { color: red; }")
+        let html = match (app.selfContainedPage("/", "var x = 1;")) {
+            case Some(h) => h
+            case None => ""
+        }
+        @Expect(html != "", true)
+        // 首屏树内联
+        @Expect(html.contains("__CJXT_INITIAL_TREE__"), true)
+        // 样式与引导脚本也在
+        @Expect(html.contains("color: red"), true)
+        @Expect(html.contains("var x = 1;"), true)
+    }
+
+    // 未注册的路径返回 None，由调用方决定回退
+    @TestCase
+    func testSelfContainedPageUnknownPath(): Unit {
+        let app = App()
+        @Expect(app.selfContainedPage("/definitely-not-registered", "").isNone(), true)
+    }
+
+    // 纯骨架（无树）与带树版本是两种语义，都要能生成
+    @TestCase
+    func testShellWithoutTreeHasNoInitialTree(): Unit {
+        let html = App().selfContainedShell("var y = 2;")
+        @Expect(html.contains("__CJXT_INITIAL_TREE__"), false)
+        @Expect(html.contains("var y = 2;"), true)
+    }
+}

@@ -477,17 +477,47 @@ public class App {
      * 以 `bootstrap` 传入（桥对象名、方法名、信封格式都属承载方）。
      */
     public func selfContainedShell(bootstrap: String, csp!: String = ""): String {
-        let cssList = ArrayList<String>()
-        for ((_, sheet) in this.cssBlobs) { cssList.add(sheet) }
-        let jsList = ArrayList<String>()
-        for ((_, script) in this.jsBlobs) { jsList.add(script) }
         generateSelfContainedShell(
             config: this.config,
-            css: cssList.toArray(),
-            js: jsList.toArray(),
+            css: this.embeddedCss().map({ e => e[1] }),
+            js: this.embeddedJs().map({ e => e[1] }),
             bootstrap: bootstrap,
             csp: csp
         )
+    }
+
+    /**
+     * 渲染 `path` 对应的页面，并生成**带首屏整树**的自包含 HTML 壳。
+     *
+     * 与 [selfContainedShell] 的区别：那个只拼骨架，首屏要靠与宿主往返一次才出内容；
+     * 本方法把树直接内联进 HTML，**首屏不依赖宿主**。
+     *
+     * 为什么必须这样：静态承载（打包分发的 `file://` 页面）的壳是构建期生成的，
+     * 运行时如果拿不到宿主应答（注入失败、应答被宿主缓冲截断、常驻进程没起来），
+     * 页面就是**全白且没有任何可观察错误**——比报错更难查。HTTP 承载一直是这么做的
+     * （见 `generatePageDocument`），静态承载必须对齐同一语义。
+     *
+     * 返回 `None` 表示该路径没有已注册页面。
+     */
+    public func selfContainedPage(
+        path: String,
+        bootstrap: String,
+        csp!: String = ""
+    ): Option<String> {
+        let sid = match (this.openDetachedSession(path)) {
+            case Some(id) => id
+            case None => return None
+        }
+        let session = this.sessions.get(sid).getOrThrow()
+        let tree = serializeSubtree(session.tree, session.handlers)
+        Some(generateSelfContainedShell(
+            config: this.config,
+            css: this.embeddedCss().map({ e => e[1] }),
+            js: this.embeddedJs().map({ e => e[1] }),
+            bootstrap: bootstrap,
+            initialTree: tree,
+            csp: csp
+        ))
     }
 
     /** 内嵌 CSS 资源（哈希 → 内容）。供承载方内联进自包含页面。 */
