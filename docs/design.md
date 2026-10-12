@@ -396,9 +396,11 @@ func cls(name: String): String { css.get(name) }
 div([], attrs: Some(HashMap([("class", cls("card"))])))
 ```
 
-`@importCSS` 宏在编译时读取外部 CSS/SCSS 文件，sass 编译（.scss），类名 hash scope 后写入 `public/css/bundle.css`。`@sass` 宏已废弃，统一使用 `@importCSS`。
+`@importCSS` 宏在编译时读取外部 CSS/SCSS 文件，sass 编译（.scss），类名 hash scope 后：① 追加写入编译期汇总文件 `public/css/bundle.css`；② 随返回值给出 `"_css"` 全文。业务侧把全文交给 `App.addCSS` 即可，框架按承载方式自动交付（HTTP 走 `/_cjxt/css/{hash}.css` 路由，无 HTTP 则内联 `<style>`）。`@sass` 宏已废弃，统一使用 `@importCSS`。
 
-Element Plus 组件库的样式采用单独路径：EP 原始 SCSS 编译为独立 CSS 文件，通过 `serveStatic` 服务 + `config.componentsCss` 注入 HTML。不走 `@importCSS` 的 hash 流程，使用全局 BEM 类名。
+Element Plus 组件库样式走**同一条通道**：EP 原始 SCSS 由 `scripts/build-css.sh` 编译成 `public/css/element-plus.css`，再经 `@EmbedString` 在编译期嵌入二进制，`UseComponent()` 把它交给 `addCSS`。EP 使用全局 BEM 类名（不走 `@importCSS` 的 hash 流程）。
+
+**不要用 `config.cssBundle` / `config.componentsCss` + `serveStatic` 加载样式**：那条通道与 `addCSS` 重复，且只在 HTTP 下成立（`file://` 承载时绝对路径资源取不到，样式静默全丢）。
 
 ### 3.9 前端轻量渲染器
 

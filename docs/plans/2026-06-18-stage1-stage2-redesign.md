@@ -100,15 +100,19 @@
 - 在 `element-plus.scss` 中在原始组件 SCSS 之后 import，确保覆盖优先级
 
 ### 4. 服务端配置
+```cangjie
+App()
+  .UseComponent()      // EP 样式（@EmbedString 编译期嵌入）
+  .addCSS(siteCss())   // 页面样式模块（@importCSS 的 "_css" 全文）
 ```
-serveStatic("/css", "public/css")
-```
-- CWD 为 `examples/`，解析到 `examples/public/css/`
-- 两个 CSS 文件均通过该路由提供
+- 所有 CSS 统一进 `App.cssBlobs`，由框架按承载方式交付
 
 ### 5. HTML 加载
 ```html
-<link rel="stylesheet" href="/css/bundle.css?v=2">
-<link rel="stylesheet" href="/css/element-plus.css?v=2">
+<link rel="stylesheet" href="/_cjxt/css/{hash}.css">
 ```
-由 `AppConfig(cssBundle: ..., componentsCss: ...)` 配置，`src/html.cj` 渲染。
+由 `cssBlobs` 的内容 hash 生成（`src/app.cj` 的 `generatePageDocument`）；
+无 HTTP 承载（`file://`）时改为内联 `<style>`。
+
+> 历史写法 `AppConfig(cssBundle: ..., componentsCss: ...)` + `serveStatic` 已废弃：
+> 与 `addCSS` 重复，且仅在 HTTP 下成立。

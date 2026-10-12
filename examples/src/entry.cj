@@ -2,13 +2,16 @@ package examples
 
 import cjxt.*
 import cjxt.components.*
-import examples.showcase.ShowcaseState
+import examples.showcase.{ShowcaseState, siteCss}
 
 main() {
     App()
-        .configure(AppConfig(cssBundle: "/css/bundle.css?v=2"))
+        // 样式统一走 cssBlobs（见 shared.cj 的 siteCss 注释）：
+        // UseComponent() 内联组件库（EP）样式，addCSS(siteCss()) 内联演示站自己的样式。
+        // HTTP 与 file:// 两种承载都自动成立，不需要 cssBundle/serveStatic。
+        .configure(AppConfig())
         .UseComponent()
-        .serveStatic("/css", "public/css")
+        .addCSS(siteCss())
         .serveUpload("/_cjxt/uploads", "uploads")
         .state<CounterState>({ => CounterState() })
         .state<InputsState>({ => InputsState() })
