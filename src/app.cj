@@ -165,6 +165,117 @@ public class App {
         this.sessions.clearAll()
     }
 
+    // ── 脱离连接的承载（无 HTTP / 无 WebSocket）──────────────────────────
+    //
+    // 页面由外部宿主驱动时（WebView 方法绑定、IPC、单测替身、静态生成），框架既不
+    // 监听端口也不用 WS：宿主建立一个会话，把出站帧取走喂给自己的通道，再把页面的
+    // 交互消息交回。**这里只做"渲染一页 / 喂一条消息 / 取走待发帧"三件事**，
+    // 具体协议（方法名、信封格式、桥对象名）由承载方在自己的包里实现——框架不知道
+    // 也不该知道对方是哪个 WebView 框架。生命周期与会话语义与 WS 路径完全一致。
+
+    /**
+     * 渲染一页 HTML（含内联初始树），并登记一个脱离连接的会话。
+     *
+     * @return (会话 id, HTML 文档)。承载方用会话 id 关联后续的帧收发。
+     */
+    public func renderDetachedPage(path: String): Option<(String, String)> {
+        let sid = match (this.openDetachedSession(path)) {
+            case Some(id) => id
+            case None => return None
+        }
+        let session = this.sessions.get(sid).getOrThrow()
+        Some((sid, this.generatePageDocument(session)))
+    }
+
+    /**
+     * 建立无连接会话，并把引导帧（connected + 初始整树）写入出站缓冲。
+     *
+     * 桌面宿主（页面 `file://` 加载、无 HTTP/WS）用它拿首个会话：随后的
+     * `drainDetachedFrames` 即可取到整树帧注入页面。
+     */
+    public func openDetachedSession(path: String): Option<String> {
+        let rm = match (RouteRegistry.global().resolve(path)) {
+            case Some(r) => r
+            case None => return None
+        }
+        let session = this.sessions.create(rm.component, text(""))
+        session.path = path
+        session.sink = Some(BufferSink())
+        this.initStates(session)
+        // onMount 早于初始渲染：此时推送要压住（与 WS 路径同款初始化窗口语义）
+        this.suspendPushes(session)
+        rm.component.onMount(LifecycleContext(session.id, rm.params, None, None, states: session.states, sessionContext: session.sessionContext))
+        session.page = rm.component
+        session.tree = this.renderPageTree(session,
+            { => RenderContext.expandTree(applyLayout(path, rm.component.renderWithScope()), "") })
+        session.refreshHandlers(session.tree)
+        session.refreshRefs(session.tree)
+        RenderContext.clearDirtyForSession(session)
+        session.wsState = WsState.Connected
+        let sink = session.sink.getOrThrow()
+        sinkSendJson(sink, ConnectedMsg())
+        sinkSendJson(sink, CombinedPatchMsg([], [TreePatchEntry("replace", "", Some(session.tree))]))
+        this.drainPushes(session)
+        Some(session.id)
+    }
+
+    /**
+     * 取走该会话自上次调用以来积压的出站包（补丁/标题/推送等）。
+     *
+     * 宿主在每次交互后调用一次，把返回的文本按顺序喂给自己的页面通道。
+     */
+    public func drainDetachedFrames(sid: String): Array<String> {
+        match (this.sessions.get(sid)) {
+            case Some(session) =>
+                match (session.sink) {
+                    case Some(b: BufferSink) => b.drain()
+                    case _ => Array<String>()
+                }
+            case None => Array<String>()
+        }
+    }
+
+    /**
+     * 把一条页面交互消息喂进会话（与 WS 文本帧同构：`{"type":"action",...}`）。
+     *
+     * 与 WS 路径共用同一套分发（action/bind/navigate/dom_result/upload_begin），
+     * 因此业务代码无需区分承载方式。返回是否发生了分发（会话不存在/消息非法为 false）。
+     */
+    public func feedDetachedMessage(sid: String, raw: String): Bool {
+        let session = match (this.sessions.get(sid)) {
+            case Some(s) => s
+            case None => return false
+        }
+        let rawSink = match (session.sink) {
+            case Some(s) => s
+            case None => return false
+        }
+        let state = SessionState(session.page, session.path)
+        return this.dispatchInbound(rawSink, state, session, raw)
+    }
+
+    /**
+     * 关闭脱离连接的会话，清理组件订阅与进行中的上传。
+     * 承载方在页面销毁时调用，语义对齐 WS 的断连清理。
+     */
+    public func closeDetachedSession(sid: String): Bool {
+        let session = match (this.sessions.get(sid)) {
+            case Some(s) => s
+            case None => return false
+        }
+        this.cleanupUpload(session)
+        session.wsState = WsState.Disconnected
+        // 离树组件退订：否则旧页面组件仍订阅共享信号，被标脏后按旧路径把内容补进新页面
+        session.adoptPageComponents(ArrayList<Component>())
+        match (session.sink) {
+            case Some(s) => s.close()
+            case None => ()
+        }
+        session.sink = None
+        this.sessions.remove(sid)
+        true
+    }
+
     /// 注册全部路由到 tang（serve() 与外部合并共用）：
     /// 与 MCP 等服务合并单端口时，先调用 setupRoutes()，再用 router() 把分发器
     /// 注入外部 HttpRequestDistributor（见 chronomem ComposeDistributor）。
@@ -302,7 +413,21 @@ public class App {
         let tree = this.renderPageTree(session, { => RenderContext.expandTree(page.renderWithScope(), "") })
         session.page = page
         session.tree = tree
+        session.refreshHandlers(tree)
 
+        ctx.contentType("text/html; charset=utf-8")
+            .append("Cache-Control", "no-store, no-cache, must-revalidate")
+            .append("Pragma", "no-cache")
+            .writeString(this.generatePageDocument(session))
+    }
+
+    /**
+     * 生成会话当前树的完整 HTML 文档（CSS/JS 资源引用 + 内联初始树）。
+     *
+     * 初始树直接内联进首屏：页面不必等 WS 建连才显示内容（首屏 = 一次 HTTP 往返，
+     * 无白屏窗口）；同时记下这棵树的指纹，WS 连上时若服务端待发树与之一致就不再重复下发。
+     */
+    private func generatePageDocument(session: Session): String {
         let cssLinks = ArrayList<String>()
         for ((hash, _) in this.cssBlobs) {
             cssLinks.add("${this.config.basePath}/_cjxt/css/${hash}.css")
@@ -311,11 +436,77 @@ public class App {
         for ((hash, _) in this.jsBlobs) {
             jsLinks.add("${this.config.basePath}/_cjxt/js/${hash}.js")
         }
-        ctx.contentType("text/html; charset=utf-8")
-            .append("Cache-Control", "no-store, no-cache, must-revalidate")
-            .append("Pragma", "no-cache")
-            .writeString(
-                generateHtmlShell(session.id, config: this.config, extraCSS: cssLinks.toArray(), extraJS: jsLinks.toArray()))
+        let initialTree = serializeSubtree(session.tree, session.handlers)
+        session.inlinedTreeHash = treeFingerprint(initialTree)
+        generateHtmlShell(
+            session.id,
+            config: this.config,
+            extraCSS: cssLinks.toArray(),
+            extraJS: jsLinks.toArray(),
+            initialTree: initialTree
+        )
+    }
+
+
+    /**
+     * 脱离连接的承载方做一次往返：喂入一条页面消息，取走本次产生的出站帧。
+     *
+     * `sid` 为空表示"页面的第一条消息"——此时建立会话并把引导帧作为返回值给出；
+     * 后续调用沿用返回的 sid。返回的 frames 已按发生顺序排列，承载方按序注入页面。
+     */
+    public func detachedRoundTrip(sid: String, message: String): (String, Array<String>) {
+        var sessionId = sid
+        let frames = ArrayList<String>()
+        if (sessionId == "") {
+            match (this.openDetachedSession("/")) {
+                case Some(newSid) => sessionId = newSid
+                case None => return ("", Array<String>())
+            }
+        } else {
+            let _ = this.feedDetachedMessage(sessionId, message)
+        }
+        for (f in this.drainDetachedFrames(sessionId)) { frames.add(f) }
+        (sessionId, frames.toArray())
+    }
+
+    /**
+     * 生成整页自包含的 HTML 壳（内联全部 CSS/JS，不引用外部 URL）。
+     *
+     * 供**无 HTTP 服务器**的承载使用：页面以 `file://` 打开时绝对路径资源取不到。
+     * 框架只拼页面骨架与运行时，**不假定任何宿主协议**；引导脚本由承载方
+     * 以 `bootstrap` 传入（桥对象名、方法名、信封格式都属承载方）。
+     */
+    public func selfContainedShell(bootstrap: String, csp!: String = ""): String {
+        let cssList = ArrayList<String>()
+        for ((_, sheet) in this.cssBlobs) { cssList.add(sheet) }
+        let jsList = ArrayList<String>()
+        for ((_, script) in this.jsBlobs) { jsList.add(script) }
+        generateSelfContainedShell(
+            config: this.config,
+            css: cssList.toArray(),
+            js: jsList.toArray(),
+            bootstrap: bootstrap,
+            csp: csp
+        )
+    }
+
+    /** 内嵌 CSS 资源（哈希 → 内容）。供承载方内联进自包含页面。 */
+    public func embeddedCss(): Array<(String, String)> {
+        let out = ArrayList<(String, String)>()
+        for ((k, v) in this.cssBlobs) { out.add((k, v)) }
+        out.toArray()
+    }
+
+    /** 内嵌 JS 资源（哈希 → 内容）。供承载方内联进自包含页面。 */
+    public func embeddedJs(): Array<(String, String)> {
+        let out = ArrayList<(String, String)>()
+        for ((k, v) in this.jsBlobs) { out.add((k, v)) }
+        out.toArray()
+    }
+
+    /** 页面配置（标题、字体等）。供承载方生成页面壳。 */
+    public func appConfig(): AppConfig {
+        this.config
     }
 
     private func serveEmbeddedCSS(ctx: TangHttpContext): Unit {
@@ -370,6 +561,7 @@ public class App {
 
     private func upgradeWSInner(ctx: TangHttpContext): Unit {
         let ws = ctx.upgrade()
+        let sink = WebSocketSink(ws)
         println("cjxt-diag upgrade ok, waiting connect frame")
         let frame = ws.read()
         let raw = String.fromUtf8(frame.payload)
@@ -380,20 +572,20 @@ public class App {
             match (sessions.get(sid)) {
                 case Some(session) =>
                     println("cjxt-ws: RESUME sid=" + sid + " path=" + session.path)
-                    this.resumeSession(ws, session, token)
+                    this.resumeSession(sink, session, token)
                 case None =>
                     println("cjxt-ws: NEW(sid-miss) sid=" + sid)
-                    this.newSession(ws, sid)
+                    this.newSession(sink, sid)
             }
         } else {
             println("cjxt-ws: NEW(no-sid)")
-            this.newSession(ws, sessions.generateId())
+            this.newSession(sink, sessions.generateId())
         }
     }
 
-    private func resumeSession(ws: WebSocket, session: Session, token: String): Unit {
+    private func resumeSession(sink: PageSink, session: Session, token: String): Unit {
         session.wsState = WsState.Connected
-        session.ws = Some(ws)
+        session.sink = Some(sink)
         session.touch()
         // 令牌恢复：连接携带的 token → 应用钩子校验 → 写会话上下文（uid/角色等）+ 通知订阅者
         var restored = false
@@ -418,14 +610,24 @@ public class App {
         // 初始渲染/恢复后清理脏标记（渲染出口统一清理，防止残留污染后续补丁）。
         // 只清本会话的：别的会话的脏标记由它自己的 sendPatch 处理
         RenderContext.clearDirtyForSession(session)
-        wsSendJson(ws, ConnectedMsg())
-        if (sendFull) {
-            wsSendJson(ws, FullTreeMsg(tree, path: session.path))
+        sinkSendJson(sink, ConnectedMsg())
+        // 首屏已内联整树、且本次连接未改变它（无 deferred 重渲、无令牌恢复重渲）时，
+        // 若服务端待发树与内联那棵指纹一致，客户端手上就已是最终形态 → 跳过整树下发，
+        // 避免刚显示就把根节点整棵替换（白白丢掉焦点/滚动位置与客户端组件局部状态）。
+        // 指纹不一致（如 layout 在两条路径上的形态差异）则照常下发，保证正确性优先。
+        let treeJson = serializeSubtree(tree, session.handlers)
+        let inlinedMatches = session.inlinedTreeHash != "" && session.inlinedTreeHash == treeFingerprint(treeJson)
+        let skipTreeSend = inlinedMatches && !sendFull && !restored
+        session.inlinedTreeHash = ""
+        if (skipTreeSend) {
+            // 客户端已有的树与待发树一致：只回 connected，不重复下发
+        } else if (sendFull) {
+            sinkSendJson(sink, FullTreeMsg(tree, path: session.path))
         } else {
-            wsSendJson(ws, CombinedPatchMsg([], [TreePatchEntry("replace", "", Some(tree))]))
+            sinkSendJson(sink, CombinedPatchMsg([], [TreePatchEntry("replace", "", Some(tree))]))
         }
-        sendTitle(ws, session.path)
-        this.listenLoop(ws, state, session)
+        sendTitle(sink, session.path)
+        this.listenLoop(sink, state, session)
     }
 
     /// 令牌校验并写会话上下文（校验回调返回的信息 + 令牌本身）。
@@ -494,10 +696,10 @@ public class App {
         }
     }
 
-    private func newSession(ws: WebSocket, sid: String): Unit {
+    private func newSession(sink: PageSink, sid: String): Unit {
         match (RouteRegistry.global().create("/")) {
-            case Some(page) => startSession(ws, sid, page)
-            case None => ws.closeConn()
+            case Some(page) => startSession(sink, sid, page)
+            case None => sink.close()
         }
     }
 
@@ -527,10 +729,10 @@ public class App {
         tree
     }
 
-    private func startSession(ws: WebSocket, sid: String, page: IComponent): Unit {
+    private func startSession(sink: PageSink, sid: String, page: IComponent): Unit {
         let session = sessions.save(sid, page, div([text("")]))
         session.wsState = WsState.Connected
-        session.ws = Some(ws)
+        session.sink = Some(sink)
         this.initStates(session)
         // onMount 里起的推送要等初始树发下去（见 suspendPushes 的注释）
         this.suspendPushes(session)
@@ -538,15 +740,15 @@ public class App {
         page.onMount(mountCtx)
         let state = SessionState(page, "/")
         session.path = "/"
-        this.initSignals(ws, state, session)
-        wsSendJson(ws, ConnectedMsg())
-        wsSendJson(ws, CombinedPatchMsg([], [TreePatchEntry("replace", "", Some(session.tree))]))
-        sendTitle(ws, "/")
+        this.initSignals(sink, state, session)
+        sinkSendJson(sink, ConnectedMsg())
+        sinkSendJson(sink, CombinedPatchMsg([], [TreePatchEntry("replace", "", Some(session.tree))]))
+        sendTitle(sink, "/")
         this.drainPushes(session)
-        this.listenLoop(ws, state, session)
+        this.listenLoop(sink, state, session)
     }
 
-    private func initSignals(ws: WebSocket, state: SessionState, session: Session): Unit {
+    private func initSignals(sink: PageSink, state: SessionState, session: Session): Unit {
         let tree = this.renderPageTree(session,
             { => RenderContext.expandTree(applyLayout(state.path, state.page.renderWithScope()), "") })
         session.refreshHandlers(tree)
@@ -556,40 +758,19 @@ public class App {
         RenderContext.clearDirtyForSession(session)
     }
 
-    private func listenLoop(ws: WebSocket, state: SessionState, session: Session): Unit {
+    private func listenLoop(sink: PageSink, state: SessionState, session: Session): Unit {
+        // WS 专属读取路径：只有 WS 承载才有可读帧；其它承载下没有入站流，
+        // 交互由宿主在自己的通道上驱动（见 dispatchHostInput）。
+        let ws: WebSocket = match (sink) {
+            case s: WebSocketSink => s.underlying()
+            case _ => return
+        }
         try {
             while (true) {
                 let frame = ws.read()
                 if (frame.frameType == WebSocketFrameType.TextWebFrame) {
                     let raw = String.fromUtf8(frame.payload)
-                    let t = readField(raw, "type")
-                    if (t == "ack") {
-                        let ev = readField(raw, "event")
-                        if (ev == "mount") {
-                            // mount ack — 不重复调 onMount（this.data 已由 startSession 设置）
-                        } else if (ev == "update") {
-                            state.page.onUpdate(LifecycleContext("", HashMap<String, String>(), None, None, sessionContext: session.sessionContext))
-                        }
-                    } else if (t == "action") {
-                        let name = readField(raw, "name")
-                        if (name != "") {
-                            let params = readActionParams(raw)
-                            this.dispatchAction(ws, state, session, name, params)
-                        }
-                    } else if (t == "bind") {
-                        let name = readField(raw, "name")
-                        let value = readBindValue(raw)
-                        if (name != "") { this.dispatchBind(ws, state, session, name, value) }
-                    } else if (t == "navigate") {
-                        let path = readField(raw, "path")
-                        if (path != "") { this.handleNavigate(ws, state, session, path) }
-                    } else if (t == "dom_result") {
-                        let txId = readField(raw, "txId")
-                        let results = readResults(raw)
-                        if (txId != "") { this.dispatchDomResult(ws, state, session, txId, results) }
-                    } else if (t == "upload_begin") {
-                        this.handleUploadBegin(ws, state, session, raw)
-                    }
+                    this.dispatchInbound(sink, state, session, raw)
                 } else if (frame.frameType == WebSocketFrameType.BinaryWebFrame) {
                     this.handleUploadBinary(ws, state, session, frame)
                 } else if (frame.frameType == WebSocketFrameType.PingWebFrame) {
@@ -611,29 +792,69 @@ public class App {
         // 连接断开：清理进行中的上传（删除半成品文件）
         this.cleanupUpload(session)
         session.wsState = WsState.Disconnected
-        session.ws = None
+        session.sink = None
         session.tree = this.renderPageTree(session,
             { => RenderContext.expandTree(state.page.renderWithScope(), "") })
+    }
+
+    /// 一条页面入站文本消息的分发（WS 文本帧与宿主绑定共用同一套语义）。
+    /// 返回是否命中已知消息类型（未知类型不算分发）。
+    private func dispatchInbound(sink: PageSink, state: SessionState, session: Session, raw: String): Bool {
+        let t = readField(raw, "type")
+        if (t == "ack") {
+            let ev = readField(raw, "event")
+            if (ev == "mount") {
+                // mount ack — 不重复调 onMount（states 已由会话建立时设置）
+            } else if (ev == "update") {
+                state.page.onUpdate(LifecycleContext("", HashMap<String, String>(), None, None, sessionContext: session.sessionContext))
+            }
+            return true
+        } else if (t == "action") {
+            let name = readField(raw, "name")
+            if (name != "") {
+                let params = readActionParams(raw)
+                this.dispatchAction(sink, state, session, name, params)
+            }
+            return true
+        } else if (t == "bind") {
+            let name = readField(raw, "name")
+            let value = readBindValue(raw)
+            if (name != "") { this.dispatchBind(sink, state, session, name, value) }
+            return true
+        } else if (t == "navigate") {
+            let path = readField(raw, "path")
+            if (path != "") { this.handleNavigate(sink, state, session, path) }
+            return true
+        } else if (t == "dom_result") {
+            let txId = readField(raw, "txId")
+            let results = readResults(raw)
+            if (txId != "") { this.dispatchDomResult(sink, state, session, txId, results) }
+            return true
+        } else if (t == "upload_begin") {
+            this.handleUploadBegin(sink, state, session, raw)
+            return true
+        }
+        return false
     }
 
     // ============ WS 二进制帧流式上传 ============
 
     /// upload_begin（文本帧 JSON）：校验 → 建空文件 → 挂 session.upload
-    private func handleUploadBegin(ws: WebSocket, state: SessionState, session: Session, raw: String): Unit {
+    private func handleUploadBegin(sink: PageSink, state: SessionState, session: Session, raw: String): Unit {
         match (parseUploadBegin(raw)) {
             case None =>
-                wsSendJson(ws, UploadErrorMsg("", "bad upload_begin"))
+                sinkSendJson(sink, UploadErrorMsg("", "bad upload_begin"))
             case Some(b) =>
                 if (this.uploadDir == "" || this.uploadPrefix == "") {
-                    wsSendJson(ws, UploadErrorMsg(b.id, "upload not configured (serveUpload missing)"))
+                    sinkSendJson(sink, UploadErrorMsg(b.id, "upload not configured (serveUpload missing)"))
                     return
                 }
                 match (session.upload) {
                     case Some(_) =>
-                        wsSendJson(ws, UploadErrorMsg(b.id, "upload already in progress"))
+                        sinkSendJson(sink, UploadErrorMsg(b.id, "upload already in progress"))
                     case None =>
                         if (b.size <= 0) {
-                            wsSendJson(ws, UploadErrorMsg(b.id, "empty file"))
+                            sinkSendJson(sink, UploadErrorMsg(b.id, "empty file"))
                             return
                         }
                         let stored = "${nextId()}-${b.name}"
@@ -643,7 +864,7 @@ public class App {
                             f.close()
                             session.upload = Some(UploadState(b.id, b.name, b.size, b.action, stored))
                         } catch (e: Exception) {
-                            wsSendJson(ws, UploadErrorMsg(b.id, "can not open storage: ${e.message}"))
+                            sinkSendJson(sink, UploadErrorMsg(b.id, "can not open storage: ${e.message}"))
                         }
                 }
         }
@@ -651,9 +872,14 @@ public class App {
 
     /// 二进制帧：拼接分段帧 → 边收边写 → 块级 ack → 收满 dispatch action
     private func handleUploadBinary(ws: WebSocket, state: SessionState, session: Session, first: WebSocketFrame): Unit {
-        match (collectBinaryPayload(ws, first)) {
-            case Some(bytes) => this.onUploadChunk(ws, state, session, bytes)
+        // 二进制入站只存在于 WS 承载；出站仍走会话 sink（同一连接）
+        match (session.sink) {
             case None => this.cleanupUpload(session)
+            case Some(sink) =>
+                match (collectBinaryPayload(ws, first)) {
+                    case Some(bytes) => this.onUploadChunk(sink, state, session, bytes)
+                    case None => this.cleanupUpload(session)
+                }
         }
     }
 
@@ -681,17 +907,17 @@ public class App {
     }
 
     /// 写一块字节：写盘 → 进度 ack → 收满后 dispatch uploaded action
-    private func onUploadChunk(ws: WebSocket, state: SessionState, session: Session, bytes: Array<UInt8>): Unit {
+    private func onUploadChunk(sink: PageSink, state: SessionState, session: Session, bytes: Array<UInt8>): Unit {
         if (bytes.size == 0) {
             return
         }
         match (session.upload) {
             case None =>
                 // 没有进行中的上传却收到数据帧：忽略并提示
-                wsSendJson(ws, UploadErrorMsg("", "no active upload"))
+                sinkSendJson(sink, UploadErrorMsg("", "no active upload"))
             case Some(u) =>
                 if (uploadWouldOverflow(u, bytes.size)) {
-                    this.abortUpload(ws, session, "size exceeded")
+                    this.abortUpload(sink, session, "size exceeded")
                     return
                 }
                 try {
@@ -699,11 +925,11 @@ public class App {
                     f.write(bytes)
                     f.close()
                 } catch (e: Exception) {
-                    this.abortUpload(ws, session, "write failed: ${e.message}")
+                    this.abortUpload(sink, session, "write failed: ${e.message}")
                     return
                 }
                 let done = uploadFeed(u, bytes.size)
-                wsSendJson(ws, UploadProgressMsg(u.id, u.received))
+                sinkSendJson(sink, UploadProgressMsg(u.id, u.received))
                 if (done) {
                     session.upload = None
                     // 完成：走标准 action 链路（handler 由 Upload 组件的 data-action-uploaded 提供）
@@ -711,18 +937,18 @@ public class App {
                     params["name"] = u.name
                     params["url"] = "${this.uploadPrefix}/${u.stored}"
                     params["size"] = u.received.toString()
-                    this.dispatchAction(ws, state, session, u.action, params)
+                    this.dispatchAction(sink, state, session, u.action, params)
                 }
         }
     }
 
     /// 中止上传：删半成品文件 + 清 session.upload + 回错误帧
-    private func abortUpload(ws: WebSocket, session: Session, message: String): Unit {
+    private func abortUpload(sink: PageSink, session: Session, message: String): Unit {
         match (session.upload) {
             case Some(u) =>
                 this.removeUploadFile(u)
                 session.upload = None
-                wsSendJson(ws, UploadErrorMsg(u.id, message))
+                sinkSendJson(sink, UploadErrorMsg(u.id, message))
             case None => ()
         }
     }
@@ -745,34 +971,34 @@ public class App {
         }
     }
 
-    private func dispatchAction(ws: WebSocket, state: SessionState, session: Session, name: String, params: HashMap<String, String>): Unit {
+    private func dispatchAction(sink: PageSink, state: SessionState, session: Session, name: String, params: HashMap<String, String>): Unit {
         println("cjxt-diag dispatch name=" + name + " handlers=" + session.handlers.size.toString() + " sid=" + session.id)
         match (session.handlers.get(name)) {
             case Some(fn) =>
-                this.runAction(ws, state, session, name, fn, params)
+                this.runAction(sink, state, session, name, fn, params)
             case None =>
                 println("cjxt dispatch MISS " + name + " (handlers=" + session.handlers.size.toString() + ")")
         }
     }
 
-    private func runAction(ws: WebSocket, state: SessionState, session: Session, name: String, fn: ActionHandler, params: HashMap<String, String>): Unit {
+    private func runAction(sink: PageSink, state: SessionState, session: Session, name: String, fn: ActionHandler, params: HashMap<String, String>): Unit {
         SignalTracker.execMutex.lock()
         let flag = NavFlag()
-        let router = Router("", { path => this.execNavAction(ws, state, session, flag, path) })
+        let router = Router("", { path => this.execNavAction(sink, state, session, flag, path) })
         let keyEvent = parseKeyEvent(params)
         let ctx = ActionContext(session.id, session.context, params, router, pushFn: { patches =>
-            wsSendJson(ws, PushMsg(patches))
-        }, sessionStates: session.states, keyEvent: keyEvent, dom: Some(DomApi(this, ws, session)), sessionContext: session.sessionContext)
+            sinkSendJson(sink, PushMsg(patches))
+        }, sessionStates: session.states, keyEvent: keyEvent, dom: Some(DomApi(this, sink, session)), sessionContext: session.sessionContext)
         try {
             let t0 = DateTime.now().toUnixTimeStamp().toMilliseconds()
             match (fn(ctx)) {
                 case PatchResult.ReRender =>
-                    if (!flag.done) { this.sendPatch(ws, state, session) }
+                    if (!flag.done) { this.sendPatch(sink, state, session) }
                 case _ => ()
             }
             println("cjxt-diag action done name=" + name + " ms=" + (DateTime.now().toUnixTimeStamp().toMilliseconds() - t0).toString() + " sid=" + session.id)
             // 登录/登出等动作可能修改上下文 token → 同步给前端（localStorage）
-            this.syncAuthToken(ws, session)
+            this.syncAuthToken(sink, session)
         } catch (e: Exception) {
             println("cjxt runAction ERROR: " + TypeInfo.of(e).name + " " + e.message)
             println("cjxt-diag stack " + e.getStackTrace().toString())
@@ -788,14 +1014,14 @@ public class App {
 
     /// 会话上下文 token 变化时，通过 WS 同步给前端（前端存 localStorage，
     /// 下次连接时回传用于恢复会话）。登出（token 清空）时同步空串清除。
-    private func syncAuthToken(ws: WebSocket, session: Session): Unit {
+    private func syncAuthToken(sink: PageSink, session: Session): Unit {
         let token = match (session.context.get(TOKEN_KEY)) {
             case Some(t) => t
             case None => ""
         }
         if (token != session.syncedToken) {
             session.syncedToken = token
-            wsSendJson(ws, AuthMsg(token))
+            sinkSendJson(sink, AuthMsg(token))
         }
     }
 
@@ -821,7 +1047,7 @@ public class App {
             case WsState.Connected => ()
             case _ => return false
         }
-        match (session.ws) {
+        match (session.sink) {
             case Some(_) => ()
             case None => return false
         }
@@ -860,7 +1086,7 @@ public class App {
             case WsState.Connected => ()
             case _ => return
         }
-        let ws: WebSocket = match (session.ws) {
+        let sink: PageSink = match (session.sink) {
             case Some(w) => w
             case None => return
         }
@@ -869,10 +1095,10 @@ public class App {
         session.refreshRefs(session.tree)
         SignalTracker.execMutex.lock()
         let flag = NavFlag()
-        let router = Router("", { path => this.execNavAction(ws, state, session, flag, path) })
+        let router = Router("", { path => this.execNavAction(sink, state, session, flag, path) })
         let ctx = ActionContext(sid, session.context, HashMap<String, String>(), router, pushFn: { patches =>
-            wsSendJson(ws, PushMsg(patches))
-        }, sessionStates: session.states, dom: Some(DomApi(this, ws, session)), sessionContext: session.sessionContext)
+            sinkSendJson(sink, PushMsg(patches))
+        }, sessionStates: session.states, dom: Some(DomApi(this, sink, session)), sessionContext: session.sessionContext)
         try {
             match (update(ctx)) {
                 case PatchResult.ReRender =>
@@ -890,7 +1116,7 @@ public class App {
             // 与 runAction 对齐：推送回调里也可能写会话上下文（如「先出 loading 补丁、
             // 异步完成登录再推送」的模式），token 变化同样要同步给前端 localStorage，
             // 否则刷新后拿不到 token 会丢登录态。
-            this.syncAuthToken(ws, session)
+            this.syncAuthToken(sink, session)
         } catch (e: Exception) {
             // 对齐 runAction：onError 默认是 no-op，框架层不留痕的话，推送回调抛的异常
             // 在整条链路上完全不可见（表现为「界面没反应」却查不到原因）
@@ -937,12 +1163,12 @@ public class App {
             case WsState.Connected => ()
             case _ => return
         }
-        let ws = match (session.ws) {
+        let sink = match (session.sink) {
             case Some(w) => w
             case None => return
         }
         let state = SessionState(session.page, session.path)
-        this.sendPatch(ws, state, session)
+        this.sendPatch(sink, state, session)
     }
 
     // 超时/取消分发：若 tx 仍 pending 则跑其续体（ReRender→sendPatch）；已正常完成则忽略
@@ -951,27 +1177,27 @@ public class App {
             case WsState.Connected => ()
             case _ => return false
         }
-        let ws = match (session.ws) { case Some(w) => w case None => return false }
+        let sink = match (session.sink) { case Some(w) => w case None => return false }
         let state = SessionState(session.page, session.path)
         let results = HashMap<String, String>()
-        this.dispatchDomResult(ws, state, session, txId, results)
+        this.dispatchDomResult(sink, state, session, txId, results)
         true
     }
 
     // DOM 事务结果分发：dom_result 到达 → 取 session.pendingTx 续体 → 锁内跑 → ReRender 则 sendPatch
-    private func dispatchDomResult(ws: WebSocket, state: SessionState, session: Session, txId: String, results: HashMap<String, String>): Unit {
+    private func dispatchDomResult(sink: PageSink, state: SessionState, session: Session, txId: String, results: HashMap<String, String>): Unit {
         SignalTracker.execMutex.lock()
         try {
             match (session.pendingTx.get(txId)) {
                 case Some(k) =>
                     session.pendingTx.remove(txId)
                     let flag = NavFlag()
-                    let router = Router("", { path => this.execNavAction(ws, state, session, flag, path) })
+                    let router = Router("", { path => this.execNavAction(sink, state, session, flag, path) })
                     let ctx = ActionContext(session.id, session.context, HashMap<String, String>(), router, pushFn: { patches =>
-                        wsSendJson(ws, PushMsg(patches))
-                    }, sessionStates: session.states, dom: Some(DomApi(this, ws, session)), sessionContext: session.sessionContext)
+                        sinkSendJson(sink, PushMsg(patches))
+                    }, sessionStates: session.states, dom: Some(DomApi(this, sink, session)), sessionContext: session.sessionContext)
                     match (k(results)) {
-                        case PatchResult.ReRender => if (!flag.done) { this.sendPatch(ws, state, session) }
+                        case PatchResult.ReRender => if (!flag.done) { this.sendPatch(sink, state, session) }
                         case _ => ()
                     }
                 case None => ()
@@ -984,11 +1210,11 @@ public class App {
         }
     }
 
-    private func dispatchBind(ws: WebSocket, state: SessionState, session: Session, name: String, value: String): Unit {
+    private func dispatchBind(sink: PageSink, state: SessionState, session: Session, name: String, value: String): Unit {
         SignalTracker.execMutex.lock()
         try {
             match (session.handlers.get(name)) {
-                case Some(fn) => this.doBind(ws, state, session, fn, value, name)
+                case Some(fn) => this.doBind(sink, state, session, fn, value, name)
                 case None => ()
             }
         } finally {
@@ -996,18 +1222,18 @@ public class App {
         }
     }
 
-    private func doBind(ws: WebSocket, state: SessionState, session: Session, fn: ActionHandler, value: String, aname: String): Unit {
+    private func doBind(sink: PageSink, state: SessionState, session: Session, fn: ActionHandler, value: String, aname: String): Unit {
         let params = HashMap<String, String>()
         params["value"] = value
         let flag = NavFlag()
-        let router = Router("", { path => this.execNavAction(ws, state, session, flag, path) })
+        let router = Router("", { path => this.execNavAction(sink, state, session, flag, path) })
         let ctx = ActionContext(session.id, session.context, params, router, pushFn: { patches =>
-            wsSendJson(ws, PushMsg(patches))
-        }, sessionStates: session.states, dom: Some(DomApi(this, ws, session)), sessionContext: session.sessionContext)
+            sinkSendJson(sink, PushMsg(patches))
+        }, sessionStates: session.states, dom: Some(DomApi(this, sink, session)), sessionContext: session.sessionContext)
         try {
             match (fn(ctx)) {
                 case PatchResult.ReRender =>
-                    if (!flag.done) { this.sendPatch(ws, state, session) }
+                    if (!flag.done) { this.sendPatch(sink, state, session) }
                 case _ => ()
             }
         } catch (e: Exception) {
@@ -1015,27 +1241,27 @@ public class App {
         }
     }
 
-    private func execNavAction(ws: WebSocket, state: SessionState, session: Session, flag: NavFlag, path: String): Unit {
-        this.handleNavigate(ws, state, session, path)
+    private func execNavAction(sink: PageSink, state: SessionState, session: Session, flag: NavFlag, path: String): Unit {
+        this.handleNavigate(sink, state, session, path)
         flag.done = true
     }
 
-    private func handleNavigate(ws: WebSocket, state: SessionState, session: Session, path: String): Unit {
+    private func handleNavigate(sink: PageSink, state: SessionState, session: Session, path: String): Unit {
         match (RouteRegistry.global().resolveGuard(path, session.context)) {
             case Some(target) =>
                 // 拒绝导航并告知守卫指定的跳转目标，前端据此自动跳转
-                wsSendJson(ws, DenyMsg("无权限访问", path: target))
+                sinkSendJson(sink, DenyMsg("无权限访问", path: target))
                 return
             case None => ()
         }
         state.page.onUnmount(LifecycleContext("", HashMap<String, String>(), None, None))
         match (RouteRegistry.global().resolve(path)) {
-            case Some(rm) => this.applyNav(ws, state, session, rm.component, path, rm.params)
+            case Some(rm) => this.applyNav(sink, state, session, rm.component, path, rm.params)
             case None => ()
         }
     }
 
-    private func applyNav(ws: WebSocket, state: SessionState, session: Session, newPage: IComponent, path: String, routeParams: HashMap<String, String>): Unit {
+    private func applyNav(sink: PageSink, state: SessionState, session: Session, newPage: IComponent, path: String, routeParams: HashMap<String, String>): Unit {
         state.page = newPage
         state.path = path
         let mountCtx = LifecycleContext(session.id, routeParams, None, None, states: session.states, sessionContext: session.sessionContext)
@@ -1052,18 +1278,18 @@ public class App {
         // 只清本会话的：别的会话的更新由它自己的 sendPatch 处理
         RenderContext.clearDirtyForSession(session)
         println("cjxt-diag applyNav path=" + path + " sid=" + session.id + " treeBytes=" + serializeSubtree(tree, HashMap<String, ActionHandler>()).size.toString())
-        wsSendJson(ws, FullTreeMsg(tree, path: path))
-        sendTitle(ws, path)
+        sinkSendJson(sink, FullTreeMsg(tree, path: path))
+        sendTitle(sink, path)
     }
 
-    private func sendTitle(ws: WebSocket, path: String): Unit {
+    private func sendTitle(sink: PageSink, path: String): Unit {
         match (RouteRegistry.global().getTitle(path)) {
-            case Some(t) => wsSendJson(ws, TitleMsg(t))
+            case Some(t) => sinkSendJson(sink, TitleMsg(t))
             case None => ()
         }
     }
 
-    private func sendPatch(ws: WebSocket, state: SessionState, session: Session): Unit {
+    private func sendPatch(sink: PageSink, state: SessionState, session: Session): Unit {
         App.sendPatchCount += 1
         SignalTracker.pendingRender = false
         // 只补丁本会话**当前页面树**上的组件：补丁路径是会话树内的位置，
@@ -1092,7 +1318,7 @@ public class App {
             session.tree = RenderContext.replaceTreeAtPath(session.tree, path, expanded)
 
             let msg = "{\"kind\":\"patch\",\"trees\":[{\"op\":\"replace\",\"path\":\"${path}\",\"tree\":${json}}]}"
-            wsSendText(ws, msg)
+            sink.sendText(msg)
             // 已下发的组件清脏；未下发的（别的会话）留在队列里等各自会话处理
             component.clearDirty()
         }
@@ -1118,19 +1344,75 @@ class StateReg {
     }
 }
 
+// ── 报文解析（全部按 **Rune** 索引）────────────────────────────────────
+//
+// 仓颉的 `String` 有两套下标语义，混用会炸：
+//   - `s.size` / `s.indexOf(x)` 返回**字节**偏移；
+//   - `s[i..j]` 切片要求 i、j 落在**字符边界**上。
+// 于是 `s[i..(i+1)]` 这种"逐字节推进"的写法碰到多字节字符（中文等）
+// 直接抛 `Invalid utf8 byte sequence`——ASCII 报文完全正常，一有中文就断，
+// 且异常被上层 catch 吞掉后表现为"消息静默不分发"。
+//
+// 统一做法：先 `toRuneArray()`，之后 size/下标/比较全用字符序，比较用码点数值
+// （`UInt32(r)`，避免 Rune 字面量的转义歧义）。拼接用 `String(runes[a..b])`。
+
+let CH_QUOTE: UInt32 = 34
+let CH_BACKSLASH: UInt32 = 92
+let CH_LBRACE: UInt32 = 123
+let CH_RBRACE: UInt32 = 125
+let CH_COLON: UInt32 = 58
+let CH_SPACE: UInt32 = 32
+let CH_TAB: UInt32 = 9
+let CH_LF: UInt32 = 10
+let CH_CR: UInt32 = 13
+
+func isJsonSpaceRune(r: Rune): Bool {
+    let c = UInt32(r)
+    c == CH_SPACE || c == CH_TAB || c == CH_LF || c == CH_CR
+}
+
+/// 在 runes 中从 `from` 起找字符 `ch` 的字符下标
+func findRune(runes: Array<Rune>, ch: UInt32, from: Int64): Option<Int64> {
+    var i = from
+    while (i < runes.size) {
+        if (UInt32(runes[i]) == ch) { return Some(i) }
+        i += 1
+    }
+    None
+}
+
+/// 读 `"key": "value"` / `"key":"value"` 的字符串值（容忍冒号后空白）
 private func readField(raw: String, field: String): String {
-    let mark = "\"${field}\":\""
-    match (raw.indexOf(mark)) {
-        case Some(idx) => doReadStr(raw, idx + mark.size)
+    let runes = raw.toRuneArray()
+    match (findSubRunes(runes, "\"${field}\":")) {
+        case Some(markStart) =>
+            var from = markStart + "\"${field}\":".toRuneArray().size
+            while (from < runes.size && isJsonSpaceRune(runes[from])) { from += 1 }
+            if (from >= runes.size || UInt32(runes[from]) != CH_QUOTE) { return "" }
+            match (findRune(runes, CH_QUOTE, from + 1)) {
+                case Some(e) => String(runes[(from + 1)..e])
+                case None => ""
+            }
         case None => ""
     }
 }
 
-private func doReadStr(s: String, from: Int64): String {
-    match (s.indexOf("\"", from)) {
-        case Some(e) => s[from..e]
-        case None => ""
+/// 在 runes 中找子串（按字符）；返回起始字符下标
+func findSubRunes(runes: Array<Rune>, needle: String): Option<Int64> {
+    let pat = needle.toRuneArray()
+    if (pat.size == 0 || pat.size > runes.size) { return None }
+    var i = 0
+    while (i + pat.size <= runes.size) {
+        var k = 0
+        var matched = true
+        while (k < pat.size) {
+            if (UInt32(runes[i + k]) != UInt32(pat[k])) { matched = false; break }
+            k += 1
+        }
+        if (matched) { return Some(i) }
+        i += 1
     }
+    None
 }
 
 func readBindValue(raw: String): String {
@@ -1144,10 +1426,10 @@ func readBindValue(raw: String): String {
 // 解析 dom_result 的 results 对象：{"r1":"<值>",...} → HashMap
 func readResults(raw: String): HashMap<String, String> {
     let result = HashMap<String, String>()
-    let mark = "\"results\":{"
-    match (raw.indexOf(mark)) {
+    let runes = raw.toRuneArray()
+    match (findSubRunes(runes, "\"results\":{")) {
         case Some(start) =>
-            let body = extractJsonObjectBody(raw, start + mark.size)
+            let body = extractJsonObjectBodyRunes(runes, start + "\"results\":{".toRuneArray().size)
             if (body != "") { parseStringPairs(body, result) }
         case None => ()
     }
@@ -1156,35 +1438,41 @@ func readResults(raw: String): HashMap<String, String> {
 
 func readActionParams(raw: String): HashMap<String, String> {
     let result = HashMap<String, String>()
-    let mark = "\"params\":{"
-    match (raw.indexOf(mark)) {
+    let runes = raw.toRuneArray()
+    match (findSubRunes(runes, "\"params\":")) {
         case Some(start) =>
-            let body = extractJsonObjectBody(raw, start + mark.size)
-            if (body != "") { parseStringPairs(body, result) }
+            var from = start + "\"params\":".toRuneArray().size
+            while (from < runes.size && isJsonSpaceRune(runes[from])) { from += 1 }
+            if (from < runes.size && UInt32(runes[from]) == CH_LBRACE) {
+                let body = extractJsonObjectBodyRunes(runes, from + 1)
+                if (body != "") { parseStringPairs(body, result) }
+            }
         case None => ()
     }
     result
 }
 
-// 从指定起点提取匹配的 JSON 对象体（跳过字符串字面量，处理嵌套 {}）
-func extractJsonObjectBody(s: String, from: Int64): String {
+// 从指定起点提取匹配的 JSON 对象体（跳过字符串字面量，处理嵌套 {}）。
+// 传入 runes 与**字符**下标（不是字节），返回值同为字符序切片。
+func extractJsonObjectBodyRunes(runes: Array<Rune>, from: Int64): String {
     var depth: Int64 = 1
     var i = from
-    while (i < s.size) {
-        let ch = s[i]
-        if (ch == 123u8) {
+    while (i < runes.size) {
+        let c = UInt32(runes[i])
+        if (c == CH_LBRACE) {
             depth += 1
-        } else if (ch == 125u8) {
+        } else if (c == CH_RBRACE) {
             depth -= 1
             if (depth == 0) {
-                return s[from..i]
+                return String(runes[from..i])
             }
-        } else if (ch == 34u8) {
+        } else if (c == CH_QUOTE) {
             i += 1
-            while (i < s.size) {
-                if (s[i] == 92u8) {
+            while (i < runes.size) {
+                let ic = UInt32(runes[i])
+                if (ic == CH_BACKSLASH) {
                     i += 2
-                } else if (s[i] == 34u8) {
+                } else if (ic == CH_QUOTE) {
                     i += 1
                     break
                 } else {
@@ -1198,32 +1486,37 @@ func extractJsonObjectBody(s: String, from: Int64): String {
     ""
 }
 
-// 解析 body 内所有 "key":"value" 键值对（值为字符串；跳过非字符串值）
+// 解析 body 内所有 "key":"value" 键值对（值为字符串；跳过非字符串值）。
+// 全程按 Rune 索引：值里出现中文才不会在切片处抛异常。
 func parseStringPairs(body: String, out: HashMap<String, String>): Unit {
+    let runes = body.toRuneArray()
     var i: Int64 = 0
-    while (i < body.size) {
-        match (body.indexOf("\"", i)) {
-            case Some(q1) =>
-                match (body.indexOf("\"", q1 + 1)) {
-                    case Some(q2) =>
-                        let key = body[q1 + 1..q2]
-                        // 跳过键后的空白与冒号
-                        var j = q2 + 1
-                        while (j < body.size && (body[j] == 32u8 || body[j] == 58u8)) { j += 1 }
-                        if (j < body.size && body[j] == 34u8) {
-                            let vs = j + 1
-                            match (body.indexOf("\"", vs)) {
-                                case Some(ve) =>
-                                    out[key] = body[vs..ve]
-                                    i = ve + 1
-                                case None => break
-                            }
-                        } else {
-                            i = j
-                        }
-                    case None => break
-                }
+    while (i < runes.size) {
+        let q1 = match (findRune(runes, CH_QUOTE, i)) {
+            case Some(x) => x
             case None => break
+        }
+        let q2 = match (findRune(runes, CH_QUOTE, q1 + 1)) {
+            case Some(x) => x
+            case None => break
+        }
+        let key = String(runes[(q1 + 1)..q2])
+        // 跳过键后的空白与冒号
+        var j = q2 + 1
+        while (j < runes.size) {
+            let c = UInt32(runes[j])
+            if (c == CH_SPACE || c == CH_COLON || c == CH_TAB || c == CH_LF || c == CH_CR) { j += 1 } else { break }
+        }
+        if (j < runes.size && UInt32(runes[j]) == CH_QUOTE) {
+            let vs = j + 1
+            match (findRune(runes, CH_QUOTE, vs)) {
+                case Some(ve) =>
+                    out[key] = String(runes[vs..ve])
+                    i = ve + 1
+                case None => break
+            }
+        } else {
+            i = j
         }
     }
 }
@@ -1253,15 +1546,14 @@ public struct UploadResult <: JsonSerializable {
 
 // 提取 key 后带引号的值（键以 \" 结尾，值到下一个 \" 为止）
 func extractQuotedAfter(text: String, key: String): String {
-    match (text.indexOf(key)) {
+    let runes = text.toRuneArray()
+    match (findSubRunes(runes, key)) {
         case Some(start) =>
-            let after = text[start + key.size..]
-            var end = 0
-            var found = false
-            for (i in 0..after.size) {
-                if (after[i] == 34u8) { end = i; found = true; break }
+            let after = start + key.toRuneArray().size
+            match (findRune(runes, CH_QUOTE, after)) {
+                case Some(e) => String(runes[after..e])
+                case None => ""
             }
-            if (found) { after[0..end] } else { "" }
         case None => ""
     }
 }
