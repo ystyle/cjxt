@@ -2,15 +2,26 @@ macro package cjxt.macros
 
 import std.ast.*
 import std.collection.{HashMap, ArrayList}
-import std.fs.{File, Directory, OpenMode, exists, removeIfExists}
+import std.fs.{File, Directory, OpenMode, Path, exists, removeIfExists}
 import std.process.executeWithOutput
+import cjxt.pathres.*
 
-let CACHE = "target/.css-cache"
 let _bundleInited = [false]
 
+// 缓存目录按"当前包所在项目"定位：宏在同一 cjc 进程里可能被多个包先后展开，
+// 按 cwd 相对写会随工作目录漂移（workspace 下尤其明显）。
+func cacheDir(): String {
+    let base = match (resolveProjectDir()) {
+        case Some(p) => p
+        case None => "."
+    }
+    Path(base).join("target").join(".css-cache").toString()
+}
+
 func ensureCache(): Unit {
-    if (!exists(CACHE)) {
-        Directory.create(CACHE, recursive: true)
+    let dir = cacheDir()
+    if (!exists(dir)) {
+        Directory.create(dir, recursive: true)
     }
 }
 
@@ -109,42 +120,65 @@ func addCssEntry(entries: Array<(String, String)>, css: String): Array<(String, 
 
 func compile(content: String): String {
     let hash = contentHash(content)
-    let scssPath = "${CACHE}/${hash}.scss"
-    let cssPath = "${CACHE}/${hash}.css"
+    let cache = cacheDir()
+    let scssPath = Path(cache).join("${hash}.scss").toString()
+    let cssPath = Path(cache).join("${hash}.css").toString()
 
     ensureCache()
     File.writeTo(scssPath, content.toArray())
 
     if (!exists(cssPath)) {
-        let (code, _, _) = executeWithOutput("sass", [scssPath, cssPath])
-        if (code == 0) {
-            String.fromUtf8(File.readFrom(cssPath))
-        } else {
-            removeIfExists(cssPath)
-            content
+        // sass 不可执行时 executeWithOutput 会**抛异常**（不是返回非零码）。
+        // 必须在这里兜住并降级返回原文：否则"没装 sass"会让整个编译失败，
+        // 而 SCSS 只是本框架的可选增强，不该变成硬依赖。
+        let compiled: Option<String> = try {
+            let (code, _, _) = executeWithOutput("sass", [scssPath, cssPath])
+            if (code == 0) {
+                Some(String.fromUtf8(File.readFrom(cssPath)))
+            } else {
+                Option<String>.None
+            }
+        } catch (e: Exception) {
+            diagReport(DiagReportLevel.WARNING, Tokens(),
+                "sass 执行失败，@defineCSS[sass] / @importCSS(.scss) 将按原文输出",
+                "${e.message}；请安装 sass（见文档「CSS 体系」的安装章节）")
+            Option<String>.None
+        }
+        match (compiled) {
+            case Some(css) => css
+            case None =>
+                removeIfExists(cssPath)
+                content
         }
     } else {
         String.fromUtf8(File.readFrom(cssPath))
     }
 }
 
+// 以"当前正在编译的包"为基准解析资源路径（见 cjxt.pathres 的说明）。
+// 不能只用 cwd：cjpm workspace 下逐成员编译时 cwd 常是 workspace 根，
+// 按相对路径写死的资源会找不到。
 func resolveCSSPath(path: String): String {
-    let candidates = ArrayList<String>()
-    candidates.add(path)
-    candidates.add("src/${path}")
-    candidates.add("public/css/${path}")
-    candidates.add("public/sass/${path}")
-    for (c in candidates) {
-        if (exists(c)) { return c }
+    let resolved = resolveResource(path)
+    if (resolved != "") { return resolved }
+    let base = match (resolveProjectDir()) {
+        case Some(p) => p
+        case None => "."
+    }
+    let shown = ArrayList<String>()
+    for (c in resourceCandidates(path)) {
+        shown.add(Path(base).join(c).toString())
     }
     diagReport(DiagReportLevel.ERROR, Tokens(), "CSS file not found: ${path}",
-        "Searched: ${String.join(candidates.toArray(), delimiter: ", ")}")
+        "Searched under ${base}: ${String.join(shown.toArray(), delimiter: ", ")}")
     ""
 }
 
+// CSS 模块汇总写到"当前包所在项目目录"的 public/css/bundle.css。
+// 与 resolveCSSPath 同理：不能按 cwd 写，否则 workspace 下会落到 workspace 根。
 func writeCSSBundle(content: String): Unit {
-    let dir = "public/css"
-    let bundle = "${dir}/bundle.css"
+    let dir = bundleDir()
+    let bundle = Path(dir).join("bundle.css").toString()
     if (!_bundleInited[0]) {
         ensureDir(dir)
         File.writeTo(bundle, "".toArray())
@@ -152,6 +186,14 @@ func writeCSSBundle(content: String): Unit {
     }
     let file = File(bundle, OpenMode.Append)
     file.write(content.toArray())
+}
+
+func bundleDir(): String {
+    let base = match (resolveProjectDir()) {
+        case Some(p) => p
+        case None => "."
+    }
+    Path(base).join("public").join("css").toString()
 }
 
 func mappingToArray(map: HashMap<String, String>): Array<(String, String)> {
@@ -211,3 +253,4 @@ public macro importCSS(input: Tokens): Tokens {
     writeCSSBundle(css)
     cssModuleTokens(addCssEntry(entries, css))
 }
+
