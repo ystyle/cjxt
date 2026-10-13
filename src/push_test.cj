@@ -6,7 +6,7 @@ import std.unittest.testmacro.*
 /**
  * App.pushUpdate 服务端推送测试
  *
- * 覆盖 pushUpdate 的守卫路径（会话不存在 / 未连接 / 连接但无 ws 引用）。
+ * 覆盖 pushUpdate 的守卫路径（会话不存在 / 未连接 / 已连接但无出站通道）。
  *
  * 真实 WS 端到端推送（启动服务 + 客户端连接 + 补丁帧断言）在
  * harness-cj 仓库的 harness_tests 中验证——客户端升级需要
@@ -27,7 +27,7 @@ class PushUpdateTest {
         let app = App()
         let session = app.sessions.save("s1", text("hi"), div([]))
         session.wsState = WsState.Disconnected
-        session.ws = None
+        session.sink = None
         @Expect(!app.pushUpdate("s1", { _ => PatchResult.ReRender }))
     }
 
@@ -36,16 +36,16 @@ class PushUpdateTest {
         let app = App()
         let session = app.sessions.save("s2", text("hi"), div([]))
         session.wsState = WsState.Connecting
-        session.ws = None
+        session.sink = None
         @Expect(!app.pushUpdate("s2", { _ => PatchResult.ReRender }))
     }
 
     @TestCase
-    func testPushConnectedWithoutWs(): Unit {
+    func testPushConnectedWithoutSink(): Unit {
         let app = App()
         let session = app.sessions.save("s3", text("hi"), div([]))
         session.wsState = WsState.Connected
-        session.ws = None
+        session.sink = None
         @Expect(!app.pushUpdate("s3", { _ => PatchResult.ReRender }))
     }
 }

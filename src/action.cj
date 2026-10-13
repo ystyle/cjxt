@@ -4,7 +4,6 @@ import std.collection.{HashMap, ArrayList}
 import std.convert.*
 import std.reflect.*
 import stdx.encoding.json.stream.{JsonWriter, JsonSerializable}
-import stdx.net.http.WebSocket
 
 public interface AppState {}
 
