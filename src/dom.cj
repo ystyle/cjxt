@@ -4,7 +4,6 @@ import std.collection.{ArrayList, HashMap}
 import std.convert.*
 import std.io.{ByteBuffer, SeekPosition}
 import stdx.encoding.json.stream.{JsonWriter, JsonSerializable, JsonReader, JsonDeserializable}
-import stdx.net.http.WebSocket
 
 // ============ 回调式 DOM 事务（事件驱动版）：服务端发起 DOM 命令/查询 ============
 //
@@ -97,15 +96,15 @@ public struct DomCommandMsg <: JsonSerializable {
     }
 }
 
-// ActionContext.dom 的入口：持有 app + ws + session，负责发送 dom_command 与注册续体
+// ActionContext.dom 的入口：持有 app + 出站 sink + session，负责发送 dom_command 与注册续体
 public class DomApi {
     let app: App
-    let ws: WebSocket
+    let sink: PageSink
     let session: Session
 
-    public init(app: App, ws: WebSocket, session: Session) {
+    public init(app: App, sink: PageSink, session: Session) {
         this.app = app
-        this.ws = ws
+        this.sink = sink
         this.session = session
     }
 
@@ -116,7 +115,7 @@ public class DomApi {
             let p = this.resolveRef(c)
             if (p != "") { resolved.add(c.resolved(p)) }
         }
-        wsSendJson(this.ws, DomCommandMsg("", resolved.toArray(), false))
+        sinkSendJson(this.sink, DomCommandMsg("", resolved.toArray(), false))
     }
 
     // 查询（事件驱动）：ref 解析为路径 → 注册续体到 session.pendingTx + 发 getProperty；
@@ -127,7 +126,7 @@ public class DomApi {
         let txId = nextDomTxId()
         this.session.pendingTx.add(txId, k)
         let cmd = domGetProperty(refName, property, "r1").resolved(p)
-        wsSendJson(this.ws, DomCommandMsg(txId, [cmd], true))
+        sinkSendJson(this.sink, DomCommandMsg(txId, [cmd], true))
         true
     }
 
@@ -143,7 +142,7 @@ public class DomApi {
         }
         this.session.pendingTx.add(txId, wrapped)
         let cmd = domGetProperty(refName, property, "r1").resolved(p)
-        wsSendJson(this.ws, DomCommandMsg(txId, [cmd], true))
+        sinkSendJson(this.sink, DomCommandMsg(txId, [cmd], true))
         true
     }
 
@@ -160,7 +159,7 @@ public class DomApi {
         }
         this.session.pendingTx.add(txId, wrapped)
         let cmd = domGetProperty(refName, property, "r1").resolved(p)
-        wsSendJson(this.ws, DomCommandMsg(txId, [cmd], true))
+        sinkSendJson(this.sink, DomCommandMsg(txId, [cmd], true))
         true
     }
 

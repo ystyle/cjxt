@@ -122,37 +122,53 @@
 
 ### 概览
 
-组件库样式由两个独立 CSS 文件提供，通过 `serveStatic` 路由加载：
+组件库样式只有**一条**供给通道：`App.addCSS` → `cssBlobs`。
 
-```
-浏览器                        服务器 (CWD: examples/)
- │                           │
- ├─ /css/bundle.css?v=2      │  ← CSS Module（hashed class）
- │   └─ 来源: @importCSS     │     生成: cjpm build（覆盖写入）
- │                           │
- └─ /css/element-plus.css?v=2   ← Element Plus 全局样式
-     └─ 来源: element-plus.scss  生成: build-css.sh（独立写入）
-         + custom/ 扩展
+```cangjie
+App()
+  .UseComponent()      // EP 样式：@EmbedString 编译期嵌入二进制，内部调 addCSS
+  .addCSS(siteCss())   // 页面样式模块：@importCSS / @defineCSS 的产物（含 "_css" 全文）
 ```
 
-### 文件职责
+渲染期按承载方式自动选择交付形式：
 
-| 文件 | 服务端路径 | 内容 | 生成方式 |
-|------|-----------|------|---------|
-| `bundle.css` | `examples/public/css/bundle.css` | CSS module hashed class（`.container_4507...`） | `cd examples && cjpm build` |
-| `element-plus.css` | `examples/public/css/element-plus.css` | EP 全局 class（`.el-button`、`.el-menu-item`） | `./scripts/build-css.sh`（sass 编译） |
+| 承载 | 交付形式 |
+|------|---------|
+| HTTP（浏览器） | `<link href="/_cjxt/css/{hash}.css">`，由内置路由 `serveEmbeddedCSS` 提供内容 |
+| 无 HTTP（WebView `file://`、自包含页面） | `<style>` 直接内联进 HTML（`selfContainedShell`） |
+
+**不要用 `cssBundle` / `componentsCss` + `serveStatic`**：那条通道与 `addCSS` 重复，
+且**只在 HTTP 下成立** —— 页面以 `file://` 加载时 `/css/*.css` 取不到，样式静默全丢。
+
+### 两个来源
+
+| 来源 | 内容 | 进 cssBlobs 的方式 |
+|------|------|------------------|
+| 组件库（EP） | 全局 BEM 类（`.el-button`、`.el-menu-item`） | `@EmbedString("public/css/element-plus.css")` 编译期嵌入，`UseComponent()` 交给 addCSS |
+| 页面样式模块 | scoped 类（`.container_4507...`） | `@importCSS` / `@defineCSS` 返回值里的 `"_css"` 全文，由业务包导出后交给 addCSS |
+
+`@importCSS` 的返回值是 `CssModule`，同时带 scoped 类名映射与 CSS 全文：
+
+```cangjie
+let css = @importCSS("style.css")
+css.get("card")    // → "card_8387104332281640942"
+css.get("_css")    // → CSS 全文（宏额外塞的一条，见 macros/define_css.cj 的 addCssEntry）
+
+// 因此声明样式模块的包要导出全文取值函数（惯例名 siteCss）
+public func siteCss(): String { css.get("_css") }
+```
 
 ### 构建顺序（关键！）
 
 ```
-cd examples && cjpm build    # 生成 bundle.css（CSS module）
-cd .. && ./scripts/build-css.sh  # 生成 element-plus.css（EP 样式）
+./scripts/build-css.sh   # 先：sass 编译 EP SCSS → public/css/element-plus.css
+cd examples && cjpm build # 后：@EmbedString 在编译期读取该文件
 ```
 
-**为什么两个文件独立？**
-- `cjpm build` 会覆盖 `bundle.css`，但如果 EP 样式也在同一文件，会被冲掉
-- 独立文件后，`cjpm build` 只影响 CSS module，EP 样式不受影响
-- 构建顺序不再敏感，重新 build examples 也不会丢样式
+顺序反了会让 `@EmbedString` 读到旧文件（甚至不存在）——**必须先编译 SCSS，再编译仓颉**。
+
+`public/css/bundle.css` 是宏在编译期汇总写出的**构建产物**，供人查看/比对；
+框架运行期不读它（内容已随 `"_css"` 进二进制）。
 
 ### EP SCSS 变量复用
 
@@ -185,25 +201,26 @@ cd .. && ./scripts/build-css.sh  # 生成 element-plus.css（EP 样式）
 
 ```cangjie
 App()
-  .configure(AppConfig(
-    cssBundle: "/css/bundle.css?v=2",
-    componentsCss: "/css/element-plus.css?v=2"
-  ))
-  .serveStatic("/css", "public/css")  // CWD 为 examples/，解析到 examples/public/css/
+  .UseComponent()       // EP 样式（编译期嵌入，内部 addCSS）
+  .addCSS(siteCss())    // 页面样式模块（@importCSS 的 "_css" 全文）
 ```
 
-HTML 渲染为：
+HTML 渲染结果（HTTP 承载；无 HTTP 时改为内联 `<style>`）：
+
 ```html
-<link rel="stylesheet" href="/css/bundle.css?v=2">
-<link rel="stylesheet" href="/css/element-plus.css?v=2">
+<link rel="stylesheet" href="/_cjxt/css/83575583.css">   <!-- EP -->
+<link rel="stylesheet" href="/_cjxt/css/07646276.css">   <!-- 页面模块 -->
 ```
+
+> `serveStatic` 只在你确实要另外分发静态文件（图片、字体）时才需要；
+> 它**不再**承担 CSS 供给。
 
 ### 核心原则
 
-1. **CSS module → bundle.css**：组件级 hashed class，构建期生成，每次覆盖
-2. **EP 全局 → element-plus.css**：全局 class，独立编译，不被覆盖
-3. **自定义扩展 → custom/ 目录**：放在 `public/scss/element-plus/custom/`，在 `element-plus.scss` 中 import，编译进同一输出
-4. **不混用**：两个文件加载到不同 `<link>`，CSS module 的 hash 选择器不会误伤全局 class
+1. **只有一条通道**：所有 CSS 都经 `App.addCSS` 进 `cssBlobs`，由框架按承载方式自动交付
+2. **内容 hash 去重**：`addCSS` 按内容 hash 存表，同一份 CSS 交两次只留一份
+3. **scoped 与全局共存**：页面模块走 `@importCSS` 的 hash 类名；EP 用全局 BEM 类名，互不干扰
+4. **自定义 EP 扩展**放 `public/scss/element-plus/custom/`，在 `element-plus.scss` 里 import，编译进同一输出
 
 ## 实现路线
 

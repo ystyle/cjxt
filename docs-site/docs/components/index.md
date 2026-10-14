@@ -24,13 +24,16 @@ import cjxt.components.*
 
 main() {
     App()
-        .UseComponent()                            // 自动加载 EP 样式 + 前端 JS
-        .configure(AppConfig(cssBundle: "/css/bundle.css?v=2"))
-        .serveStatic("/css", "public/css")
+        .UseComponent()        // EP 样式 + 前端 JS：@EmbedString 编译期嵌入，内部 addCSS
+        .addCSS(siteCss())     // 页面自己的样式模块（@importCSS 返回值的 "_css" 全文）
         .serve()
 }
 ```
 
+> 样式**只有一条通道**：`App.addCSS` → `cssBlobs`。框架按承载方式自动交付：
+> HTTP 走 `/_cjxt/css/{hash}.css` 路由，无 HTTP（`file://`）则内联 `<style>`。
+> 不要用 `cssBundle` + `serveStatic` —— 与 addCSS 重复，且 `file://` 下会静默丢样式。
+>
 > Element Plus 样式通过 `@EmbedString` 编译时嵌入二进制，无需额外下载。
 
 ## 基础

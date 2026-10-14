@@ -62,10 +62,9 @@ class Counter <: Component {
 
 main() {
     App()
-        .configure(AppConfig(
-            title: "cjxt Demo",
-            cssBundle: "/css/bundle.css?v=2",
-        ))
+        .configure(AppConfig(title: "cjxt Demo"))
+        .UseComponent()      // EP 样式（编译期嵌入）
+        .addCSS(siteCss())   // 页面样式模块（@importCSS 的 "_css" 全文）
         .serve()
 }
 ```

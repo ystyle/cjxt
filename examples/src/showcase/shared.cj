@@ -9,8 +9,25 @@ import cjxt.macros.*
 import cjxt.components.*
 import std.collection.{ArrayList, HashMap}
 
+// 本页样式模块。@importCSS 的返回值里同时带着「scoped 类名映射」与「CSS 全文」
+// （见 macros/define_css.cj 的 addCssEntry：额外塞了一条 `("_css", 全文)`）。
 let css = @importCSS("style.css")
+
+/// 取 scoped 类名：`cls("card")` → `"card_8387104332281640942"`
 public func cls(name: String): String { css.get(name) }
+
+/// 取本模块的 CSS **全文**，交给 `App.addCSS` 内联/路由分发。
+///
+/// 框架的 CSS 供给统一走 `App.addCSS` → `cssBlobs`：
+///   - HTTP 承载：渲染成 `/_cjxt/css/<hash>.css` 由内置路由提供；
+///   - 无 HTTP 承载（WebView `file://`、自包含页面）：直接内联进 HTML。
+/// 因此业务侧只要把全文交进来，两种承载自动都对。
+///
+/// 不要改用 `AppConfig(cssBundle: "/css/bundle.css")` + `serveStatic`：
+/// 那条路只在 HTTP 下成立（`file://` 取不到绝对路径资源），而且与 addCSS 重复——
+/// 宏已经把各模块汇总写到 public/css/bundle.css，再由 <link> 引一次，等于同一份
+/// CSS 两套通道。**统一用本函数 + addCSS 即可。**
+public func siteCss(): String { css.get("_css") }
 
 // ============ 统一的演示区块标题组件 ============
 

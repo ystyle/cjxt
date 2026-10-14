@@ -15,9 +15,10 @@ public class Session {
     var tree: IComponent
     var path: String
     var wsState: WsState
-    // 当前连接（服务端推送用：外部线程通过 App.pushUpdate 推补丁）
-    // 连接建立时设置，断开时清空
-    var ws: ?WebSocket
+    // 当前出站通道（服务端推送用：外部线程通过 App.pushUpdate 推补丁）
+    // 连接建立时设置，断开时清空。承载方式由 PageSink 决定（WS / 宿主绑定缓冲），
+    // 会话本身不再假定页面一定是一条 WebSocket 连接。
+    var sink: ?PageSink
     // 会话级 handler 注册表：startSession/pushUpdate/applyNav 渲染后
     // 统一写入这里，listenLoop 分发 action/bind 也查这里——保证异步
     // pushUpdate 渲染出的新 handler（如会话列表删除按钮）不丢失。
@@ -45,6 +46,10 @@ public class Session {
     var statesInitialized: Bool
     // HTTP 阶段守卫未通过时渲染的是登录页占位，WS 连接（令牌恢复）后需按 path 重渲
     var deferred: Bool
+    // 首屏 HTML 内联的那棵树的指纹（HTTP 渲染时算）。WS 连上后若服务端待发树与它一致，
+    // 说明客户端手上已经是最终形态 → 跳过整树下发（避免刚显示就整棵替换，丢焦点/滚动/
+    // 客户端组件局部状态）。置空表示"没有可用的内联基线"，此时一律正常下发。
+    var inlinedTreeHash: String
     // 已同步给前端的 token（登录/登出后 context["token"] 变化时触发 AuthMsg）
     var syncedToken: String
     // 进行中的 WS 二进制上传（单流：binary 帧无元数据，同一连接一个活跃上传）
@@ -61,7 +66,7 @@ public class Session {
         this.tree = tree
         this.path = "/"
         this.wsState = WsState.Connecting
-        this.ws = None
+        this.sink = None
         this.handlers = HashMap<String, ActionHandler>()
         this.pendingTx = HashMap<String, (HashMap<String, String>) -> PatchResult>()
         this.refPaths = HashMap<String, String>()
@@ -72,6 +77,7 @@ public class Session {
         this.sessionContext = None
         this.statesInitialized = false
         this.deferred = false
+        this.inlinedTreeHash = ""
         this.syncedToken = ""
         this.upload = None
         this.components = HashMap<String, Component>()
@@ -157,10 +163,27 @@ public class Session {
     }
 
     /**
-     * 会话当前连接（外部模块访问用，如 harness 服务端推送）
+     * 会话当前出站通道（外部模块访问用，如服务端推送）。
+     * 需要底层 WS 连接（读取/心跳等 WS 专属路径）时用 `getWebSocket()`。
      */
+    public func getSink(): ?PageSink {
+        this.sink
+    }
+
+    /**
+     * 底层 WebSocket（仅 WS 承载下非空）。
+     * WS 专属操作（读帧、pong、closeConn）走这里，其余下发路径一律用 sink。
+     */
+    public func getWebSocket(): ?WebSocket {
+        match (this.sink) {
+            case Some(s: WebSocketSink) => Some(s.underlying())
+            case _ => None
+        }
+    }
+
+    /** `getWebSocket()` 的旧名（跨包接缝，保留兼容） */
     public func getWs(): ?WebSocket {
-        this.ws
+        this.getWebSocket()
     }
 
     /**

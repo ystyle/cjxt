@@ -49,8 +49,9 @@ AppConfig(
     primaryColor: "#409eff",
     fontFamily: "-apple-system, ...",
     borderRadius: "6px",
-    cssBundle: "/css/bundle.css?v=2",
-    componentsCss: "",                // 旧式 EP 样式路径（推荐改用 UseComponent()）
+    // cssBundle / componentsCss：已废弃，不要使用。
+    // 样式统一走 App.addCSS（见「样式体系」章节）——
+    // 那条 <link> 通道与 addCSS 重复，且页面为 file:// 时取不到绝对路径资源。
 )
 ```
 

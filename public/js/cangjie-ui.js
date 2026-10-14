@@ -1,9 +1,110 @@
+/**
+ * WebSocket 承载（默认）：连 `location.host` 的 `/ws`。
+ *
+ * 会话 id 由页面提供；连上后发 connect 帧（带 localStorage 里的令牌）。
+ * 断线每 3 秒重连——服务端重启/换实例后页面能自愈。
+ */
+class WebSocketTransport {
+    constructor(ui, opts) {
+        this.ui = ui;
+        this.opts = opts || {};
+        this.ws = null;
+        this.opened = false;
+    }
+    connect() {
+        const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const url = this.opts.url || (proto + '//' + location.host + '/ws');
+        this.ws = new WebSocket(url);
+        this.ws.binaryType = 'arraybuffer';
+        this.ws.onopen = () => {
+            this.opened = true;
+            this.ui.send({ type: 'connect', sessionId: this.ui.sessionId, token: localStorage.getItem('cjxt_token') || '' });
+        };
+        this.ws.onmessage = (e) => {
+            try {
+                const msg = JSON.parse(e.data);
+                // 上传协议帧（进度 ack / 错误）：独立路由，不进入页面 message 处理
+                if (msg.kind === 'upload_progress' || msg.kind === 'upload_error') {
+                    this.ui.handleUploadMsg(msg);
+                    return;
+                }
+                this.ui.handleMsg(msg);
+            } catch (err) {
+                console.error('cjxt WS error:', err.message, 'data:', typeof e.data === 'string' ? e.data.substring(0, 200) : '(binary)');
+            }
+        };
+        this.ws.onclose = () => {
+            this.opened = false;
+            for (const [, w] of this.ui._uploadWaiters) w.rej(new Error('connection closed'));
+            this.ui._uploadWaiters.clear();
+            setTimeout(() => this.connect(), 3000);
+        };
+    }
+    send(data) {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify(data));
+            return true;
+        }
+        return false;
+    }
+    sendBinary(buf) {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(buf);
+            return true;
+        }
+        return false;
+    }
+    get isOpen() {
+        return !!(this.ws && this.ws.readyState === WebSocket.OPEN);
+    }
+}
+
+/**
+ * 宿主绑定承载：页面不连任何 socket，出站消息交给宿主提供的 send 函数，
+ * 入站消息由宿主调 `ui.receive(text)` 送回来。
+ *
+ * 具体桥对象名与调用约定由承载方决定（框架不假定任何具体宿主）；首个内联数据包
+ * 仍由页面自己渲染。
+ *
+ * 用途：与「内联首屏」配合时，整页不需要监听端口，也没有同源/端口冲突问题。
+ */
+class HostTransport {
+    constructor(ui, opts) {
+        this.ui = ui;
+        this.opts = opts || {};
+        this.opened = false;
+    }
+    connect() {
+        this.opened = true;
+        // 宿主绑定下没有"连接后握手"帧；会话树已随首屏内联，宿主可直接开始交互
+    }
+    send(data) {
+        try {
+            if (this.opts.send) this.opts.send(JSON.stringify(data));
+            return true;
+        } catch (e) {
+            console.error('cjxt host transport send failed:', e && e.message);
+            return false;
+        }
+    }
+    sendBinary() {
+        // 二进制上传需要真正的流式连接；宿主绑定下不支持，明确拒绝而不是静默丢弃
+        console.warn('cjxt: binary upload requires a WebSocket transport');
+        return false;
+    }
+    get isOpen() { return this.opened; }
+}
+
 class CangjieUI {
-    constructor(container, sessionId, initialTree) {
+    constructor(container, sessionId, initialTree, transport) {
         this.container = container;
         this.sessionId = sessionId;
         this.tree = initialTree;
-        this.ws = null;
+        // 传输层：默认 WebSocket；宿主绑定/测试可注入（见 HostTransport）。
+        // 构造参数优先，其次 window.__CJXT_TRANSPORT__（宿主在页面脚本前注入）。
+        this.transport = transport
+            || (typeof window !== 'undefined' ? window.__CJXT_TRANSPORT__ : null)
+            || new WebSocketTransport(this);
         // WS 二进制帧上传：串行队列 + 块级 ack 背压（每块等 upload_progress 再发下一块）
         this._uploadSeq = 0;
         this._uploadQueue = [];
@@ -19,7 +120,29 @@ class CangjieUI {
         this.attachClickDelegate();
         this.attachKeyDelegate();
         this.attachHistoryHandler();
-        this.connectWS();
+        this.transport.connect();
+    }
+    /** 宿主把一条页面入站消息交给前端（HostTransport 场景） */
+    receive(text) {
+        let msg;
+        try {
+            msg = typeof text === 'string' ? JSON.parse(text) : text;
+        } catch (e) {
+            console.error('cjxt receive: bad message', e && e.message);
+            return;
+        }
+        if (msg.kind === 'upload_progress' || msg.kind === 'upload_error') {
+            this.handleUploadMsg(msg);
+            return;
+        }
+        // 单帧处理失败不能中断调用方（宿主一次可能连续注入多帧）：
+        // 不隔离的话，一帧抛异常会让后续帧全部丢弃，且异常穿透到宿主桥，
+        // 表现为"点了没反应"却没有任何可观察的错误。
+        try {
+            this.handleMsg(msg);
+        } catch (e) {
+            console.error('cjxt receive: frame failed', msg && msg.kind, e && e.message);
+        }
     }
     attachKeyDelegate() {
         this.attachKeyEvent('keydown');
@@ -88,30 +211,6 @@ class CangjieUI {
             this.send({ type: 'action', name, params: this.collectParams(el), sessionId: this.sessionId });
         });
     }
-    connectWS() {
-        const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-        this.ws = new WebSocket(proto + '//' + location.host + '/ws');
-        this.ws.binaryType = 'arraybuffer';
-        this.ws.onopen = () => this.send({ type: 'connect', sessionId: this.sessionId, token: localStorage.getItem('cjxt_token') || '' });
-        this.ws.onmessage = (e) => {
-            try {
-                const msg = JSON.parse(e.data);
-                // 上传协议帧（进度 ack / 错误）：独立路由，不进入页面 message 处理
-                if (msg.kind === 'upload_progress' || msg.kind === 'upload_error') {
-                    this.handleUploadMsg(msg);
-                    return;
-                }
-                this.handleMsg(msg);
-            } catch(err) {
-                console.error('cjxt WS error:', err.message, 'data:', typeof e.data === 'string' ? e.data.substring(0,200) : '(binary)');
-            }
-        };
-        this.ws.onclose = () => {
-            for (const [, w] of this._uploadWaiters) w.rej(new Error('connection closed'));
-            this._uploadWaiters.clear();
-            setTimeout(() => this.connectWS(), 3000);
-        };
-    }
     // ============ 上传（WS 二进制帧流式） ============
     handleUploadMsg(msg) {
         const w = this._uploadWaiters.get(msg.id);
@@ -140,7 +239,10 @@ class CangjieUI {
         while (off < item.file.size) {
             const buf = await item.file.slice(off, off + CHUNK).arrayBuffer();
             const ack = new Promise((res, rej) => this._uploadWaiters.set(id, { res, rej }));
-            this.ws.send(buf);
+            if (!this.transport.sendBinary(buf)) {
+                this._uploadWaiters.delete(id);
+                throw new Error('binary upload requires a WebSocket transport');
+            }
             await ack;
             off += buf.byteLength;
         }
@@ -179,8 +281,7 @@ class CangjieUI {
         }
     }
     send(data) {
-        if (this.ws && this.ws.readyState === WebSocket.OPEN)
-            this.ws.send(JSON.stringify(data));
+        return this.transport.send(data);
     }
     createElement(type) {
         const svgTags = { svg: 1, path: 1, circle: 1, rect: 1, line: 1, polyline: 1, polygon: 1, ellipse: 1, g: 1, defs: 1, use: 1, text: 1, tspan: 1 };
@@ -195,9 +296,21 @@ class CangjieUI {
         this.renderTree(this.tree, this.container);
         this.tabsBarAll();
         if (msg.path) {
-            history.pushState(null, '', msg.path);
+            this.pushHistory(msg.path);
         }
         this.send({ type: 'ack', event: 'mount', sessionId: this.sessionId });
+    }
+
+    // 写地址栏。**必须容忍失败**：`file://` 页面的 origin 是 `null`，
+    // pushState 会抛 SecurityError（浏览器不允许改这类文档的 URL）。
+    // 此前未捕获，异常冒泡出 receive → 中断同批次后续帧，表现为
+    // "点击导航没反应"（其实已渲染，只是异常把调用链打断了）。
+    pushHistory(path) {
+        try {
+            history.pushState(null, '', path);
+        } catch (e) {
+            // 无地址栏可写（file:// 等）：功能不受影响，静默降级
+        }
     }
     renderTree(node, parentEl) {
         const type = (node.type || '').toLowerCase();
