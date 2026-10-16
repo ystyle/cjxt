@@ -272,13 +272,22 @@ public class SessionManager {
     /// **不能边遍历边删**：HashMap 迭代期间修改容器行为未定义（可能跳过元素或崩溃）。
     /// 故先收集待删 key，再逐个 remove —— 与 clearAll 同一写法。
     ///
-    /// 两档 TTL：
-    /// - 已建立 WS 的会话：ttlMillis（有长连接，按最后活跃时间）
-    /// - 从未建立 WS 的会话：detachedTtlMillis（短 TTL，否则永不被 remove 路径回收）
+    /// 三类会话的判据：
+    /// 1. **当前仍连着**（`wsState == Connected`）：**永不回收**。不能按 lastActiveAt 判 ——
+    ///    用户开着页面只读不动（不发消息）时 lastActiveAt 不更新，按时间判会误杀活跃会话。
+    /// 2. **曾连接、现已断开**：ttlMillis。客户端断线后每 3s 自动重连（复用同一 sessionId），
+    ///    故必须留宽限期；超过宽限仍未回来（关页面/刷新后不再回来）即可回收。
+    /// 3. **从未连接**（一次性 HTTP 请求，如健康检查 curl /）：detachedTtlMillis，
+    ///    这类请求不会走 WS 关闭路径，必须靠短 TTL 回收。
     public func cleanup(): Int64 {
         let expired = ArrayList<String>()
         for ((id, session) in sessions) {
-            let ttl = if (session.everConnected()) { this.ttlMillis } else { this.detachedTtlMillis }
+            let ttl = match (session.wsState) {
+                case WsState.Connected => continue
+                case WsState.Disconnected => this.ttlMillis
+                case WsState.Connecting =>
+                    if (session.everConnected()) { this.ttlMillis } else { this.detachedTtlMillis }
+            }
             if (session.isExpired(ttl)) { expired.add(id) }
         }
         for (id in expired) {

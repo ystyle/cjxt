@@ -115,6 +115,51 @@ public class SessionCleanupTest {
         @Expect(app.sessions.size(), Int64(1))
     }
 
+    /**
+     * **仍连着的会话永不回收** —— 即使 lastActiveAt 已超过 TTL。
+     *
+     * 这一条是关键：用户开着页面只读不动（不发消息）时 lastActiveAt 不更新，
+     * 若按「曾连接就用 lastActiveAt 判 TTL」会把活跃会话误杀。
+     * 真实形态：页面开着 10 分钟没操作，但 WS 连接仍在。
+     */
+    @TestCase
+    public func testConnectedSessionNeverReclaimed(): Unit {
+        // 极短 TTL：确保「按时间判必然过期」
+        let mgr = SessionManager(1, detachedTtlMillis: 1)
+        let live = mgr.save("live", div([]), div([]))
+        live.markConnected()                    // wsState = Connected
+        live.lastActiveAt = 0                   // 伪造：很久没活动
+        @Expect(mgr.cleanup(), Int64(0))
+        @Expect(mgr.size(), Int64(1))
+    }
+
+    /**
+     * 曾连接但**已断开**的会话：过了重连宽限期（ttlMillis）后回收。
+     * 客户端断线后每 3s 自动重连并复用同一 sid，所以断开不能立刻删。
+     */
+    @TestCase
+    public func testDisconnectedSessionReclaimedAfterTtl(): Unit {
+        let mgr = SessionManager(1, detachedTtlMillis: 1)   // 宽限期 1ms
+        let s = mgr.save("gone", div([]), div([]))
+        s.markConnected()
+        s.wsState = WsState.Disconnected        // 模拟 listenLoop 断开后的状态
+        s.lastActiveAt = 0
+        @Expect(mgr.cleanup(), Int64(1))
+        @Expect(mgr.size(), Int64(0))
+    }
+
+    // 断开但在宽限期内（刚断开，客户端可能 3s 后重连）→ 不回收
+    @TestCase
+    public func testDisconnectedWithinGraceKept(): Unit {
+        let mgr = SessionManager(600000, detachedTtlMillis: 1)   // 宽限 10 分钟
+        let s = mgr.save("reconnecting", div([]), div([]))
+        s.markConnected()
+        s.wsState = WsState.Disconnected
+        s.touch()                               // 刚断开
+        @Expect(mgr.cleanup(), Int64(0))
+        @Expect(mgr.size(), Int64(1))
+    }
+
     // 巡检线程可启动且幂等（重复调用不产生第二个线程/不抛错）
     @TestCase
     public func testStartSessionSweeperIsIdempotent(): Unit {
