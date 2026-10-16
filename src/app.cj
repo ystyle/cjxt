@@ -27,6 +27,13 @@ class SessionState {
 public class App {
     var tangApp: Tang
     let sessions = SessionManager(300000)
+    // 会话巡检：后台线程按固定间隔回收过期会话。
+    // 存在的理由：SessionManager.cleanup() 此前**没有任何调用点**，sessions 只增不减 ——
+    // 每次 HTTP 页面请求都会 create 一个会话（持有一整棵渲染树），健康检查这类
+    // 高频探活下会累积到撑爆堆（2026-10-16 忆时塔生产事故的根因）。
+    var sessionSweepMs: Int64 = 30000
+    var sweeperStarted = false
+    var sweeperRunning = false
     var config: AppConfig
     var bindHost: String
     var bindPort: UInt16
@@ -211,7 +218,7 @@ public class App {
         session.refreshHandlers(session.tree)
         session.refreshRefs(session.tree)
         RenderContext.clearDirtyForSession(session)
-        session.wsState = WsState.Connected
+        session.markConnected()
         let sink = session.sink.getOrThrow()
         sinkSendJson(sink, ConnectedMsg())
         sinkSendJson(sink, CombinedPatchMsg([], [TreePatchEntry("replace", "", Some(session.tree))]))
@@ -300,7 +307,13 @@ public class App {
     }
 
     /// 底层 tang 路由分发器（合并外部 server 用：distribute(path) → HttpRequestHandler）
+    /// 取分发器（与其它服务合并单端口时用：把本 App 作为 fallback 挂到外层 distributor）。
+    ///
+    /// 这里同样启动会话巡检 —— `serve()` 不会被调用（合并模式下由宿主 serve），
+    /// 若只在 serve() 里启动，合并场景的会话就没人回收（应用侧典型形态：
+    /// UI 与 MCP/API 同端口）。合并模式下由宿主在 handler 里调用 setupRoutes()。
     public func router(): HttpRequestDistributor {
+        this.startSessionSweeper()
         this.tangApp.getRouter()
     }
 
@@ -316,6 +329,7 @@ public class App {
 
     public func serve(): Unit {
         this.setupRoutes()
+        this.startSessionSweeper()
         this.tangApp.setHost(this.bindHost).setPort(this.bindPort).listen(this.builderFn)
     }
 
@@ -614,7 +628,7 @@ public class App {
     }
 
     private func resumeSession(sink: PageSink, session: Session, token: String): Unit {
-        session.wsState = WsState.Connected
+        session.markConnected()
         session.sink = Some(sink)
         session.touch()
         // 令牌恢复：连接携带的 token → 应用钩子校验 → 写会话上下文（uid/角色等）+ 通知订阅者
@@ -761,7 +775,7 @@ public class App {
 
     private func startSession(sink: PageSink, sid: String, page: IComponent): Unit {
         let session = sessions.save(sid, page, div([text("")]))
-        session.wsState = WsState.Connected
+        session.markConnected()
         session.sink = Some(sink)
         this.initStates(session)
         // onMount 里起的推送要等初始树发下去（见 suspendPushes 的注释）
@@ -1182,6 +1196,48 @@ public class App {
             }
             SignalTracker.execMutex.unlock()
         }
+    }
+
+    /// 启动会话巡检线程（幂等）。`serve()` 会自动调用；测试可手动调用。
+    ///
+    /// 巡检做的事：`sessions.cleanup()` 回收过期会话（已建 WS 用长 TTL，
+    /// 一次性 HTTP 请求用短 TTL）。不做这一步，每个 HTTP 页面请求都会留下
+    /// 一棵永远不被释放的渲染树。
+    public func startSessionSweeper(): Unit {
+        if (this.sweeperStarted) { return }
+        this.sweeperStarted = true
+        this.sweeperRunning = true
+        let app = this
+        spawn {
+            while (app.sweeperRunning) {
+                // 分片睡眠：停止后最多 1s 退出，而不是等满一个巡检周期
+                var slept = Int64(0)
+                let total = app.sessionSweepMs / 1000
+                while (slept < total && app.sweeperRunning) {
+                    sleep(Duration.second)
+                    slept += 1
+                }
+                if (!app.sweeperRunning) { break }
+                // 与推送/渲染同一把执行锁：清理会话时会丢弃组件订阅，
+                // 必须避免与正在进行的渲染/补丁下发交叉
+                SignalTracker.execMutex.lock()
+                try {
+                    app.sessions.cleanup()
+                } finally {
+                    SignalTracker.execMutex.unlock()
+                }
+            }
+        }
+    }
+
+    /// 停止巡检线程（服务器关闭 / 测试收尾用）
+    public func stopSessionSweeper(): Unit {
+        this.sweeperRunning = false
+    }
+
+    /// 手动触发一次巡检（测试用：不必等后台周期）
+    public func sweepSessionsOnce(): Int64 {
+        this.sessions.cleanup()
     }
 
     private func flushSessionPush(sid: String): Unit {

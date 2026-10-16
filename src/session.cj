@@ -59,6 +59,10 @@ public class Session {
     //       旧路径把旧页面内容补丁进新页面；
     //      ② 补丁只认本会话当前树上的组件，别的会话的脏标记不得套用本树路径。
     var components: HashMap<String, Component>
+    // 是否曾经建立过 WebSocket。区分「真实页面会话」与「一次性 HTTP 请求」
+    // （如健康检查 curl /）：后者不会走 WS 关闭路径，必须用短 TTL 回收，
+    // 否则每次请求都会留下一棵树永久驻留。
+    var connected: Bool
 
     public init(id: String, page: IComponent, tree: IComponent) {
         this.id = id
@@ -81,6 +85,12 @@ public class Session {
         this.syncedToken = ""
         this.upload = None
         this.components = HashMap<String, Component>()
+        this.connected = false
+    }
+
+    /// 是否曾经建立过 WebSocket（决定回收用长 TTL 还是短 TTL）
+    public func everConnected(): Bool {
+        this.connected
     }
 
     /**
@@ -133,6 +143,14 @@ public class Session {
 
     public func touch(): Unit {
         this.lastActiveAt = nowMillis()
+    }
+
+    /// 标记该会话已建立 WebSocket（此后按长 TTL 回收）。
+    /// 与 `wsState = Connected` 同步调用，避免两处状态漂移。
+    public func markConnected(): Unit {
+        this.wsState = WsState.Connected
+        this.connected = true
+        this.touch()
     }
 
     /// 从会话树重建 handler 注册表（startSession/resumeSession/
@@ -199,7 +217,10 @@ public class Session {
         c
     }
 
+    /// 是否已过期。`ttlMillis <= 0` 表示**立即过期**（用于「一次性请求的会话用完即回收」
+    /// 这类语义，也让边界可测：否则 `now - lastActive > 0` 在同一毫秒内恒为 false）。
     public func isExpired(ttlMillis: Int64): Bool {
+        if (ttlMillis <= 0) { return true }
         nowMillis() - this.lastActiveAt > ttlMillis
     }
 }
@@ -207,9 +228,15 @@ public class Session {
 public class SessionManager {
     let sessions = HashMap<String, Session>()
     let ttlMillis: Int64
+    // 未建立 WebSocket 的会话（一次性 HTTP 请求，如健康检查）用更短的 TTL。
+    // 这类会话不会走 WS 关闭路径（sessions.remove 只在 WS 断开时调用），若不单独回收
+    // 就会长期驻留 —— 而每个会话持有一整棵渲染树（生产实测 ~338KB/会话），
+    // 高频探活下会累积到撑爆堆（2026-10-16 忆时塔生产事故的根因）。
+    let detachedTtlMillis: Int64
 
-    public init(ttlMillis: Int64) {
+    public init(ttlMillis: Int64, detachedTtlMillis!: Int64 = 60000) {
         this.ttlMillis = ttlMillis
+        this.detachedTtlMillis = detachedTtlMillis
     }
 
     public func create(page: IComponent, tree: IComponent): Session {
@@ -240,12 +267,29 @@ public class SessionManager {
         for (id in ids) { sessions.remove(id) }
     }
 
-    public func cleanup(): Unit {
+    /// 回收过期会话（由 App 的后台巡检线程周期调用，也可手动调用）。
+    ///
+    /// **不能边遍历边删**：HashMap 迭代期间修改容器行为未定义（可能跳过元素或崩溃）。
+    /// 故先收集待删 key，再逐个 remove —— 与 clearAll 同一写法。
+    ///
+    /// 两档 TTL：
+    /// - 已建立 WS 的会话：ttlMillis（有长连接，按最后活跃时间）
+    /// - 从未建立 WS 的会话：detachedTtlMillis（短 TTL，否则永不被 remove 路径回收）
+    public func cleanup(): Int64 {
+        let expired = ArrayList<String>()
         for ((id, session) in sessions) {
-            if (session.isExpired(ttlMillis)) {
-                sessions.remove(id)
-            }
+            let ttl = if (session.everConnected()) { this.ttlMillis } else { this.detachedTtlMillis }
+            if (session.isExpired(ttl)) { expired.add(id) }
         }
+        for (id in expired) {
+            sessions.remove(id)
+        }
+        Int64(expired.size)
+    }
+
+    /// 当前会话数（监控/测试用）
+    public func size(): Int64 {
+        Int64(sessions.size)
     }
 
     public func generateId(): String {
