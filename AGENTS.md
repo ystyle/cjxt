@@ -192,6 +192,59 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 
 ## 代码总结
 
+### 2026-10-16 会话永不回收导致内存泄漏（生产 OOM 的根因）
+
+**现象**：下游（忆时塔）生产实例反复挂起 —— 1GB 堆贴顶、GC 每 ~2s 触发却回收不动、
+最终持续抛 `OutOfMemoryError`。`cjprof heap` 分析 OOM 堆转储（160MB）定位到：
+
+```
+cjxt::Session                1756 个   Retained 608 MB   ← 堆的 57%
+cjxt::VNode                686854 个
+chronomem.cli::OverviewPage  1753 个
+cjxt::App → SessionManager → HashMap<String,Session>   Retained 515 MB
+```
+
+**根因**：`SessionManager.cleanup()` **从未被任何代码调用**（`grep` 全仓零调用点），
+`sessions` 只增不减。`sessions.remove()` 只在 WebSocket 正常断开时调用 ——
+而每次 HTTP 页面请求（`servePage`）都会 `sessions.create()` 建一个会话并持有整棵渲染树。
+
+**一个容易误解的点：断开检测是有的，缺的是「断开之后的回收」。**
+`listenLoop` 的 `try/finally` 能检测到断开（`ws.read()` 抛 `ConnectionException`，
+`finally` 里 `ws.closeConn()` 防 CLOSE_WAIT），但那里只清理连接、**不 `sessions.remove`**；
+对比 `closeDetachedSession()`（宿主绑定通道）却做了 remove —— **两条断开路径语义不对称**。
+
+**而断开点「不立刻删」是有意的**：前端 `public/js/cangjie-ui.js` 在 `ws.onclose` 后
+**每 3s 自动重连**并复用同一 `sessionId`（sessionId 由服务端渲染嵌入 HTML），
+短暂断线需要保留会话以延续页面状态。缺的是「保留 + 过期」里的过期那一半：
+客户端关页面/刷新后再也不回来（刷新会 `GET /` 拿新 sid，旧 sid 永久作废），会话却永不释放。
+
+**修复**：
+1. `App.startSessionSweeper()`：后台线程周期调 `cleanup()`（默认 30s，分片睡眠便于秒级退出）。
+   **`serve()` 与 `router()` 都启动** —— 合并单端口模式（UI 作为 fallback 挂在宿主 distributor 上）
+   不走 `serve()`，只在 serve 里启动等于没修。
+2. `cleanup()` 判据**按连接状态分档**（不能按 `lastActiveAt`）：
+   - `Connected` → **永不回收**。`lastActiveAt` 只在收到 WS 消息时更新，用户开着页面
+     只读不动 10 分钟就会被误杀 —— 这是第一版修复踩到的坑，已有回归用例钉住。
+   - `Disconnected` → `ttlMillis`（5 分钟，3s 重连的宽限期）。
+   - `Connecting`（从未连接，如健康检查 `curl /`）→ `detachedTtlMillis`（60s）。
+3. 修正 `cleanup()` 的**迭代期删除**：原在 `for ((id, s) in sessions)` 里 `remove` ——
+   HashMap 迭代期修改行为未定义（可能跳过元素）。改为先收集 key 再逐个删
+   （与既有 `clearAll()` 同写法）。`isExpired(ttl<=0)` 明确为「立即过期」以便测边界。
+4. `Session.markConnected()` 统一置 `wsState` + `everConnected`，避免两处状态漂移。
+
+**测试**：`src/session_cleanup_test.cj` 10 例。**变异验证**（关键——否则分不清"锁住缺陷"
+与"用例空转"）：还原旧 `cleanup`（迭代期删除+单档 TTL）→ 3 例变红；
+去掉「Connected 永不回收」→ `testConnectedSessionNeverReclaimed` 变红。主包 339/339。
+
+**坑**：
+- **`mut` 是仓颉关键字**，测试里 `let mut = ArrayList<String>()` 编译报
+  「expected identifier or pattern after 'let'」→ 改名 `ids`。
+- **验证内存泄漏必须用生产同量级数据**：本地隔离实例只有 ~200 条记录，渲染树小
+  （每会话几 KB），400 次请求只涨 4KB，实验组与对照组**都无信号**；
+  生产 1887 条 → 每会话 338KB 才显性化。小数据量复现大对象泄漏会漏报。
+- **定位泄漏别停在 GC 日志推断**：直接取堆转储、用 `cjprof heap -i <dump>`
+  读对象实例数与 retained size —— 一步到位（`$CANGJIE_HOME/tools/bin/cjprof`）。
+
 ### 2026-10-02 初始化窗口内的推送不得抢在初始树之前（补丁按下发，回调照旧同步执行）
 
 **现象**：`onMount` 里发起的更新（刷新数据 / 推列表）在浏览器里看不到 —— 页面停在初始树，
