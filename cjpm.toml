@@ -41,7 +41,7 @@ path-option = ["${CANGJIE_STDX_PATH}"]
 path-option = ["${CANGJIE_STDX_PATH}"]
 
 [dependencies]
-tang = "1.0.5"
+tang = "1.0.6"
 embed = "1.0.7"
 "opencj::ulid" = "0.1.2"
 markit = "0.0.4"
