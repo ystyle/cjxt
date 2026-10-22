@@ -3,7 +3,7 @@ package examples.showcase
 
 import cjxt.*
 import cjxt.components.*
-import std.collection.HashMap
+import std.collection.{HashMap, ArrayList}
 
 public func demoButton(st: ShowcaseState): Array<IComponent> {
     [
@@ -406,5 +406,41 @@ public func propsContainer(): IComponent {
         propRow("Footer.height", "String（默认 60px）", "底部高度，写入 --el-footer-height"),
         propRow("Aside.width", "String（默认 300px）", "侧栏宽度，写入 --el-aside-width"),
         propRow("Main", "—", "主内容区，flex:1 自适应剩余空间"),
+    ])
+}
+
+// ── Scrollbar 自定义滚动条 ──────────────────────────────────────────
+public func demoScrollbar(st: ShowcaseState): Array<IComponent> {
+    let items = ArrayList<IComponent>()
+    for (i in 1..=12) {
+        items.add(div([text("列表项 ${i}")]).style("padding:10px 14px;border-bottom:1px solid #f0f0f0;font-size:13px;color:#606266"))
+    }
+    [
+        demoSection("固定高度 + 原生滚动条（默认 native）", [
+            Scrollbar(items.toArray()).height("180px")
+                .style("border:1px solid #dcdfe6;border-radius:6px"),
+        ]),
+        demoSection("max-height 自适应", [
+            Scrollbar([
+                div([text("内容少时不出现滚动条，超出 max-height 才滚动")])
+                    .style("padding:12px;font-size:13px;color:#909399"),
+            ]).maxHeight("120px").style("border:1px solid #dcdfe6;border-radius:6px"),
+        ]),
+        demoSection("隐藏原生滚动条（native: false）", [
+            Scrollbar(items.toArray()).native(false).height("140px")
+                .style("border:1px solid #dcdfe6;border-radius:6px"),
+            div([text("↑ native(false) 加 __wrap--hidden-default，滚动能力保留但看不见系统滚动条")])
+                .style("margin-top:8px;color:#909399;font-size:12px"),
+        ]),
+    ]
+}
+
+public func propsScrollbar(): IComponent {
+    div([
+        propRow("native", "Bool（默认 true）", "是否使用浏览器原生滚动条；false 时隐藏原生滚动条"),
+        propRow("height", "String", "固定高度"),
+        propRow("maxHeight", "String", "最大高度，超出才滚动"),
+        propRow("wrapClass / viewClass", "String", "追加到 __wrap / __view 的自定义类"),
+        propRow("style", "String", "根元素额外内联样式"),
     ])
 }

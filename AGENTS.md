@@ -192,6 +192,77 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 
 ## 代码总结
 
+### 2026-10-23 第 1-5 批组件补齐（19 个组件 + 259 例测试）
+
+**规模**：一夜补齐 EP 文档口径缺口的第 1-5 批 —— `Scrollbar`、`Timeline`/`TimelineItem`、`Image`、
+`Segmented`、`AvatarGroup`、`RadioButton`、`CheckboxButton`、`InputOtp`、`InputTag`、`Affix`、
+`Backtop`、`Anchor`、`PageHeader`、`ConfigProvider`、`Splitter`、`Carousel`、`Transfer`、
+`ColorPicker`、`Tour`、`Watermark`。EP 文档 80 项：已实现 74 项，仅余 6 项（第 6 批）。
+
+**验证**：主包 339/339、tests 包 299/299（新增 259 例）；20 个组件在浏览器逐一确认渲染 + 计算样式。
+
+**这轮最值钱的教训（都是拿全队时间换的）**：
+
+1. **`git stash -u` + `pop` 会丢已跟踪文件的修改**。我用它验证基线，`pop` 报冲突后只有未跟踪文件回来，
+   `Types.cj` 的枚举改动静默丢失 → 随后 `git add` 无内容可加，**commit message 写了"补枚举"但提交里没有**
+   （5ccf551）。三位队友各自 grep 才发现。恢复靠 `git checkout stash@{0} -- .`，**事后必须逐文件 grep 校验**。
+   教训：**验证基线用 `git worktree` 或临时 clone，别动当前工作树。**
+
+2. **判读编译错误要看 `==> <file>:<line>` 指向的主包文件，不要看第一条 error 文本**。
+   cjpm 编译失败后会连带解析后续文件吐出一大堆次生错误（曾把 `tests/src/timeline_test.cj` 误报成括号不配平，
+   实际那个文件当时正被队友重写、处于"文件短暂消失"状态）。按 `grep '==> ' | sort -u` 去重再判断。
+
+3. **`$?` 在管道里拿到的是最后一个命令的退出码**。队友用
+   `cjpm build 2>&1 | sed ... > log; echo $?` 得到恒为 0 的假"成功"。
+   判据改成**日志里出现 `cjpm build success` / `cjpm test success`**，且**不用管道取退出码**。
+
+4. **并发 `cjpm build/test` 会撞坏共享 `target/`**：症状是莫名其妙的 `ld: command failed`、
+   `ar: libcjxt.a: No such file`、`version of package 'cjxt.components' and its dependent package 'cjxt' are incompatible`。
+   解法：`rm -rf target/release/<依赖包>` 重试，或 `cjpm test -i`（让 cjpm 自己管依赖）。
+   **别去改代码**。
+
+5. **`rm -rf tests/target/release/cjxt` 后必须先 `cjpm build` 主包再 `cjpm test`**，否则链接失败。
+
+6. **同一 `@TestCase` 内连续渲染两次会污染 `RenderContext` 全局态**：第二次读到的结果是错的
+   （独立可执行程序里同样代码正确）。**一个 `@TestCase` 只渲染一次**，要对比两次渲染就拆成两个用例。
+
+7. **测试里数类名不能用子串**：`el-tour-indicators` 含 `el-tour-indicator`、
+   `el-transfer__buttons` 含 `el-transfer__button`、`el-avatar` 命中 `el-avatar--circle`/`el-avatar-group`。
+   按空格/引号边界做 token 计数（`probe_helpers.cj` 的 `probeCountClass` + 各测试内的 `countToken`）。
+
+8. **不要"把 handlerMap 全跑一遍"模拟交互**：前端是**按被点击元素自身**的 action 派发
+   （`closest('[data-action-click]')`、bind 读自身 `data-bind-id`）。全跑会误触每个标签的 ×，
+   曾因此误判"InputTag 的 Enter 追加有真实缺陷"。用 `probeFire(json, handlers, marker, ev, ctx)`。
+
+9. **`VNode.attr()` 是整表替换、不是合并**（`vnode.cj:154`）。给已有元素追加属性会把
+   `class`/`href` 一起抹掉，表现为"`is-active` 高亮永远不出现"。叠加属性要么并进同一 attrs map，
+   要么用已做合并的 `ref()`。`anchor_test.cj` 两个用例钉住。
+
+10. **仓颉保留字当方法名**：`type`、`main`（入口声明）、`match`、`where`、`quote`。
+    `public func \`type\`(...)` 反引号也救不了，必须换词（如 `kind`、`mainContent`）。
+
+11. **if/else 分支产出数组时必须显式标类型**：`let body: Array<IComponent> = if (...) {...} else {...}`，
+    否则推断成 `Any`。空数组同理：`let x: Array<IComponent> = []`（`Array<T>([])` 不合法，
+    构造器是 `(size, initFn)` 两参）。
+
+12. **lambda 不能捕获 `var`**：`for` 循环里给每个元素挂回调时别捕获可变下标，先 `let idx = i` 取副本。
+
+13. **`Rune` 不能直接 `Int64(r)`**，用 `UInt32(r)`（对齐 `app.cj` 的 `isJsonSpaceRune`）。
+
+14. **`ArrayList` 没有 `insert` 方法**。
+
+15. **多个 `init` 重载参数在类型上会擦除成同一个**（`Array<AnchorLink>` vs `Array<IComponent>`）→
+    `ambiguous match for constructor call`。改用唯一构造器 + `static func ofLinks(...)`。
+
+16. **EP 把组件拆成多个 scss**，只拷主文件会静默丢样式（本轮踩两次）：
+    `splitter` + `splitter-panel`、`carousel` + `carousel-item`、`anchor` + `anchor-link`。
+    拷之前 `ls theme-chalk/src/ | grep -i <component>` 看全量，并按 EP `index.scss` 的**相对次序**接入。
+
+**已知能力边界（服务端模型的必然取舍，都写在各组件文件头，不是 TODO）**：
+Tour 不定位目标元素（居中）、Carousel 无 autoplay、Splitter 无拖拽、Transfer 无 filterable、
+ColorPicker 无自由取色、Watermark 用 SVG 而非 canvas、Affix 走 sticky 而非 JS 测量、
+Image 的 lazy 用原生属性、Image 加载/失败态由调用方显式驱动。
+
 ### 2026-10-23 Container 布局族（Container / Header / Aside / Main / Footer）
 
 **背景**：对齐 EP 文档口径清点后发现，80 个组件里缺 27 项，而布局族（`Container` 等）

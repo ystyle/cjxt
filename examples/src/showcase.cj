@@ -22,14 +22,14 @@ public struct MenuCategory {
 }
 
 let menuGroups: Array<MenuCategory> = [
-    MenuCategory("基础", ["Button", "ButtonGroup", "Card", "RowCol", "Container", "Divider", "Text", "Link", "Tag", "Badge", "Space", "Icon"]),
-    MenuCategory("表单", ["Input", "InputNumber", "Switch", "Radio", "Checkbox", "Rate", "Select", "Slider", "Form"]),
-    MenuCategory("数据", ["Table", "Collapse", "Pagination", "DatePicker", "DateRangePicker", "Calendar", "TimePicker", "Tree", "Cascader", "Upload"]),
-    MenuCategory("导航", ["Tabs", "Breadcrumb", "Steps", "Dropdown"]),
+    MenuCategory("基础", ["Button", "ButtonGroup", "Card", "RowCol", "Container", "Scrollbar", "Divider", "Text", "Link", "Tag", "Badge", "Space", "Icon"]),
+    MenuCategory("表单", ["Input", "InputNumber", "Switch", "Radio", "Checkbox", "RadioButton", "CheckboxButton", "InputOtp", "InputTag", "Segmented", "Rate", "Select", "Slider", "Form"]),
+    MenuCategory("数据", ["Table", "Collapse", "Pagination", "DatePicker", "DateRangePicker", "Calendar", "TimePicker", "Tree", "Cascader", "Upload", "Transfer", "Splitter"]),
+    MenuCategory("导航", ["Tabs", "Breadcrumb", "Steps", "Dropdown", "Anchor", "PageHeader", "Affix", "Backtop"]),
     MenuCategory("反馈", ["Alert", "Message", "Notification", "Loading", "Skeleton", "MessageBox"]),
     MenuCategory("遮罩层", ["Dialog", "Drawer", "Tooltip", "Popover", "Popconfirm"]),
-    MenuCategory("展示", ["Progress", "Avatar", "Empty", "Descriptions", "Statistic", "Result"]),
-    MenuCategory("高级", ["Markdown", "AutoScroll", "Reactive", "VirtualList", "DomTx"]),
+    MenuCategory("展示", ["Progress", "Avatar", "AvatarGroup", "Timeline", "Empty", "Descriptions", "Statistic", "Result", "Image", "Watermark", "Carousel"]),
+    MenuCategory("高级", ["Markdown", "AutoScroll", "Reactive", "VirtualList", "DomTx", "Tour", "ColorPicker", "ConfigProvider"]),
 ]
 
 @Page["/showcase"]
@@ -98,6 +98,7 @@ class ShowcasePage <: Component {
             case "Card" => demoCard(this.state)
             case "RowCol" => demoRowCol(this.state)
             case "Container" => demoContainer(this.state)
+            case "Scrollbar" => demoScrollbar(this.state)
             case "Divider" => demoDivider(this.state)
             case "Text" => demoText(this.state)
             case "Link" => demoLink(this.state)
@@ -147,6 +148,25 @@ class ShowcasePage <: Component {
             case "Tree" => demoTree(this.state)
             case "Cascader" => demoCascader(this.state)
             case "Upload" => demoUpload(this.state)
+            case "Timeline" => demoTimeline(this.state)
+            case "Image" => demoImage(this.state)
+            case "Segmented" => demoSegmented(this.state)
+            case "AvatarGroup" => demoAvatarGroup(this.state)
+            case "RadioButton" => demoRadioButton(this.state)
+            case "CheckboxButton" => demoCheckboxButton(this.state)
+            case "InputOtp" => demoInputOtp(this.state)
+            case "InputTag" => demoInputTag(this.state)
+            case "Affix" => demoAffix(this.state)
+            case "Backtop" => demoBacktop(this.state)
+            case "Anchor" => demoAnchor(this.state)
+            case "PageHeader" => demoPageHeader(this.state)
+            case "ConfigProvider" => demoConfigProvider(this.state)
+            case "Splitter" => demoSplitter(this.state)
+            case "Carousel" => demoCarousel(this.state)
+            case "Transfer" => demoTransfer(this.state)
+            case "ColorPicker" => demoColorPicker(this.state)
+            case "Tour" => demoTour(this.state)
+            case "Watermark" => demoWatermark(this.state)
             case _ => []
         }
     }
@@ -163,6 +183,7 @@ class ShowcasePage <: Component {
             case "Card" => propsCard()
             case "RowCol" => propsRowCol()
             case "Container" => propsContainer()
+            case "Scrollbar" => propsScrollbar()
             case "Divider" => propsDivider()
             case "Text" => propsText()
             case "Link" => propsLink()
@@ -212,6 +233,25 @@ class ShowcasePage <: Component {
             case "Tree" => propsTree()
             case "Cascader" => propsCascader()
             case "Upload" => propsUpload()
+            case "Timeline" => propsTimeline(this.state)
+            case "Image" => propsImage(this.state)
+            case "Segmented" => propsSegmented(this.state)
+            case "AvatarGroup" => propsAvatarGroup(this.state)
+            case "RadioButton" => propsRadioButton(this.state)
+            case "CheckboxButton" => propsCheckboxButton(this.state)
+            case "InputOtp" => propsInputOtp(this.state)
+            case "InputTag" => propsInputTag(this.state)
+            case "Affix" => propsAffix(this.state)
+            case "Backtop" => propsBacktop(this.state)
+            case "Anchor" => propsAnchor(this.state)
+            case "PageHeader" => propsPageHeader(this.state)
+            case "ConfigProvider" => propsConfigProvider(this.state)
+            case "Splitter" => propsSplitter(this.state)
+            case "Carousel" => propsCarousel(this.state)
+            case "Transfer" => propsTransfer(this.state)
+            case "ColorPicker" => propsColorPicker(this.state)
+            case "Tour" => propsTour(this.state)
+            case "Watermark" => propsWatermark(this.state)
             case _ => text("选择左侧组件查看属性")
         }
     }

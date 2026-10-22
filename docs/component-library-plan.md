@@ -127,8 +127,8 @@
 > 核对于 2026-10-23。基准 = EP 文档页面向用户的组件页（`~/Projects/Nodejs/element-plus/docs/examples/`，80 个，
 > `layout`/`border`/`transitions` 为归类页已排除），逐项比对 cjxt 的 `public class` / `public func` 实现。
 
-**结论：80 项里已实现 54 项，缺 26 项独立组件 + 3 个现有组件的形态变体。**
-（2026-10-23 补上 `Container` 族后：53 → 54，独立缺口 27 → 26。）
+**结论：80 项里已实现 74 项，缺 6 项独立组件。**
+（2026-10-23 逐批推进：`Container` 族 53→54、`Scrollbar` 54→55，第 2-5 批 19 个组件 55→74。）
 
 上面 Stage 表的「未做 12」只覆盖 Stage 5 当初列出的范围，**不含下面这些**——
 尤其布局族与展示族从没进过任何 Stage。
@@ -144,16 +144,16 @@
 | 组件 | 状态 | 说明 |
 |------|------|------|
 | `Container`（含 `Header`/`Aside`/`Main`/`Footer`） | ✅ 已完成（2026-10-23） | 页面级布局族，见 `src/components/Container.cj`。语义标签 `section/header/aside/main/footer`；方向自动判定（有 Header/Footer 即纵向，显式 `direction` 优先）；尺寸走 `--el-header-height`/`--el-footer-height`/`--el-aside-width`，默认值由 scss 提供（60px/60px/300px）。 |
-| `Scrollbar` | 待做 | 自定义滚动条；`custom/select-scroll.scss` 只解决下拉面板自己的滚动，业务侧长列表没有可用件。 |
+| `Scrollbar` | ✅ 已完成（2026-10-23） | 见 `src/components/Scrollbar.cj`。DOM 对齐 EP（`el-scrollbar > __wrap > __view`）；EP 的 JS thumb 方案在服务端模型下改为 `native` 开关：默认用浏览器原生滚动条，`native(false)` 时加 `__wrap--hidden-default` 隐藏原生滚动条（滚动能力保留）。 |
 
 **第 2 批 — 高频展示件（4 项）**
 
 | 组件 | 缺它的代价 |
 |------|-----------|
-| `Timeline` | 时间线。日志、审批流、进度记录场景刚需，没有替代。 |
-| `Image` | EP 的 `el-image` 带懒加载 / 加载失败回退 / 点击预览。现在只能用裸 `<img>`。 |
-| `Segmented` | 分段控制器，视图切换比 Radio 更常见。 |
-| `AvatarGroup` | `Avatar` 已有单件，组只是叠放 + 溢出计数，**很便宜**。 |
+| `Timeline` | ✅ 已完成 | `Timeline` + `TimelineItem`；`is-{mode}` 同时挂 `ul`/`li`（EP 靠 inject，cjxt 在 render 里扫子实例写回）。 |
+| `Image` | ✅ 已完成 | lazy 用原生 `loading=lazy`；加载/失败态由调用方显式驱动（服务端拿不到 load/error 事件）；预览为简化版遮罩。 |
+| `Segmented` | ✅ 已完成 | 选中滑块用服务端几何算（`flex:1` 等宽下 `calc(100%/n)` + `translateX`），替代 EP 的 ResizeObserver。 |
+| `AvatarGroup` | ✅ 已完成 | 叠压交给 scss；组级 shape 无法区分"未设"与"显式 circle"，取舍已注明。 |
 
 > （`AvatarGroup` 属"现有组件的形态变体"，3 个变体之一。）
 
@@ -161,18 +161,28 @@
 
 | 组件 | 说明 |
 |------|------|
-| `RadioButton` / `CheckboxButton` | EP 的按钮形态单选/复选。现有 `Radio`/`Checkbox` 只有圆点形态（`Radio.cj` 无 button 分支），**改造成本低**。这 2 个即上述"形态变体"。 |
-| `InputOtp` | 验证码输入。登录 / 二次验证要用。 |
-| `InputTag` | 标签化输入，多值场景比 `Select` multiple 更直接。 |
+| `RadioButton` / `CheckboxButton` | ✅ 已完成 | 在 `Radio.cj`/`Checkbox.cj` 内新增类，**原有类逐行未动**；Group 只加 match 分支，两种形态可混排。 |
+| `InputOtp` | ✅ 已完成 | 每位一个 `__input-field` 包裹层（scss 的聚焦环挂这层）；值按 Rune 逐位铺开，中文不会切坏。`type` prop 因关键字改名 `kind`。 |
+| `InputTag` | ✅ 已完成 | `__inner > span.el-tag ×N + __input-wrapper > input`；草稿文本不存内部信号（重渲染会丢），从 action params 现取。 |
 
 **第 4 批 — 导航与定位（4 项）**
 
-`Affix`（吸顶）、`Backtop`（回到顶部）、`Anchor`（锚点导航）、`PageHeader`（页头）——
-都与滚动位置强相关，建议**同批做**，共用一套滚动监听。
+**全部已完成（2026-10-23），且四个组件零前端 JS**：
+
+| 组件 | 做法 |
+|------|------|
+| `Affix` | CSS `position: sticky`（无需滚动监听）；受祖先 `overflow` 约束属 CSS 语义 |
+| `Backtop` | 原生 `<a href="#">` 锚点回顶——cjxt 的 `dom_command` 没有 `scrollTo`，挂 action 只会空转 |
+| `Anchor` | 原生 `href="#id"` + `scroll-margin-top` 补偿 offset |
+| `PageHeader` | cjxt action（`route.push`），补了 Enter/Space 键盘可达 |
 
 **第 5 批 — 高级交互（7 项）**
 
-`ColorPicker`、`Carousel`、`Tour`、`Splitter`、`Transfer`、`Watermark`、`ConfigProvider`。
+**全部已完成（2026-10-23）**：`ConfigProvider` / `Splitter` / `Carousel` / `Transfer` / `ColorPicker` / `Tour` / `Watermark`。
+已知能力边界（均写在各文件头注释，非 TODO）：Tour 不定位目标元素（居中）、Carousel 无 autoplay、
+Splitter 无拖拽、Transfer 无 filterable、ColorPicker 无自由取色、Watermark 用 SVG 而非 canvas。
+`ConfigProvider` 因 cjxt 无上下文通道，改用 CSS 变量继承，必然多一层包裹元素。
+
 另有 `InfiniteScroll`：EP 侧是**指令**不是组件，cjxt 需按服务端模型重新设计（见第 6 批末条）。
 
 **第 6 批 — 联动组件与虚拟化（6 项，收益最低或依赖外部前提）**

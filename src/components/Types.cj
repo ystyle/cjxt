@@ -433,3 +433,126 @@ public enum ResultIcon {
     }
 }
 
+// ── 第 1-5 批组件类型（2026-10-23）────────────────────────────────
+// 集中放置，避免并行开发时多人同时改本文件造成覆盖。
+
+public enum TimelineItemType {
+    | Primary | Success | Warning | Danger | Info
+
+    public func asClass(): String {
+        match (this) {
+            case Primary => "primary"
+            case Success => "success"
+            case Warning => "warning"
+            case Danger => "danger"
+            case Info => "info"
+        }
+    }
+}
+
+public enum TimelineItemPlacement {
+    | Top | Bottom
+
+    public func asClass(): String {
+        match (this) {
+            case Top => "top"
+            case Bottom => "bottom"
+        }
+    }
+}
+
+public enum TimelineItemSize {
+    | Normal | Large
+
+    public func asClass(): String {
+        match (this) {
+            case Normal => "normal"
+            case Large => "large"
+        }
+    }
+}
+
+// Image 的填充方式。值与既有 AvatarFit 一致（EP 两处用的是同一组 CSS 值），
+// 但语义与归属不同——Image 不该依赖 Avatar 的私有类型，故独立声明。
+public enum ImageFit {
+    | Fill | Contain | Cover | None | ScaleDown
+
+    public func asClass(): String {
+        match (this) {
+            case Fill => "fill"
+            case Contain => "contain"
+            case Cover => "cover"
+            case None => "none"
+            case ScaleDown => "scale-down"
+        }
+    }
+}
+
+public enum AffixPosition {
+    | Fixed | Absolute
+
+    public func asClass(): String {
+        match (this) {
+            case Fixed => "fixed"
+            case Absolute => "absolute"
+        }
+    }
+}
+
+public enum CarouselDirection {
+    | Horizontal | Vertical
+
+    public func asClass(): String {
+        match (this) {
+            case Horizontal => "horizontal"
+            case Vertical => "vertical"
+        }
+    }
+}
+
+public enum CarouselType {
+    | Card | Default
+
+    public func asClass(): String {
+        match (this) {
+            case Card => "card"
+            case Default => ""
+        }
+    }
+}
+
+public enum SplitterLayout {
+    | Horizontal | Vertical
+
+    public func asClass(): String {
+        match (this) {
+            case Horizontal => "horizontal"
+            case Vertical => "vertical"
+        }
+    }
+}
+
+public enum TourPlacement {
+    | Top | Bottom | Left | Right | Center
+
+    public func asClass(): String {
+        match (this) {
+            case Top => "top"
+            case Bottom => "bottom"
+            case Left => "left"
+            case Right => "right"
+            case Center => "center"
+        }
+    }
+}
+
+public enum AnchorDirection {
+    | Vertical | Horizontal
+
+    public func asClass(): String {
+        match (this) {
+            case Vertical => "vertical"
+            case Horizontal => "horizontal"
+        }
+    }
+}

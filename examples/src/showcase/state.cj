@@ -106,6 +106,52 @@ public class ShowcaseState <: AppState {
     var tableSelectedRows = Signal<ArrayList<TableRow>>(ArrayList<TableRow>())
     var tableCurrentRow: Signal<Option<TableRow>>
 
+    // ── 第 1-5 批新增组件（2026-10-23）──────────────────────────
+    var segmentedValue = Signal<String>("日")
+    var segmentedValue2 = Signal<String>("a")
+    var segmentedValue3 = Signal<String>("上")
+    var radioButtonValue = Signal<String>("bj")
+    var radioButtonValue2 = Signal<String>("on")
+    var radioButtonValue3 = Signal<String>("l")
+    var radioButtonValue4 = Signal<String>("s")
+    var checkboxButtonValue = Signal<ArrayList<String>>(ArrayList<String>(["read"]))
+    var checkboxButtonValue2 = Signal<ArrayList<String>>(ArrayList<String>(["a"]))
+    var otpValue = Signal<String>("")
+    var otpValue2 = Signal<String>("")
+    var otpValue3 = Signal<String>("")
+    var otpValue4 = Signal<String>("")
+    var tagValues = Signal<ArrayList<String>>(ArrayList<String>(["Cangjie", "cjxt"]))
+    var tagValues2 = Signal<ArrayList<String>>(ArrayList<String>())
+    var tagValues3 = Signal<ArrayList<String>>(ArrayList<String>(["只读标签"]))
+    var carouselIndex = Signal<Int64>(0)
+    var transferValues = Signal<ArrayList<String>>(ArrayList<String>(["2"]))
+    var colorValue = Signal<String>("#409eff")
+    var colorValue2 = Signal<String>("#67c23a")
+    var colorValue3 = Signal<String>("#e6a23c")
+    var colorValue4 = Signal<String>("#f56c6c")
+    var tourVisible = Signal<Bool>(false)
+    var pageHeaderMsg = "未点击"
+
+    public func segmentedIndex(): Int64 {
+        match (this.segmentedValue.get()) {
+            case "日" => 1
+            case "周" => 2
+            case "月" => 3
+            case _ => 0
+        }
+    }
+
+    public func tagSummary(): String {
+        let list = this.tagValues.get()
+        if (list.size == 0) { return "（空）" }
+        var out = ""
+        for (i in 0..list.size) {
+            if (i > 0) { out = "${out}、" }
+            out = "${out}${list[i]}"
+        }
+        out
+    }
+
     public init() {
         this.reactiveDouble = makeReactiveDouble(this.reactiveCount)
         this.reactiveEff = makeReactiveEff(this.reactiveCount, this.reactiveEffCount)

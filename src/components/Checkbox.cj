@@ -103,6 +103,115 @@ public class Checkbox <: Component {
     }
 }
 
+// 按钮形态复选框（EP checkbox-button.vue）。DOM：
+//   label.el-checkbox-button(+.is-checked/+.is-disabled/+.is-focus/+--large/--small)
+//     > input.el-checkbox-button__original[type=checkbox][value]
+//     > span.el-checkbox-button__inner（slot 内容）
+// 选中类用 is-checked（与 RadioButton 的 is-active 不同，对齐各自 scss）。
+public class CheckboxButton <: Component {
+    var _children: Array<IComponent>
+    var _value: String
+    var _disabled: Bool = false
+    var _size: Option<ComponentSize> = None
+    var _standalone: Option<Signal<Bool>> = None
+    var _groupSignal: Option<Signal<ArrayList<String>>> = None
+
+    public init(children: Array<IComponent>, value: String) {
+        this._children = children
+        this._value = value
+    }
+    public func disabled(): CheckboxButton { this._disabled = true; this }
+    public func size(v: ComponentSize): CheckboxButton { this._size = Some(v); this }
+    // 独立复选：bind(Signal<Bool>)，点击自身翻转
+    public func bind(signal: Signal<Bool>): CheckboxButton { this._standalone = Some(signal); this }
+
+    func setGroupSignal(s: Signal<ArrayList<String>>): Unit { this._groupSignal = Some(s) }
+
+    public func render(): IComponent {
+        let checked = this.resolveChecked()
+        let onClick = this.resolveOnClick()
+        this.renderChecked(checked, onClick)
+    }
+
+    func resolveChecked(): Bool {
+        match (this._groupSignal) {
+            case Some(s) => this.listContains(s.get(), this._value)
+            case None =>
+                match (this._standalone) {
+                    case Some(s) => s.get()
+                    case None => false
+                }
+        }
+    }
+
+    func resolveOnClick(): Option<ActionHandler> {
+        if (this._disabled) { return None }
+        match (this._groupSignal) {
+            case Some(s) => return Some({ ctx =>
+                this.toggleList(s, this._value)
+                PatchResult.ReRender
+            })
+            case None => ()
+        }
+        match (this._standalone) {
+            case Some(s2) => Some({ ctx =>
+                s2.set(!s2.get())
+                PatchResult.ReRender
+            })
+            case None => None
+        }
+    }
+
+    func sizeClass(): String {
+        match (this._size) {
+            case Some(s) => s.asClass()
+            case None => ""
+        }
+    }
+
+    func listContains(list: ArrayList<String>, value: String): Bool {
+        for (v in list) { if (v == value) { return true } }
+        false
+    }
+
+    func toggleList(s: Signal<ArrayList<String>>, value: String): Unit {
+        let list = s.get()
+        var idx = -1
+        var i = 0
+        for (v in list) {
+            if (v == value) { idx = i }
+            i = i + 1
+        }
+        if (idx >= 0) {
+            list.remove(idx..idx + 1)
+        } else {
+            list.add(value)
+        }
+        s.set(list)
+    }
+
+    func renderChecked(checked: Bool, onClick: Option<ActionHandler>): IComponent {
+        var cls = "el-checkbox-button"
+        let sc = this.sizeClass()
+        if (sc != "") { cls = "${cls} el-checkbox-button--${sc}" }
+        if (checked) { cls = "${cls} is-checked" }
+        if (this._disabled) { cls = "${cls} is-disabled" }
+
+        let inputAttrs = HashMap<String, String>([("class", "el-checkbox-button__original"), ("type", "checkbox"), ("value", this._value)])
+        if (this._disabled) { inputAttrs["disabled"] = "disabled" }
+        if (checked) { inputAttrs["checked"] = "checked" }
+        let inputEl = VNode("input", [], attrs: Some(inputAttrs))
+        let innerSpan = VNode("span", this._children, attrs: Some(HashMap<String, String>([("class", "el-checkbox-button__inner")])))
+
+        // onClick 挂 label（隐藏 input 不可点击；委托已过滤 label 内合成 input click）
+        let label = VNode("label", [inputEl, innerSpan], attrs: Some(HashMap<String, String>([("class", cls)])))
+        match (onClick) {
+            case Some(h) => label.onClick(h)
+            case None => label
+        }
+    }
+}
+
 public class CheckboxGroup <: Component {
     var _children: Array<IComponent>
     var _signal: Option<Signal<ArrayList<String>>> = None
@@ -118,6 +227,9 @@ public class CheckboxGroup <: Component {
                 case cb: Checkbox =>
                     cb.setGroupSignal(s)
                     items.add(cb.render())
+                case cbb: CheckboxButton =>
+                    cbb.setGroupSignal(s)
+                    items.add(cbb.render())
                 case _ => items.add(c)
             }
         }
