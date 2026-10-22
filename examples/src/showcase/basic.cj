@@ -346,3 +346,65 @@ public func propsIcon(): IComponent {
         propRow("name", "String", "Element Plus 图标名称"),
     ])
 }
+
+// ── Container 布局族（EP container/header/aside/main/footer）────────────────
+// 三种典型版式都按 EP 官方示例写：上中下 / 上中（侧栏） / 左侧栏
+
+func layoutBox(label: String, bg: String, fg: String): IComponent {
+    div([text(label)]).style("background:${bg};color:${fg};border-radius:6px;padding:10px 0;text-align:center;font-size:13px;font-weight:600")
+}
+
+public func demoContainer(st: ShowcaseState): Array<IComponent> {
+    let headerBg = "#d9ecff"
+    let asideBg = "#d9ecff"
+    let mainBg = "#e1f3d8"
+    let footerBg = "#d9ecff"
+    let hf: String = "40px"
+    [
+        demoSection("上中下（Header + Main + Footer，自动纵向）", [
+            // EP 示例：Container 里同时有 Header/Footer 时自动 is-vertical
+            Container([
+                Header([layoutBox("Header", headerBg, "#409eff")]).height(hf),
+                Main([layoutBox("Main", mainBg, "#67c23a")]).style("height:120px"),
+                Footer([layoutBox("Footer", footerBg, "#409eff")]).height(hf),
+            ]).style("border:1px solid #dcdfe6;border-radius:6px;overflow:hidden"),
+        ]),
+        demoSection("上中（Header + Main + Footer 内嵌侧栏）", [
+            Container([
+                Header([layoutBox("Header", headerBg, "#409eff")]).height(hf),
+                Container([
+                    Aside([layoutBox("Aside", asideBg, "#409eff")]).width("120px"),
+                    Main([layoutBox("Main", mainBg, "#67c23a")]).style("height:120px"),
+                ]),
+                Footer([layoutBox("Footer", footerBg, "#409eff")]).height(hf),
+            ]).style("border:1px solid #dcdfe6;border-radius:6px;overflow:hidden"),
+        ]),
+        demoSection("左侧栏（显式 direction: Horizontal）", [
+            Container([
+                Aside([layoutBox("Aside", asideBg, "#409eff")]).width("120px"),
+                Container([
+                    Header([layoutBox("Header", headerBg, "#409eff")]).height(hf),
+                    Main([layoutBox("Main", mainBg, "#67c23a")]).style("height:120px"),
+                ]),
+            ]).style("border:1px solid #dcdfe6;border-radius:6px;overflow:hidden"),
+        ]),
+        demoSection("显式指定 direction", [
+            Container([
+                layoutBox("A（横向排列）", headerBg, "#409eff"),
+                layoutBox("B", mainBg, "#67c23a"),
+                layoutBox("C", headerBg, "#409eff"),
+            ]).direction(ContainerDirection.Horizontal).style("gap:8px"),
+            div([text("↑ direction(Horizontal)：即使没有 Header/Footer 也不堆叠")]).style("margin-top:8px;color:#909399;font-size:12px"),
+        ]),
+    ]
+}
+
+public func propsContainer(): IComponent {
+    div([
+        propRow("Container.direction", "Auto | Horizontal | Vertical（默认 Auto）", "布局方向；Auto 时按子节点是否含 Header/Footer 自动判定"),
+        propRow("Header.height", "String（默认 60px）", "头部高度，写入 --el-header-height"),
+        propRow("Footer.height", "String（默认 60px）", "底部高度，写入 --el-footer-height"),
+        propRow("Aside.width", "String（默认 300px）", "侧栏宽度，写入 --el-aside-width"),
+        propRow("Main", "—", "主内容区，flex:1 自适应剩余空间"),
+    ])
+}

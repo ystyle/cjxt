@@ -192,6 +192,45 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 
 ## 代码总结
 
+### 2026-10-23 Container 布局族（Container / Header / Aside / Main / Footer）
+
+**背景**：对齐 EP 文档口径清点后发现，80 个组件里缺 27 项，而布局族（`Container` 等）
+**从没进过任何 Stage** —— 仓里只有 `Row`/`Col` 栅格，没有整页骨架。
+
+**实现**（`src/components/Container.cj`）：
+- 语义标签对齐 EP：`section` / `header` / `aside` / `main` / `footer`（不是清一色 div）。
+- **方向自动判定**（EP `container.vue` 的 `isVertical`）：显式 `direction` 优先；未指定时
+  「子节点里有 `Header` 或 `Footer`」即纵向。EP 靠 `vnode.type.name` 判断，
+  cjxt 没有 vnode 类型名，改为**在构造期用 `match (c) { case _: Header => ... }` 扫子组件实例**
+  （仓颉支持按类型 match，`Collapse.cj:129` 已有先例）。
+- 尺寸走 CSS 变量而非内联 height/width，与 EP 的 `ns.cssVarBlock()` 一致：
+  `--el-header-height` / `--el-footer-height` / `--el-aside-width`。
+  **未设尺寸时不写 style 属性**，让 scss 默认值生效（header/footer 60px、aside 300px）。
+- 额外提供 `style()` 透传（EP 无此 prop，但 cjxt 的 `Component` 基类没有 style，
+  演示/业务加外包边需要它）。
+
+**验证**（`tests/src/container_test.cj` 12 例 + 浏览器）：
+- 单测覆盖：横向/纵向自动判定、Footer 也触发纵向、显式 direction 覆盖自动判定、
+  五个语义标签、三个尺寸变量、未设尺寸时无 style、额外 style 与 CSS 变量合并。
+- 浏览器实测计算样式与 EP 基准**逐项一致**：header `padding: 0px 20px` / `flexShrink: 0` /
+  `box-sizing: border-box`、main `padding: 20px` / `flex: 1 1 auto` / `overflow: auto`、
+  aside 默认 300px、header/footer 默认 60px；`flex-direction` 在三种版式下分别为 column/row。
+
+**顺带修复（重要）**：
+- **`DrawerCssTest` 断言过脆**：原用 `.el-drawer.rtl` 起点的固定 60 字符窗口找 `right: 0`。
+  加入 5 个新 `@use` 后 sass 的规则合并/顺序变了——同一方向类被拆成
+  `.el-drawer.rtl { height/top/bottom }` 与 `.el-drawer.rtl { right: 0 }` 两条，
+  于是窗口内不再含 `right: 0`，测试变红**但样式本身没坏**（浏览器实测 right=0px、贴右）。
+  改为按语义取「所有以该选择器开头的规则块正文」再断言，并加了选择器边界检查
+  （避免 `.el-drawer.rtlx` 误匹配）。
+  教训：**断言 vendored 编译产物的字符偏移，会被无关改动打破**——要按语义区间取。
+
+**坑**：
+- `git stash -u` + `git stash pop` 在本仓会把已跟踪文件的修改丢掉（`pop` 报冲突后
+  只有未跟踪文件回来）。恢复靠 `git checkout stash@{0} -- .`，
+  **事后逐文件 `grep` 校验**才敢继续（本次已核）。
+- `Component` 基类**没有** `style()` 方法（只有 `VNode.style`），组件要支持外层样式得自己加。
+
 ### 2026-10-16 会话永不回收导致内存泄漏（生产 OOM 的根因）
 
 **现象**：下游（忆时塔）生产实例反复挂起 —— 1GB 堆贴顶、GC 每 ~2s 触发却回收不动、

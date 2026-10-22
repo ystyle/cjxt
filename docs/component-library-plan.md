@@ -105,7 +105,7 @@
 
 ## 进度
 
-> 更新于 2026-09-06。演示站（examples `/showcase`）按 8 组 56 项组织：
+> 进度表更新于 2026-10-23。演示站（examples `/showcase`）按 8 组 56 项组织：
 > 基础 11 / 表单 9 / 数据 10 / 导航 4 / 反馈 6 / 遮罩层 5 / 展示 6 / 高级 5
 
 | Stage | 组件数 | 已实现 | 状态 |
@@ -117,6 +117,87 @@
 | Stage 5 复杂组件 | 25 | **已做 12**：Menu / SubMenu / MenuItem / Breadcrumb / Steps（导航 5）、DatePicker / DateRangePicker / Calendar / TimePicker（时间 4）、Tree / Cascader（树/级联 2，CascaderPanel 集成于 Cascader）、Upload、VirtualList<br>**未做 12**：TimeSelect / DateTimePicker / TreeSelect / Transfer / ColorPicker / Carousel / Autocomplete / Mention / InputTag / SelectV2 / TableV2 / TreeV2 | 🟡 12/25 |
 
 **计划外组件（已实现，非 Stage 清单）：** `Alert` / `Message` / `Notification` / `Loading` / `Skeleton`（反馈）、`Markdown` / `AutoScroll` / `Reactive`（Computed·Effect 演示）/ `VirtualList` / `DomTx`（高级能力演示）、下拉树级联等业务扩展随 P1-P3 迭代完成（见 AGENTS.md 后续计划）。
+
+> ⚠️ 上面 Stage 5 的「未做 12」只是**当初 Stage 5 自己列的**范围，不是完整缺口——
+> 布局族（`Container` 等）、展示族（`Timeline`/`Image` 等）从未进过任何 Stage。
+> **完整缺口与补齐顺序见下一节。**
+
+## 缺口全量清单（对齐 EP 文档口径）
+
+> 核对于 2026-10-23。基准 = EP 文档页面向用户的组件页（`~/Projects/Nodejs/element-plus/docs/examples/`，80 个，
+> `layout`/`border`/`transitions` 为归类页已排除），逐项比对 cjxt 的 `public class` / `public func` 实现。
+
+**结论：80 项里已实现 54 项，缺 26 项独立组件 + 3 个现有组件的形态变体。**
+（2026-10-23 补上 `Container` 族后：53 → 54，独立缺口 27 → 26。）
+
+上面 Stage 表的「未做 12」只覆盖 Stage 5 当初列出的范围，**不含下面这些**——
+尤其布局族与展示族从没进过任何 Stage。
+
+> 计数口径：`Header`/`Aside`/`Main`/`Footer` 是 `Container` 的子件，随第 1 批一起做，不单列；
+> `ColorPickerPanel`/`DatePickerPanel`/`CascaderPanel` 同理。EP 的 `message`/`notification`/`typography`
+> 在 cjxt 已有对应（见文末对照表），不计入缺口。
+
+### 缺口清单（按补的优先级排序）
+
+**第 1 批 — 布局地基（2 项，最该先补）**
+
+| 组件 | 状态 | 说明 |
+|------|------|------|
+| `Container`（含 `Header`/`Aside`/`Main`/`Footer`） | ✅ 已完成（2026-10-23） | 页面级布局族，见 `src/components/Container.cj`。语义标签 `section/header/aside/main/footer`；方向自动判定（有 Header/Footer 即纵向，显式 `direction` 优先）；尺寸走 `--el-header-height`/`--el-footer-height`/`--el-aside-width`，默认值由 scss 提供（60px/60px/300px）。 |
+| `Scrollbar` | 待做 | 自定义滚动条；`custom/select-scroll.scss` 只解决下拉面板自己的滚动，业务侧长列表没有可用件。 |
+
+**第 2 批 — 高频展示件（4 项）**
+
+| 组件 | 缺它的代价 |
+|------|-----------|
+| `Timeline` | 时间线。日志、审批流、进度记录场景刚需，没有替代。 |
+| `Image` | EP 的 `el-image` 带懒加载 / 加载失败回退 / 点击预览。现在只能用裸 `<img>`。 |
+| `Segmented` | 分段控制器，视图切换比 Radio 更常见。 |
+| `AvatarGroup` | `Avatar` 已有单件，组只是叠放 + 溢出计数，**很便宜**。 |
+
+> （`AvatarGroup` 属"现有组件的形态变体"，3 个变体之一。）
+
+**第 3 批 — 表单补全（4 项）**
+
+| 组件 | 说明 |
+|------|------|
+| `RadioButton` / `CheckboxButton` | EP 的按钮形态单选/复选。现有 `Radio`/`Checkbox` 只有圆点形态（`Radio.cj` 无 button 分支），**改造成本低**。这 2 个即上述"形态变体"。 |
+| `InputOtp` | 验证码输入。登录 / 二次验证要用。 |
+| `InputTag` | 标签化输入，多值场景比 `Select` multiple 更直接。 |
+
+**第 4 批 — 导航与定位（4 项）**
+
+`Affix`（吸顶）、`Backtop`（回到顶部）、`Anchor`（锚点导航）、`PageHeader`（页头）——
+都与滚动位置强相关，建议**同批做**，共用一套滚动监听。
+
+**第 5 批 — 高级交互（7 项）**
+
+`ColorPicker`、`Carousel`、`Tour`、`Splitter`、`Transfer`、`Watermark`、`ConfigProvider`。
+另有 `InfiniteScroll`：EP 侧是**指令**不是组件，cjxt 需按服务端模型重新设计（见第 6 批末条）。
+
+**第 6 批 — 联动组件与虚拟化（6 项，收益最低或依赖外部前提）**
+
+| 组件 | 不着急的理由 |
+|------|-------------|
+| `Autocomplete` | `Select` 已支持 filterable，差的是"输入即建议"的交互形态。 |
+| `Mention` | 场景窄（富文本框里 @ 人），Chat 富文本落地后再做。 |
+| `TimeSelect` / `DateTimePicker` | `DatePicker`/`TimePicker` 已就绪，缺的是组合与时间轴扩展。 |
+| `TreeSelect` | `Select` + `Tree` 都已就绪，缺的是组合。 |
+| `SelectV2` / `TableV2` / `TreeV2` | EP 用虚拟滚动重写了这三者。cjxt 已有自研 `VirtualList`（`src/components/VirtualList.cj`），**应先评估「把 VirtualList 接进现有 Select/Table/Tree」是否够用**，够用则不该盲抄 EP 的重写版。AGENTS.md 亦记着「Table 待接入」。 |
+| `InfiniteScroll` | 同上，先看 `VirtualList` 能否覆盖；EP 是指令式（`v-infinite-scroll`），cjxt 没有 v- 指令体系，需要新设计。 |
+
+### 已在 cjxt 存在、但名字与 EP 不同的（不用补，避免重复实现）
+
+| EP 名 | cjxt 实现 | 备注 |
+|-------|-----------|------|
+| `message` | `MessageHost`（`Feedback.cj:60`） | 用 Signal 列表驱动，非命令式 API |
+| `notification` | `NotificationHost`（`Feedback.cj:150`） | 同上 |
+| `typography` | `Text` | |
+| `layout` / `border` | `Row` + `Col` / `Card` | EP 文档里是归类页，非独立组件 |
+| `transitions` | 无对应组件 | 属于 CSS 动画，由 `public/scss` 承担 |
+
+> ⚠️ 交叉核对结论：`Message`/`Notification` 在 Stage 4 标为已完成，指的确实是 `MessageHost`/`NotificationHost` 这对宿主组件；
+> 若后续需要 EP 那种 `Message.success()` 式命令式调用，应作为**新的便利 API** 单独评估，不计入组件缺口。
 
 ## CSS 加载流程
 

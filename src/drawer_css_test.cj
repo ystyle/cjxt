@@ -10,19 +10,50 @@ import std.unittest.testmacro.*
 
 @Test
 public class DrawerCssTest {
+    // 取出所有以 `.el-drawer.<dir>` 开头的规则块正文（sass 可能把同一方向类拆成多条规则，
+    // 例如 `.el-drawer.rtl { height/top/bottom }` 与 `.el-drawer.rtl { right: 0 }` 分开，
+    // 所以不能只看第一条规则的固定字符窗口）
+    func ruleBodies(dir: String): String {
+        let prefix = ".el-drawer.${dir}"
+        var out = ""
+        var from: Int64 = 0
+        var searching = true
+        while (searching) {
+            match (_componentCSS.indexOf(prefix, from)) {
+                case Some(i) =>
+                    // 选择器前缀之后必须紧跟空白或 `{`/`,`，避免匹配到 `.el-drawer.rtlx`
+                    let after = i + prefix.size
+                    let isBoundary = after >= _componentCSS.size ||
+                        _componentCSS[after..(after + 1)] == " " ||
+                        _componentCSS[after..(after + 1)] == "{" ||
+                        _componentCSS[after..(after + 1)] == ","
+                    if (!isBoundary) {
+                        from = after
+                    } else {
+                        // 从选择器起点到该规则块结尾（第一个 `}`）
+                        match (_componentCSS.indexOf("}", after)) {
+                            case Some(end) =>
+                                out = out + _componentCSS[i..(end + 1)]
+                                from = end + 1
+                            case None => searching = false
+                        }
+                    }
+                case None => searching = false
+            }
+        }
+        out
+    }
+
     @TestCase
     public func testDirectionClassesArePositioned(): Unit {
         @Expect(_componentCSS.contains(".el-drawer.rtl"), true)
         @Expect(_componentCSS.contains(".el-drawer.ltr"), true)
         @Expect(_componentCSS.contains(".el-drawer.ttb"), true)
         @Expect(_componentCSS.contains(".el-drawer.btt"), true)
-        // 右抽屉必须真的贴右边（不是靠 transform 平移）
-        let at = _componentCSS.indexOf(".el-drawer.rtl")
-        match (at) {
-            case Some(i) =>
-                let seg = _componentCSS[i..(if (i + 60 < _componentCSS.size) { i + 60 } else { _componentCSS.size })]
-                @Expect(seg.contains("right: 0"), true)
-            case None => @Fail("找不到 .el-drawer.rtl")
-        }
+        // 各方向必须真的贴对应边（不是靠 transform 平移）
+        @Expect(this.ruleBodies("rtl").contains("right: 0"), true)
+        @Expect(this.ruleBodies("ltr").contains("left: 0"), true)
+        @Expect(this.ruleBodies("ttb").contains("top: 0"), true)
+        @Expect(this.ruleBodies("btt").contains("bottom: 0"), true)
     }
 }

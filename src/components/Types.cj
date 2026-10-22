@@ -106,6 +106,20 @@ public enum RowAlign {
     }
 }
 
+// 容器布局方向。Auto = 交由调用方决定（Container 按子节点里有没有 Header/Footer 自动判定，
+// 与 EP container.vue 的 isVertical 默认分支一致）
+public enum ContainerDirection {
+    | Auto | Horizontal | Vertical
+
+    public func asClass(): String {
+        match (this) {
+            case Auto => "auto"
+            case Horizontal => "horizontal"
+            case Vertical => "vertical"
+        }
+    }
+}
+
 public enum DividerDirection {
     | Horizontal | Vertical
 

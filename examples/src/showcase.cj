@@ -22,7 +22,7 @@ public struct MenuCategory {
 }
 
 let menuGroups: Array<MenuCategory> = [
-    MenuCategory("基础", ["Button", "ButtonGroup", "Card", "RowCol", "Divider", "Text", "Link", "Tag", "Badge", "Space", "Icon"]),
+    MenuCategory("基础", ["Button", "ButtonGroup", "Card", "RowCol", "Container", "Divider", "Text", "Link", "Tag", "Badge", "Space", "Icon"]),
     MenuCategory("表单", ["Input", "InputNumber", "Switch", "Radio", "Checkbox", "Rate", "Select", "Slider", "Form"]),
     MenuCategory("数据", ["Table", "Collapse", "Pagination", "DatePicker", "DateRangePicker", "Calendar", "TimePicker", "Tree", "Cascader", "Upload"]),
     MenuCategory("导航", ["Tabs", "Breadcrumb", "Steps", "Dropdown"]),
@@ -97,6 +97,7 @@ class ShowcasePage <: Component {
             case "ButtonGroup" => demoButtonGroup(this.state)
             case "Card" => demoCard(this.state)
             case "RowCol" => demoRowCol(this.state)
+            case "Container" => demoContainer(this.state)
             case "Divider" => demoDivider(this.state)
             case "Text" => demoText(this.state)
             case "Link" => demoLink(this.state)
@@ -161,6 +162,7 @@ class ShowcasePage <: Component {
             case "ButtonGroup" => propsButtonGroup()
             case "Card" => propsCard()
             case "RowCol" => propsRowCol()
+            case "Container" => propsContainer()
             case "Divider" => propsDivider()
             case "Text" => propsText()
             case "Link" => propsLink()
