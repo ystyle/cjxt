@@ -350,8 +350,19 @@ public func propsIcon(): IComponent {
 // ── Container 布局族（EP container/header/aside/main/footer）────────────────
 // 三种典型版式都按 EP 官方示例写：上中下 / 上中（侧栏） / 左侧栏
 
+// 演示用色块：用 flex 撑满父容器的高度。
+//
+// 踩过的两个错误方案（都别再用）：
+// 1. `height:100%` —— 父区域（如 .el-main）有 EP scss 给的 padding（20px），
+//    百分比高度按 content box 解析、再与 border-box 组合，实测算出来只有 39px，
+//    看上去像「Main 里大片留白」。
+// 2. `position:absolute;inset:0` —— 脱离文档流。Container 是 flex 容器时，
+//    absolute 子元素不参与 flex 布局，直接铺满整页（整页变成一块色）。
+//
+// 正确做法：父区域改成 flex 容器（本演示给它们加了 display:flex），
+// 色块作为 flex item 用 flex:1 + align-self:stretch 自动填满。
 func layoutBox(label: String, bg: String, fg: String): IComponent {
-    div([text(label)]).style("background:${bg};color:${fg};border-radius:6px;padding:10px 0;text-align:center;font-size:13px;font-weight:600")
+    div([text(label)]).style("flex:1;align-self:stretch;min-width:0;min-height:0;background:${bg};color:${fg};border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;padding:4px 8px;box-sizing:border-box")
 }
 
 public func demoContainer(st: ShowcaseState): Array<IComponent> {
@@ -364,27 +375,27 @@ public func demoContainer(st: ShowcaseState): Array<IComponent> {
         demoSection("上中下（Header + Main + Footer，自动纵向）", [
             // EP 示例：Container 里同时有 Header/Footer 时自动 is-vertical
             Container([
-                Header([layoutBox("Header", headerBg, "#409eff")]).height(hf),
-                Main([layoutBox("Main", mainBg, "#67c23a")]).style("height:120px"),
-                Footer([layoutBox("Footer", footerBg, "#409eff")]).height(hf),
+                Header([layoutBox("Header", headerBg, "#409eff")]).height(hf).style("display:flex"),
+                Main([layoutBox("Main", mainBg, "#67c23a")]).style("min-height:120px;display:flex"),
+                Footer([layoutBox("Footer", footerBg, "#409eff")]).height(hf).style("display:flex"),
             ]).style("border:1px solid #dcdfe6;border-radius:6px;overflow:hidden"),
         ]),
         demoSection("上中（Header + Main + Footer 内嵌侧栏）", [
             Container([
-                Header([layoutBox("Header", headerBg, "#409eff")]).height(hf),
+                Header([layoutBox("Header", headerBg, "#409eff")]).height(hf).style("display:flex"),
                 Container([
-                    Aside([layoutBox("Aside", asideBg, "#409eff")]).width("120px"),
-                    Main([layoutBox("Main", mainBg, "#67c23a")]).style("height:120px"),
+                    Aside([layoutBox("Aside", asideBg, "#409eff")]).width("120px").style("display:flex"),
+                    Main([layoutBox("Main", mainBg, "#67c23a")]).style("min-height:120px;display:flex"),
                 ]),
-                Footer([layoutBox("Footer", footerBg, "#409eff")]).height(hf),
+                Footer([layoutBox("Footer", footerBg, "#409eff")]).height(hf).style("display:flex"),
             ]).style("border:1px solid #dcdfe6;border-radius:6px;overflow:hidden"),
         ]),
         demoSection("左侧栏（显式 direction: Horizontal）", [
             Container([
-                Aside([layoutBox("Aside", asideBg, "#409eff")]).width("120px"),
+                Aside([layoutBox("Aside", asideBg, "#409eff")]).width("120px").style("display:flex"),
                 Container([
-                    Header([layoutBox("Header", headerBg, "#409eff")]).height(hf),
-                    Main([layoutBox("Main", mainBg, "#67c23a")]).style("height:120px"),
+                    Header([layoutBox("Header", headerBg, "#409eff")]).height(hf).style("display:flex"),
+                    Main([layoutBox("Main", mainBg, "#67c23a")]).style("min-height:120px;display:flex"),
                 ]),
             ]).style("border:1px solid #dcdfe6;border-radius:6px;overflow:hidden"),
         ]),
