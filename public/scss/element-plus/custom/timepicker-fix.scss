@@ -41,3 +41,39 @@
 .#{$namespace}-time-spinner > .#{$namespace}-scrollbar > .#{$namespace}-scrollbar__wrap {
   width: 100%;
 }
+
+// 5. .el-input__wrapper 必须撑满 .el-input，不依赖父元素的 flex 上下文
+//
+//    背景（2026-10-23 实测）：品牌 Chrome 与 Headless Chromium 对
+//    「inline-flex 子元素在 block 父元素中」的宽度计算有差异 ——
+//    品牌 Chrome 下 wrapper 只有内容宽（199px，差 21px ≈ padding 11px×2），
+//    editor 仍是 220px，而 × 按 absolute right:8px 贴在 editor 上 →
+//    × 落在边框外（用户截图现象）。
+//
+//    显式给 wrapper `width:100%` 后，无论父元素是 flex 还是 block，
+//    wrapper 都等于 editor 宽度，× 就永远在框内。
+.#{$namespace}-input > .#{$namespace}-input__wrapper {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+// 6. 兜底：.el-input 本身显式 flex（消除「父元素不是 flex 容器」的版本差异）
+//
+//    Chrome 153（用户实测）下，.el-input 的 computed display 是 block，
+//    wrapper 的 flex-grow:1 失效 → wrapper 只有内容宽 199px，
+//    而 × 按 absolute right:8px 贴 editor（220px）→ × 落在边框外。
+//    Chrome 156（本机实测）下同样 computed 是 block，但 wrapper 仍撑满 ——
+//    说明不同版本对「block 父元素里的 inline-flex 子元素」处理不同。
+//
+//    修复：把 .el-date-editor.el-input 明确设为 inline-flex（而非依赖内联
+//    display:inline-block），wrapper 作为 flex item 必然撑满。
+.#{$namespace}-date-editor.#{$namespace}-input {
+  display: inline-flex;
+  width: 220px;
+
+  > .#{$namespace}-input__wrapper {
+    width: 100%;
+    flex: 1 1 auto;
+    box-sizing: border-box;
+  }
+}

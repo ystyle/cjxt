@@ -349,7 +349,14 @@ public class DatePicker <: Component {
         }
         if (isOpen) { children.add(this.buildPanel(currentValue)) }
         let cls = pickerEditorClass(isOpen, this._disabled, this._clearable, currentValue != "")
-        VNode("div", children.toArray(), attrs: Some(HashMap<String, String>([("class", cls), ("style", "position:relative;display:inline-block")])))
+        // width:100% + 固定 max-width：不依赖 wrapper 的 flex-grow 撑满。
+        // 背景：某些浏览器（实测品牌 Chrome）里 .el-input__wrapper 的 flex-grow 在
+        // block 父元素下不生效，wrapper 只有内容宽（199px），而 × 按 right:8px 贴在
+        // editor（220px）上 → × 落在边框外。显式给 wrapper 宽度可规避该差异。
+        VNode("div", children.toArray(), attrs: Some(HashMap<String, String>([
+            ("class", cls),
+            ("style", "position:relative;display:inline-flex;width:220px;box-sizing:border-box"),
+        ])))
     }
 
     private func value(): String {
