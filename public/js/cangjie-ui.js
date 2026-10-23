@@ -922,6 +922,65 @@ class CangjieUI {
             }
         };
 
+        // 拖动 thumb / 点击轨道（EP bar.vue 的 clickTrackHandler + clickThumbHandler）。
+        // 注意：不拖动时 thumb 只由 sync() 跟随 —— 拖拽期间要**反过来**由指针位置驱动 scrollLeft/Top，
+        // 否则 scroll 事件又会写 transform，两者互相打架会「拖不动」。
+        const bindDrag = (bar, thumb, vertical) => {
+            if (!bar || !thumb) return;
+            let dragging = false;
+            let startPointer = 0;
+            let startScroll = 0;
+
+            const onMove = (e) => {
+                if (!dragging) return;
+                // thumb 移动 1px 对应内容滚动 (contentSize - clientSize) / (barSize - thumbSize) px
+                const offset = vertical ? wrap.clientHeight - GAP : wrap.clientWidth - GAP;
+                const range = vertical ? bar.clientHeight - thumb.getBoundingClientRect().height
+                                       : bar.clientWidth - thumb.getBoundingClientRect().width;
+                if (range <= 0) return;
+                const contentRange = vertical ? (wrap.scrollHeight - wrap.clientHeight)
+                                              : (wrap.scrollWidth - wrap.clientWidth);
+                const delta = (vertical ? e.clientY : e.clientX) - startPointer;
+                const next = startScroll + delta * (contentRange / range);
+                if (vertical) { wrap.scrollTop = next; } else { wrap.scrollLeft = next; }
+                e.preventDefault();
+            };
+            const onUp = () => {
+                dragging = false;
+                document.removeEventListener('pointermove', onMove);
+                document.removeEventListener('pointerup', onUp);
+                document.removeEventListener('pointercancel', onUp);
+            };
+
+            thumb.addEventListener('pointerdown', (e) => {
+                dragging = true;
+                startPointer = vertical ? e.clientY : e.clientX;
+                startScroll = vertical ? wrap.scrollTop : wrap.scrollLeft;
+                // 监听挂 document：手指/指针移出 thumb 也要继续跟
+                document.addEventListener('pointermove', onMove);
+                document.addEventListener('pointerup', onUp);
+                document.addEventListener('pointercancel', onUp);
+                e.preventDefault();
+                e.stopPropagation();
+            });
+
+            // 点击轨道空白处：朝点击位置翻页，与 EP clickTrackHandler 同思路
+            bar.addEventListener('pointerdown', (e) => {
+                if (e.target === thumb) return;
+                const rect = bar.getBoundingClientRect();
+                const contentRange = vertical ? (wrap.scrollHeight - wrap.clientHeight)
+                                              : (wrap.scrollWidth - wrap.clientWidth);
+                const ratio = vertical
+                    ? (e.clientY - rect.top) / rect.height
+                    : (e.clientX - rect.left) / rect.width;
+                if (vertical) { wrap.scrollTop = contentRange * ratio; }
+                else { wrap.scrollLeft = contentRange * ratio; }
+                e.preventDefault();
+            });
+        };
+        bindDrag(barY, thumbY, true);
+        bindDrag(barX, thumbX, false);
+
         // 滚动：只更新 thumb，不碰内容
         wrap.addEventListener('scroll', sync, { passive: true });
         // 尺寸变化（容器/内容）：ResizeObserver 观察 wrap 与 view
