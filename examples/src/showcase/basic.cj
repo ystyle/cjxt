@@ -366,46 +366,60 @@ func layoutBox(label: String, bg: String, fg: String): IComponent {
 }
 
 public func demoContainer(st: ShowcaseState): Array<IComponent> {
-    let headerBg = "#d9ecff"
-    let asideBg = "#d9ecff"
-    let mainBg = "#e1f3d8"
-    let footerBg = "#d9ecff"
+    let blue = "#d9ecff"
+    let blueFg = "#409eff"
+    let green = "#e1f3d8"
+    let greenFg = "#67c23a"
     let hf: String = "40px"
+
+    // 演示约定：所有区域都用 padding:0 + 色块填满，**让布局关系一眼可见**。
+    //
+    // 为什么显式 padding:0：EP 的 .el-main 自带 padding:20px（--el-main-padding），
+    // 而 .el-aside/.el-header/.el-footer 没有。若混用，Main 的色块会比 Aside 内缩 20px，
+    // 看起来像「没对齐」（实测 Aside x=352、Main 内容 x=492，差 20px 全是 padding）。
+    // 演示的目的是展示**布局结构**，不是展示各区域的内边距，故统一清零。
+    // 真实业务里当然应该保留 .el-main 的 padding —— 这里只是演示手法。
+    let header = { =>
+        Header([layoutBox("Header", blue, blueFg)]).height(hf).style("display:flex;padding:0")
+    }
+    let footer = { =>
+        Footer([layoutBox("Footer", blue, blueFg)]).height(hf).style("display:flex;padding:0")
+    }
+    let aside = { w: String =>
+        Aside([layoutBox("Aside", blue, blueFg)]).width(w).style("display:flex;padding:0")
+    }
+    // `main` 是仓颉入口声明保留字，不能作变量名
+    let mainChunk = { =>
+        Main([layoutBox("Main", green, greenFg)]).style("min-height:120px;display:flex;padding:0")
+    }
+    // 示意图外框：留 8px 内边距，色块不贴边框
+    let frame = "border:1px solid #dcdfe6;border-radius:6px;overflow:hidden;padding:8px;box-sizing:border-box"
+
     [
         demoSection("上中下（Header + Main + Footer，自动纵向）", [
-            // EP 示例：Container 里同时有 Header/Footer 时自动 is-vertical
-            Container([
-                Header([layoutBox("Header", headerBg, "#409eff")]).height(hf).style("display:flex"),
-                Main([layoutBox("Main", mainBg, "#67c23a")]).style("min-height:120px;display:flex"),
-                Footer([layoutBox("Footer", footerBg, "#409eff")]).height(hf).style("display:flex"),
-            ]).style("border:1px solid #dcdfe6;border-radius:6px;overflow:hidden"),
+            Container([header(), mainChunk(), footer()]).style(frame),
         ]),
-        demoSection("上中（Header + Main + Footer 内嵌侧栏）", [
+        demoSection("上中（Header + 中间区 + Footer，中间区内嵌侧栏）", [
             Container([
-                Header([layoutBox("Header", headerBg, "#409eff")]).height(hf).style("display:flex"),
-                Container([
-                    Aside([layoutBox("Aside", asideBg, "#409eff")]).width("120px").style("display:flex"),
-                    Main([layoutBox("Main", mainBg, "#67c23a")]).style("min-height:120px;display:flex"),
-                ]),
-                Footer([layoutBox("Footer", footerBg, "#409eff")]).height(hf).style("display:flex"),
-            ]).style("border:1px solid #dcdfe6;border-radius:6px;overflow:hidden"),
+                header(),
+                Container([aside("120px"), mainChunk()]),
+                footer(),
+            ]).style(frame),
         ]),
-        demoSection("左侧栏（显式 direction: Horizontal）", [
+        demoSection("左侧栏（Aside + 右侧区，右侧区内嵌 Header/Main）", [
             Container([
-                Aside([layoutBox("Aside", asideBg, "#409eff")]).width("120px").style("display:flex"),
-                Container([
-                    Header([layoutBox("Header", headerBg, "#409eff")]).height(hf).style("display:flex"),
-                    Main([layoutBox("Main", mainBg, "#67c23a")]).style("min-height:120px;display:flex"),
-                ]),
-            ]).style("border:1px solid #dcdfe6;border-radius:6px;overflow:hidden"),
+                aside("120px"),
+                Container([header(), mainChunk()]),
+            ]).style(frame),
         ]),
         demoSection("显式指定 direction", [
             Container([
-                layoutBox("A（横向排列）", headerBg, "#409eff"),
-                layoutBox("B", mainBg, "#67c23a"),
-                layoutBox("C", headerBg, "#409eff"),
-            ]).direction(ContainerDirection.Horizontal).style("gap:8px"),
-            div([text("↑ direction(Horizontal)：即使没有 Header/Footer 也不堆叠")]).style("margin-top:8px;color:#909399;font-size:12px"),
+                layoutBox("A（横向排列）", blue, blueFg),
+                layoutBox("B", green, greenFg),
+                layoutBox("C", blue, blueFg),
+            ]).direction(ContainerDirection.Horizontal).style("${frame};gap:8px"),
+            div([text("↑ direction(Horizontal)：即使没有 Header/Footer 也不堆叠")])
+                .style("margin-top:8px;color:#909399;font-size:12px"),
         ]),
     ]
 }
