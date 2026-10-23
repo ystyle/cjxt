@@ -192,8 +192,17 @@ class CangjieUI {
         return params;
     }
     attachHistoryHandler() {
+        // 记录上次已渲染的 pathname，用于区分「真的换页」与「只是锚点跳转」。
+        let lastPath = window.location.pathname;
         window.addEventListener('popstate', () => {
             const path = window.location.pathname;
+            // Anchor 链接的锚点跳转在某些浏览器里也会触发 popstate。
+            // 若不加判断就发 navigate，服务端会回整页、loadNewPage 再用 pushHistory(msg.path)
+            // 写回不含 hash 的地址 —— 用户看到的是“地址栏的井号自动消失”，
+            // 且页面被整页替换（滚动位置、锚点定位全丢）。
+            // 故：pathname 未变（纯 hash 变化）时直接忽略。
+            if (path === lastPath) return;
+            lastPath = path;
             this.send({ type: 'navigate', path, sessionId: this.sessionId });
         });
     }
@@ -306,6 +315,9 @@ class CangjieUI {
     // 此前未捕获，异常冒泡出 receive → 中断同批次后续帧，表现为
     // "点击导航没反应"（其实已渲染，只是异常把调用链打断了）。
     pushHistory(path) {
+        // 同一个 pathname 不重复写：否则会把当前 URL 的 hash 一并抹掉
+        // （loadNewPage 里 msg.path 恒为不含 hash 的路径）。
+        if (path === window.location.pathname) return;
         try {
             history.pushState(null, '', path);
         } catch (e) {
