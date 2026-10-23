@@ -11,6 +11,22 @@ import std.unittest.testmacro.*
 // native=false 时 wrap 追加 __wrap--hidden-default（隐藏原生滚动条）。
 @Test
 public class ScrollbarTest {
+    // 子串出现次数（String.indexOf 返回 Option<Int64>，需循环从命中位置之后继续）
+    func countOccurrences(hay: String, needle: String): Int64 {
+        var n = 0
+        var from: Int64 = 0
+        var searching = true
+        while (searching) {
+            match (hay.indexOf(needle, from)) {
+                case Some(i) =>
+                    n = n + 1
+                    from = i + needle.size
+                case None => searching = false
+            }
+        }
+        n
+    }
+
     func json(node: IComponent): String {
         let expanded = RenderContext.expandTree(node, "")
         let handlerMap = HashMap<String, ActionHandler>()
@@ -111,5 +127,34 @@ public class ScrollbarTest {
         let out = this.json(Scrollbar([text("x")]).native(false).viewClass("el-time-spinner__content"))
         @Expect(out.contains("el-time-spinner__content"), true)
         @Expect(out.contains("el-scrollbar__view"), true)
+    }
+
+    // ── maxHeight 模式（2026-10-23 修）──────────────────────────────
+    // 原始缺陷：max-height 只写在根元素上，而 wrap 是 height:100% ——
+    // 百分比高度需要父元素有**确定高度**，只有 max-height 时无法解析，
+    // wrap 会撑到内容高度 → 既不出现滚动条、bar 也不显示（演示里表现为「空壳、无法操作」）。
+    // 修法：maxHeight 模式下把同一约束也加到 wrap 的 style 上。
+
+    @TestCase
+    public func testMaxHeightAlsoConstrainsWrap(): Unit {
+        let out = this.json(Scrollbar([text("x")]).native(false).maxHeight("120px"))
+        // 根元素与 wrap 都应带上 max-height
+        let occurrences = countOccurrences(out, "max-height:120px")
+        @Expect(occurrences >= 2, true)
+    }
+
+    @TestCase
+    public func testHeightModeDoesNotDuplicateOnWrap(): Unit {
+        // height 模式：根元素有确定高度，wrap 的 height:100% 已生效，不必重复加
+        let out = this.json(Scrollbar([text("x")]).native(false).height("180px"))
+        @Expect(countOccurrences(out, "max-height"), 0)
+        @Expect(out.contains("height:180px"), true)
+    }
+
+    @TestCase
+    public func testMaxHeightIgnoredWhenHeightSet(): Unit {
+        // 同时给 height 与 maxHeight 时，以 height 为主（不往 wrap 重复加 max-height）
+        let out = this.json(Scrollbar([text("x")]).native(false).height("180px").maxHeight("120px"))
+        @Expect(countOccurrences(out, "max-height:120px"), 1)
     }
 }

@@ -55,6 +55,20 @@ public class Scrollbar <: Component {
 
         let view = VNode("div", this._children, attrs: Some(HashMap<String, String>([("class", viewCls)])))
         let wrapAttrsMap = HashMap<String, String>([("class", wrapCls)])
+        // 只在 maxHeight 模式下补：根元素带 max-height 而没有确定 height 时，
+        // wrap 的 `height:100%` 无法解析（百分比高度需要父元素有确定高度），
+        // wrap 会直接撑到内容高度 → 既不出现滚动条、bar 也不会显示。
+        // 显式把同一约束加到 wrap 上，滚动容器才真正受限。
+        // height 模式不需要（根元素有确定高度，height:100% 已生效）。
+        if (this._maxHeight != "" && this._height == "") {
+            wrapAttrsMap["style"] = "max-height:${this._maxHeight}"
+        }
+        // 只在 maxHeight 模式下补：根元素带 max-height 而没有确定 height 时，
+        // wrap 的 `height:100%` 无法解析（百分比高度需要父元素有确定高度），
+        // wrap 会直接撑到内容高度 → 既不出现滚动条、bar 也不会显示。
+        // 显式把同一约束加到 wrap 上，滚动容器才真正受限。
+        // height 模式不需要（根元素有确定高度，height:100% 已生效）。
+
         for ((k, v) in this._wrapAttrs) { wrapAttrsMap[k] = v }
         let wrap = div([view], attrs: Some(wrapAttrsMap))
 

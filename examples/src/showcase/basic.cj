@@ -439,11 +439,21 @@ public func demoScrollbar(st: ShowcaseState): Array<IComponent> {
             div([text("↑ 原生滚动条是系统样式（较粗）、且会占去布局宽度。需要视觉统一或窄容器时用 native(false)")])
                 .style("margin-top:8px;color:#909399;font-size:12px"),
         ]),
-        demoSection("max-height 自适应", [
-            Scrollbar([
-                div([text("内容少时不出现滚动条，超出 max-height 才滚动")])
-                    .style("padding:12px;font-size:13px;color:#909399"),
-            ]).native(false).maxHeight("120px").style("border:1px solid #dcdfe6;border-radius:6px"),
+        demoSection("max-height 自适应（内容少 vs 内容多）", [
+            div([
+                div([
+                    div([text("内容少 → 高度自适应、无滚动条")]).style("font-size:12px;color:#909399;margin-bottom:6px"),
+                    Scrollbar([
+                        div([text("两行内容")]).style("padding:10px 14px;font-size:13px;color:#606266;border-bottom:1px solid #f0f0f0"),
+                        div([text("不足以溢出")]).style("padding:10px 14px;font-size:13px;color:#606266"),
+                    ]).native(false).maxHeight("120px").style("border:1px solid #dcdfe6;border-radius:6px"),
+                ]).style("flex:1;min-width:0"),
+                div([
+                    div([text("内容多 → 撑到 max-height 后出现细条")]).style("font-size:12px;color:#909399;margin-bottom:6px"),
+                    Scrollbar(items.toArray()).native(false).maxHeight("120px")
+                        .style("border:1px solid #dcdfe6;border-radius:6px"),
+                ]).style("flex:1;min-width:0"),
+            ]).style("display:flex;gap:16px;align-items:flex-start"),
         ]),
     ]
 }
