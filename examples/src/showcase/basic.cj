@@ -429,7 +429,7 @@ public func demoScrollbar(st: ShowcaseState): Array<IComponent> {
         demoSection("隐藏原生滚动条（native: false）", [
             Scrollbar(items.toArray()).native(false).height("140px")
                 .style("border:1px solid #dcdfe6;border-radius:6px"),
-            div([text("↑ native(false) 加 __wrap--hidden-default，滚动能力保留但看不见系统滚动条")])
+            div([text("↑ native(false)：隐藏原生滚动条，改为 EP 的自定义细条（6px，覆盖式不占布局宽度）")])
                 .style("margin-top:8px;color:#909399;font-size:12px"),
         ]),
     ]

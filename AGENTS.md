@@ -192,6 +192,44 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 
 ## 代码总结
 
+### 2026-10-23 Scrollbar 加自定义细滚动条（方案 B）+ 时间列接入
+
+**背景**：上一轮修 TimePicker 时，为让横线贯通用了「零宽原生滚动条」（隐藏原生条、不占位）。
+这解决了对齐，但**滚动条完全看不见**。方案 B 是补上 EP 那种「可见、6px、覆盖式不占位」的自定义细条。
+
+**实现**（服务端只出骨架，几何全在前端）：
+- `Scrollbar.native(false)` 时渲染 EP 的 `__bar.is-vertical/is-horizontal > __thumb` 骨架，
+  thumb 初始 `display:none`、**不预置尺寸**（服务端算不出 `scrollHeight/clientHeight`，
+  猜一个值会先渲染出假尺寸再跳变）。
+- 前端新增 `attachScrollbar(el)`（照 `attachSlider` 的挂载模式，三处挂载点都要加）：
+  按 EP `bar.vue` 的公式算 `original = offset²/scroll`、`size = max(original, minSize=20)`，
+  `move = range * scrollTop/(scrollHeight-clientHeight)`，写入内联 style。
+  GAP=4（EP util.ts 的 `top 2 + bottom 2`）。
+  **这个是纯客户端状态，不发任何消息**——与 Slider/Splitter 不同，滚动位置服务端不需要知道。
+- 加 `wrapAttr(k, v)` 透传属性，供 TimePicker 挂 `data-scroll-active`。
+
+**TimePicker 接入**（结构改造）：
+```
+之前： .el-time-spinner > .el-time-spinner__wrapper(overflow:auto) > ul
+现在： .el-time-spinner > .el-scrollbar > __wrap.el-time-spinner__wrapper > __view > ul
+```
+- 类名映射：wrap 拿 `el-time-spinner__wrapper`（scss 的 max-height/overflow 挂它）、
+  view 拿 `el-time-spinner__content`、`data-scroll-active` 留在 wrap 上。
+- **坑**：EP 的 `.__wrapper { width: 33.3% }` 现在落在**内层 wrap** 上，
+  而外层 `.el-scrollbar` 是 `display:block`、撑满 180px → 三列全占满、叠加在一起。
+  必须把「每列占 1/3」提到外层 `.el-scrollbar` 上、内层 wrap 改 `width:100%`
+  （限定在 `.__time-spinner` 内部，不影响别处的 Scrollbar）。
+
+**验证**：浏览器实测三列各 60px（gap=0）、原生条隐藏、自定义 thumb 可见
+（38.08px / 20px / 20px）；滚动 200px 后 thumb `translateY(56.49px)`，
+与公式验算 `96.6 × 200/(480-138) = 56.5` 吻合；横线三列连续贯通。
+测试：主包 342/342、tests 314/314（+5 例 Scrollbar）。
+
+**顺带**：上一轮为「零宽方案」写的 `testTimeSpinnerWrapperHidesNativeScrollbar` 失效了
+（改用 Scrollbar 后不再有那条规则），已重写为 `testTimeColumnUsesScrollbarComponent`，
+断言新的三层结构契约。**教训**：锁实现细节的用例，在实现换方案时要同步换断言，
+否则它测的是一个已经不存在的东西。
+
 ### 2026-10-23 TimePicker 两处样式缺陷（面板背景 / 滚动条挤断横线）
 
 用户截图反馈两点：选中区域的横线只有一半、滚动条太粗。查下来是**两个独立的 CSS 缺陷**，

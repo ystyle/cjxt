@@ -144,7 +144,7 @@
 | 组件 | 状态 | 说明 |
 |------|------|------|
 | `Container`（含 `Header`/`Aside`/`Main`/`Footer`） | ✅ 已完成（2026-10-23） | 页面级布局族，见 `src/components/Container.cj`。语义标签 `section/header/aside/main/footer`；方向自动判定（有 Header/Footer 即纵向，显式 `direction` 优先）；尺寸走 `--el-header-height`/`--el-footer-height`/`--el-aside-width`，默认值由 scss 提供（60px/60px/300px）。 |
-| `Scrollbar` | ✅ 已完成（2026-10-23） | 见 `src/components/Scrollbar.cj`。DOM 对齐 EP（`el-scrollbar > __wrap > __view`）；EP 的 JS thumb 方案在服务端模型下改为 `native` 开关：默认用浏览器原生滚动条，`native(false)` 时加 `__wrap--hidden-default` 隐藏原生滚动条（滚动能力保留）。 |
+| `Scrollbar` | ✅ 已完成（2026-10-23，含自定义细滚动条） | 见 `src/components/Scrollbar.cj`。DOM 对齐 EP（`el-scrollbar > __wrap > __view`）+ 两条 `__bar > __thumb`。`native(true)`（默认）用浏览器原生滚动条；`native(false)` 隐藏原生条并渲染 EP 的 6px 自定义细条——thumb 的尺寸/位移由前端 `attachScrollbar` 按 EP bar.vue 公式计算（服务端只出结构骨架，因为 `scrollHeight/clientHeight` 只有浏览器知道）。**bar 是 absolute 覆盖式、不占布局宽度**，这是它能用于 `el-time-spinner` 这类窄列的关键。 |
 
 **第 2 批 — 高频展示件（4 项）**
 

@@ -364,6 +364,7 @@ class CangjieUI {
         if (el.hasAttribute('data-vscroll')) this.attachVScroll(el);
         if (el.hasAttribute('data-slider')) this.attachSlider(el);
         if (el.hasAttribute('data-splitter-drag')) this.attachSplitter(el);
+        if (el.hasAttribute('data-scrollbar')) this.attachScrollbar(el);
         if (el.hasAttribute('data-select')) this.attachSelect(el);
         if (el.hasAttribute('data-rate')) this.attachRate(el);
         // 自动消失（Message/Notification 等）：data-auto-dismiss="ms" → 到时触发点击（关闭 action）
@@ -402,6 +403,7 @@ class CangjieUI {
         if (el.hasAttribute('data-vscroll')) this.attachVScroll(el);
         if (el.hasAttribute('data-slider')) this.attachSlider(el);
         if (el.hasAttribute('data-splitter-drag')) this.attachSplitter(el);
+        if (el.hasAttribute('data-scrollbar')) this.attachScrollbar(el);
         if (el.hasAttribute('data-select')) this.attachSelect(el);
         if (el.hasAttribute('data-rate')) this.attachRate(el);
         if (el.hasAttribute('data-auto-dismiss')) this.attachAutoDismiss(el);
@@ -504,6 +506,7 @@ class CangjieUI {
         if (el.hasAttribute('data-vscroll') && !el.__cjxtVScroll) { this.attachVScroll(el); el.__cjxtVScroll = true; }
         if (el.hasAttribute('data-slider') && !el.__cjxtSlider) { this.attachSlider(el); el.__cjxtSlider = true; }
         if (el.hasAttribute('data-splitter-drag') && !el.__cjxtSplitter) { this.attachSplitter(el); el.__cjxtSplitter = true; }
+        if (el.hasAttribute('data-scrollbar') && !el.__cjxtScrollbar) { this.attachScrollbar(el); el.__cjxtScrollbar = true; }
         if (el.hasAttribute('data-select') && !el.__cjxtSelect) { this.attachSelect(el); el.__cjxtSelect = true; }
         if (el.hasAttribute('data-rate') && !el.__cjxtRate) { this.attachRate(el); el.__cjxtRate = true; }
         if (el.hasAttribute('data-auto-dismiss') && !el.__cjxtAutoDismiss) { this.attachAutoDismiss(el); el.__cjxtAutoDismiss = true; }
@@ -862,6 +865,76 @@ class CangjieUI {
             emit(clampPx(px, m.container));
             e.preventDefault();
         });
+    }
+
+    // 自定义滚动条（EP scrollbar）：thumb 尺寸/位移按 EP bar.vue 的公式算。
+    // 服务端只出结构骨架（尺寸留空、display:none），几何完全由这里写入内联 style ——
+    // 因为 scrollHeight/clientHeight 只有浏览器知道。
+    // 与 Slider/Splitter 不同，这里**不发送任何消息**：滚动纯客户端状态，服务端不需要知道。
+    attachScrollbar(el) {
+        const wrap = el.querySelector(':scope > .el-scrollbar__wrap');
+        if (!wrap) return;
+        const barY = el.querySelector(':scope > .el-scrollbar__bar.is-vertical');
+        const barX = el.querySelector(':scope > .el-scrollbar__bar.is-horizontal');
+        const thumbY = barY ? barY.querySelector('.el-scrollbar__thumb') : null;
+        const thumbX = barX ? barX.querySelector('.el-scrollbar__thumb') : null;
+        const GAP = 4;              // EP util.ts：top 2 + bottom 2 of bar instance
+        const MIN_SIZE = 20;        // EP scrollbarProps.minSize 默认值
+        if (!thumbY && !thumbX) return;
+
+        // EP update()：original = offset² / scroll，size = max(original, minSize)
+        const thumbSize = (offset, scroll) => {
+            if (scroll <= offset) return 0;   // 不需要滚动
+            const original = (offset * offset) / scroll;
+            return Math.max(original, MIN_SIZE);
+        };
+
+        const sync = () => {
+            const offY = wrap.clientHeight - GAP;
+            const offX = wrap.clientWidth - GAP;
+
+            if (thumbY && barY) {
+                const sizeY = thumbSize(offY, wrap.scrollHeight);
+                if (sizeY <= 0 || sizeY + GAP >= offY) {
+                    barY.style.display = 'none';
+                } else {
+                    barY.style.display = '';
+                    thumbY.style.display = '';
+                    thumbY.style.height = sizeY + 'px';
+                    // 可移动范围 = bar 高度 - thumb 高度；按 scrollTop 比例平移
+                    const range = barY.clientHeight - sizeY;
+                    const ratio = wrap.scrollTop / Math.max(1, wrap.scrollHeight - wrap.clientHeight);
+                    thumbY.style.transform = 'translateY(' + (range * ratio) + 'px)';
+                }
+            }
+            if (thumbX && barX) {
+                const sizeX = thumbSize(offX, wrap.scrollWidth);
+                if (sizeX <= 0 || sizeX + GAP >= offX) {
+                    barX.style.display = 'none';
+                } else {
+                    barX.style.display = '';
+                    thumbX.style.display = '';
+                    thumbX.style.width = sizeX + 'px';
+                    const range = barX.clientWidth - sizeX;
+                    const ratio = wrap.scrollLeft / Math.max(1, wrap.scrollWidth - wrap.clientWidth);
+                    thumbX.style.transform = 'translateX(' + (range * ratio) + 'px)';
+                }
+            }
+        };
+
+        // 滚动：只更新 thumb，不碰内容
+        wrap.addEventListener('scroll', sync, { passive: true });
+        // 尺寸变化（容器/内容）：ResizeObserver 观察 wrap 与 view
+        const view = wrap.querySelector(':scope > .el-scrollbar__view') || wrap;
+        if (typeof ResizeObserver !== 'undefined') {
+            const ro = new ResizeObserver(() => sync());
+            ro.observe(wrap);
+            ro.observe(view);
+            el.__cjxtScrollbarRO = ro;
+        }
+        // 首帧：DOM 可能还没布局完成，下一帧再算一次
+        sync();
+        if (typeof requestAnimationFrame !== 'undefined') requestAnimationFrame(sync);
     }
 
     getComponent(name) {

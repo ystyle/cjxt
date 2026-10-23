@@ -154,11 +154,20 @@ public class TimePicker <: Component {
             items.add(li)
         }
         let list = VNode("ul", items.toArray(), attrs: Some(HashMap<String, String>([("class", "el-time-spinner__list")])))
-        // data-scroll-active：patch 后自动滚到 .is-active（打开/点选时选中项居中）
-        VNode("div", [list], attrs: Some(HashMap<String, String>([
-            ("class", "el-time-spinner__wrapper"),
-            ("data-scroll-active", "true"),
-        ])))
+        // 用 Scrollbar 包裹（native(false)：隐藏原生条、改渲染 EP 的 6px 自定义细条）。
+        // 为什么必须这么做：原生滚动条会占去 ~10px 布局宽度，使列内容只有 50px，
+        // 而 .el-time-panel__content 的 ::before/::after 画选中横线时按 180px 全宽算 margin，
+        // 两者基准错位 → 横线每列断一截。Scrollbar 的 bar 是 absolute 覆盖式、不占位，
+        // 列宽回到 60px，横线才能贯通。
+        //
+        // 类名映射：Scrollbar 的 wrap 拿 `el-time-spinner__wrapper`（scss 的 max-height:192 /
+        // overflow:auto / width:33.3% 都挂它），view 拿 `el-time-spinner__content`，
+        // data-scroll-active 也留在 wrap 上（滚动容器是 wrap，滚到 .is-active 的机制依赖它）。
+        Scrollbar([list])
+            .native(false)
+            .wrapClass("el-time-spinner__wrapper")
+            .viewClass("el-time-spinner__content")
+            .wrapAttr("data-scroll-active", "true")
     }
 }
 

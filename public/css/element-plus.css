@@ -7328,12 +7328,14 @@
   background-color: var(--el-bg-color-overlay);
 }
 
-.el-time-spinner__wrapper {
-  scrollbar-width: none;
+.el-time-spinner.has-seconds > .el-scrollbar {
+  width: 33.3%;
+  display: inline-block;
+  vertical-align: top;
 }
-.el-time-spinner__wrapper::-webkit-scrollbar {
-  width: 0;
-  height: 0;
+
+.el-time-spinner > .el-scrollbar > .el-scrollbar__wrap {
+  width: 100%;
 }
 
 .el-popover {

@@ -63,4 +63,53 @@ public class ScrollbarTest {
         let out = this.json(Scrollbar([text("x")]))
         @Expect(out.contains("\"style\":\"\""), false)
     }
+
+    // ── 自定义 bar/thumb（2026-10-23 新增，方案 B）────────────────────
+    // 服务端只出结构骨架（尺寸留空、display:none），真实几何由前端 attachScrollbar 计算
+    // （scrollHeight/clientHeight 只有浏览器知道）。
+
+    @TestCase
+    public func testNativeModeRendersNoCustomBar(): Unit {
+        // native=true：用浏览器原生滚动条，不出自定义 bar（EP 语义）
+        let out = this.json(Scrollbar([text("x")]))
+        @Expect(out.contains("el-scrollbar__bar"), false)
+        @Expect(out.contains("data-scrollbar"), false)
+    }
+
+    @TestCase
+    public func testNonNativeRendersBothBars(): Unit {
+        // native=false：竖向 + 横向两条 bar 骨架
+        let out = this.json(Scrollbar([text("x")]).native(false))
+        @Expect(out.contains("el-scrollbar__bar is-vertical"), true)
+        @Expect(out.contains("el-scrollbar__bar is-horizontal"), true)
+        @Expect(out.contains("el-scrollbar__thumb"), true)
+        @Expect(out.contains("data-scrollbar"), true)
+    }
+
+    @TestCase
+    public func testThumbHasNoServerSideGeometry(): Unit {
+        // 服务端不预置 thumb 尺寸（避免按猜测值渲染出假尺寸闪烁），初始 display:none
+        let out = this.json(Scrollbar([text("x")]).native(false))
+        @Expect(out.contains("display:none"), true)
+        // 不应出现服务端算的 width/height 数值
+        @Expect(out.contains("translateY"), false)
+        @Expect(out.contains("translateX"), false)
+    }
+
+    @TestCase
+    public func testWrapAttrPassthrough(): Unit {
+        // wrapAttr 把属性透传到 wrap（TimePicker 用 data-scroll-active 让 patch 后滚到选中项）
+        let out = this.json(Scrollbar([text("x")]).native(false)
+            .wrapClass("el-time-spinner__wrapper")
+            .wrapAttr("data-scroll-active", "true"))
+        @Expect(out.contains("el-time-spinner__wrapper"), true)
+        @Expect(out.contains("data-scroll-active"), true)
+    }
+
+    @TestCase
+    public func testViewClassStillApplied(): Unit {
+        let out = this.json(Scrollbar([text("x")]).native(false).viewClass("el-time-spinner__content"))
+        @Expect(out.contains("el-time-spinner__content"), true)
+        @Expect(out.contains("el-scrollbar__view"), true)
+    }
 }

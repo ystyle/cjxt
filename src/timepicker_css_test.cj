@@ -62,13 +62,24 @@ public class TimePickerCssTest {
     }
 
     @TestCase
-    public func testTimeSpinnerWrapperHidesNativeScrollbar(): Unit {
-        // ② 零宽滚动条：不再占布局宽度，列宽才能等于 面板宽/3
-        let body = this.ruleBodies(".el-time-spinner__wrapper")
-        @Expect(body.contains("scrollbar-width: none"), true)
-        // WebKit 分支：宽度 0
-        let webkit = this.ruleBodies(".el-time-spinner__wrapper::-webkit-scrollbar")
-        @Expect(webkit.contains("width: 0"), true)
+    public func testTimeColumnUsesScrollbarComponent(): Unit {
+        // ② 时间列改由 Scrollbar 组件承载（native(false) → 隐藏原生条 + 自定义 6px 细条）。
+        //    原始缺陷：原生 overflow:auto 的滚动条占去 10px，使列内容只有 50px，
+        //    与 ::before/::after 按 180px 全宽算的 margin 基准错位 → 横线每列断一截。
+        //    改为 Scrollbar 后：bar 是 absolute 覆盖式、不占布局宽度，列宽回到 60px。
+        //
+        //    契约：外层 .el-scrollbar 承担 1/3 列宽，内层 wrap 填满外层；
+        //    且 wrap 拿 hidden-default 类（隐藏原生条）。
+        let col = this.ruleBodies(".el-time-spinner.has-seconds > .el-scrollbar")
+        @Expect(col.contains("width: 33.3%"), true)
+        @Expect(col.contains("display: inline-block"), true)
+
+        let wrap = this.ruleBodies(".el-time-spinner > .el-scrollbar > .el-scrollbar__wrap")
+        @Expect(wrap.contains("width: 100%"), true)
+
+        // 原生滚动条隐藏：来自 EP 的 .el-scrollbar__wrap--hidden-default
+        let hiddenDefault = this.ruleBodies(".el-scrollbar__wrap--hidden-default")
+        @Expect(hiddenDefault.contains("scrollbar-width: none"), true)
     }
 
     @TestCase
