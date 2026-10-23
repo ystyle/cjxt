@@ -535,7 +535,7 @@ public func demoTransfer(st: ShowcaseState): Array<IComponent> {
                 TransferOption("1", "选项一"),
                 TransferOption("2", "选项二"),
                 TransferOption("3", "选项三"),
-            ])).titles("待选", "已选").buttonTexts("←", "→").bind(st.transferValues2),
+            ])).titles("待选", "已选").buttonTexts("移入", "移出").bind(st.transferValues2),
         ]),
         demoSection("含禁用项", [
             Transfer(ArrayList<TransferOption>([

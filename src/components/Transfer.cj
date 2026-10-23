@@ -182,7 +182,9 @@ public class Transfer <: Component {
         if (!isLeft && textLabel != "") { parts.add(text(textLabel)) }
         parts.add(Icon(iconName))
         if (isLeft && textLabel != "") { parts.add(text(textLabel)) }
-        if (!(textLabel != "")) { cls = "${cls} is-with-texts" }
+        // EP 语义：**有按钮文案**时才加 is-with-texts（该修饰类给按钮加宽、留出文字空间）。
+        // 原实现写反了（无文案时加），导致纯图标按钮被撑成带文字的宽度。
+        if (textLabel != "") { cls = "${cls} is-with-texts" }
 
         let attrs = HashMap<String, String>([("class", cls), ("type", "button")])
         if (!enabled || this._disabled) { attrs["disabled"] = "disabled" }

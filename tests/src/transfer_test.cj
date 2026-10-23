@@ -13,6 +13,19 @@ import std.unittest.testmacro.*
 // 简化点：EP 是「两侧勾选 → 点箭头」两步；这里勾选即移动（详见 Transfer.cj 文件头）。
 @Test
 public class TransferTest {
+    func countOccurrences(hay: String, needle: String): Int64 {
+        var n = 0
+        var from: Int64 = 0
+        var searching = true
+        while (searching) {
+            match (hay.indexOf(needle, from)) {
+                case Some(i) => n = n + 1; from = i + needle.size
+                case None => searching = false
+            }
+        }
+        n
+    }
+
     func json(node: IComponent): String {
         let expanded = RenderContext.expandTree(node, "")
         let handlerMap = HashMap<String, ActionHandler>()
@@ -156,5 +169,33 @@ public class TransferTest {
         let out = this.json(Transfer(this.options()).bind(sel))
         @Expect(out.contains("0 / 3"), true)
         @Expect(out.contains("3 / 3"), true)
+    }
+
+    // ── is-with-texts 语义（2026-10-23 修）──────────────────────────
+    // EP：hasButtonTexts = buttonTexts.length === 2 → 有文案时加 is-with-texts。
+    // 原实现写反（无文案时加），导致纯图标按钮被撑成带文字的宽度。
+
+    @TestCase
+    public func testWithTextsClassOnlyWhenButtonTextsProvided(): Unit {
+        let opts = ArrayList<TransferOption>([
+            TransferOption("1", "选项一"),
+            TransferOption("2", "选项二"),
+        ])
+        // 有文案 → 两个按钮都带 is-with-texts
+        let withTexts = this.json(Transfer(opts).buttonTexts("移入", "移出"))
+        @Expect(countOccurrences(withTexts, "is-with-texts"), 2)
+
+        // 无文案 → 不带
+        let noTexts = this.json(Transfer(opts))
+        @Expect(countOccurrences(noTexts, "is-with-texts"), 0)
+    }
+
+    @TestCase
+    public func testButtonIconsAreCorrectDirection(): Unit {
+        // 左按钮 = arrow-left，右按钮 = arrow-right（EP 结构：icon 在左/右各一侧）
+        let opts = ArrayList<TransferOption>([TransferOption("1", "选项一")])
+        let out = this.json(Transfer(opts))
+        @Expect(out.contains("M609.088"), true)   // arrow-left path
+        @Expect(out.contains("M340.864"), true)   // arrow-right path
     }
 }
