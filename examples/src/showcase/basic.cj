@@ -415,22 +415,35 @@ public func demoScrollbar(st: ShowcaseState): Array<IComponent> {
     for (i in 1..=12) {
         items.add(div([text("列表项 ${i}")]).style("padding:10px 14px;border-bottom:1px solid #f0f0f0;font-size:13px;color:#606266"))
     }
+    // 横向滚动：内容比容器宽，验证 is-horizontal bar
+    let wide = ArrayList<IComponent>()
+    for (i in 1..=8) {
+        wide.add(div([text("列 ${i}")]).style("display:inline-block;width:120px;padding:14px 0;text-align:center;border-right:1px solid #f0f0f0;font-size:13px;color:#606266"))
+    }
     [
-        demoSection("固定高度 + 原生滚动条（默认 native）", [
-            Scrollbar(items.toArray()).height("180px")
+        demoSection("自定义细滚动条（native: false）—— 推荐", [
+            Scrollbar(items.toArray()).native(false).height("180px")
                 .style("border:1px solid #dcdfe6;border-radius:6px"),
+            div([text("6px 细条，绝对定位覆盖在内容上、不占布局宽度；滚动时 thumb 跟随，hover 加深")])
+                .style("margin-top:8px;color:#909399;font-size:12px"),
+        ]),
+        demoSection("横向滚动（is-horizontal bar）", [
+            div([Scrollbar(wide.toArray()).native(false).height("70px").style("white-space:nowrap")])
+                .style("border:1px solid #dcdfe6;border-radius:6px;overflow:hidden"),
+            div([text("内容超出容器宽度时出现横向细条")])
+                .style("margin-top:8px;color:#909399;font-size:12px"),
+        ]),
+        demoSection("对比：浏览器原生滚动条（native: true，默认）", [
+            Scrollbar(items.toArray()).height("140px")
+                .style("border:1px solid #dcdfe6;border-radius:6px"),
+            div([text("↑ 原生滚动条是系统样式（较粗）、且会占去布局宽度。需要视觉统一或窄容器时用 native(false)")])
+                .style("margin-top:8px;color:#909399;font-size:12px"),
         ]),
         demoSection("max-height 自适应", [
             Scrollbar([
                 div([text("内容少时不出现滚动条，超出 max-height 才滚动")])
                     .style("padding:12px;font-size:13px;color:#909399"),
-            ]).maxHeight("120px").style("border:1px solid #dcdfe6;border-radius:6px"),
-        ]),
-        demoSection("隐藏原生滚动条（native: false）", [
-            Scrollbar(items.toArray()).native(false).height("140px")
-                .style("border:1px solid #dcdfe6;border-radius:6px"),
-            div([text("↑ native(false)：隐藏原生滚动条，改为 EP 的自定义细条（6px，覆盖式不占布局宽度）")])
-                .style("margin-top:8px;color:#909399;font-size:12px"),
+            ]).native(false).maxHeight("120px").style("border:1px solid #dcdfe6;border-radius:6px"),
         ]),
     ]
 }
@@ -441,6 +454,7 @@ public func propsScrollbar(): IComponent {
         propRow("height", "String", "固定高度"),
         propRow("maxHeight", "String", "最大高度，超出才滚动"),
         propRow("wrapClass / viewClass", "String", "追加到 __wrap / __view 的自定义类"),
+        propRow("wrapAttr(k, v)", "String, String", "给 __wrap 追加属性（如 data-scroll-active）"),
         propRow("style", "String", "根元素额外内联样式"),
     ])
 }
