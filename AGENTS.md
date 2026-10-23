@@ -192,6 +192,42 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 
 ## 代码总结
 
+### 2026-10-23 TimePicker 两处样式缺陷（面板背景 / 滚动条挤断横线）
+
+用户截图反馈两点：选中区域的横线只有一半、滚动条太粗。查下来是**两个独立的 CSS 缺陷**，
+DOM 结构本身都对，单测断言 DOM 抓不到 —— 只有真在浏览器里看才暴露。
+
+**现象与根因**：
+
+1. **选中横线不全**：EP 用 `.el-time-panel__content` 的 `::before`/`::after` 画上下两条横线，
+   两者都是 `z-index:-1`（沉到内容之下、但要在**面板自己的背景**之上）。EP 的
+   `.el-time-panel` 自带 `background-color`（来自 picker-panel.scss），所以 -1 层仍可见；
+   cjxt 的面板背景是透明的 → -1 层直接沉到外层 `.el-picker__popper` 的**不透明**白底之下，
+   横线被整片盖住。
+   - 修法：给 `.el-time-panel` 补 `background-color`。
+   - **坑**：不能写 `getCssVar('datepicker', 'bg-color')` —— `--el-datepicker-bg-color` 只在
+     `.el-picker-panel` / `.el-date-picker` 的作用域块里定义，独立打开的时间面板是 popper 的
+     直接子元素、不在那些块内，**取值为空、背景仍透明**。要直接引它最终指向的
+     `--el-bg-color-overlay`。
+
+2. **滚动条太粗、且把横线挤断**：EP 每列是 `el-scrollbar` 组件 —— 滚动条**覆盖式**、
+   不占布局宽度，列内容宽 = 面板宽/3 = 60px。而 `::before/::after` 画横线时是按
+   **180px 全宽**算 `margin:12%`。cjxt 用原生 `overflow:auto`，滚动条占去 10px
+   → 列内容只有 50px、与横线的计算基准错位 → 横线每列断一截、列间有缝。
+   - 修法：零宽滚动条（滚动能力完全保留，只是不绘制原生条），列宽回到 60px。
+   - **实测过但不可行的方案**：`overflow-y: overlay`（Chromium 已废弃，计算值仍是 auto）；
+     负 margin 抵消（会把内容挤出列外）。
+
+**验证**：浏览器实测 `offsetWidth==clientWidth==60`（gap=0）、`scrollHeight=928` 可滚动、
+`scrollTop=288` 选中项居中；截图确认三列横线连续贯通。
+测试：主包 342/342（新增 3 例 CSS 契约）、tests 309/309。
+**变异验证**：把背景改回 transparent、滚动条改回 6px → 2 例立即变红，
+证明测试真锁住了缺陷（不是空转）。
+
+**教训**：纯 CSS 缺陷的回归用例，断言**编译产物里的关键规则**（照 `drawer_css_test.cj` 的
+「按选择器取全部规则块正文」写法）比截图断言稳；但一定要**做变异验证**——
+否则分不清"锁住缺陷"与"用例永远通过"。
+
 ### 2026-10-23 Splitter 拖拽接入（复用 slider 的 bind 模式，不新增协议消息）
 
 **问题**：Splitter 此前只有静态 `flex-basis`，dragger 样式（16px 命中区、`ew-resize`/`ns-resize`）

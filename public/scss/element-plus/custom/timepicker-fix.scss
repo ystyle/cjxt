@@ -8,3 +8,47 @@
 .#{$namespace}-date-editor.#{$namespace}-input {
   position: relative;
 }
+
+// 3. 时间面板必须自带不透明背景
+//    原因：EP 用 .el-time-panel__content 的 ::before/::after 画选中区域的两条横线，
+//    两者都是 z-index:-1（沉到内容之下、但要在面板背景之上）。
+//    EP 的 .el-time-panel 自带 background-color（picker-panel.scss 里给了
+//    datepicker-bg-color），所以 -1 层仍可见；cjxt 的面板背景是透明的，
+//    -1 层直接沉到外层 .el-picker__popper 的不透明白底之下 → 选中线被整片盖住
+//    （现象：第一列/整条横线只剩一半或完全不见）。
+//    这里把面板背景补成 EP 同一个变量，让层级关系恢复成 EP 的形态。
+//    注意：不能直接用 getCssVar('datepicker', 'bg-color') —— 该变量
+//    （--el-datepicker-bg-color）只在 .el-picker-panel / .el-date-picker 的作用域块里定义，
+//    而独立打开的时间面板是 popper 的直接子元素、不在那些块内，取值为空 → 背景仍透明。
+//    故直接引用它最终指向的全局变量 --el-bg-color-overlay。
+.#{$namespace}-time-panel {
+  background-color: getCssVar('bg-color', 'overlay');
+}
+
+// 4. 时间列滚动条：视觉与布局两件事都要处理。
+//    EP 的每一列是 el-scrollbar 组件——滚动条绝对定位**覆盖在内容上**，不占布局宽度。
+//    cjxt 的 spinner 列是原生 overflow:auto，原生滚动条会占去 10px 布局宽度，
+//    导致三列各 50px 可用、而选中线按 180px 全宽算 margin:12%，
+//    线与列边界对不齐（表现为「每列一段横线、列间有缝」）。
+//    解法：细滚动条 + 覆盖式（不占位），让列宽回到 60px、与伪元素的计算基准一致。
+.#{$namespace}-time-spinner__wrapper {
+  // 目标：滚动条要细，且**不能挤占列宽**。
+  //
+  // 为什么必须不占位：EP 的每一列是 el-scrollbar 组件（滚动条绝对定位覆盖在内容上），
+  // 所以列的实际内容宽度 = 面板宽/3 = 60px。而 .el-time-panel__content 的
+  // ::before/::after 画选中横线时是按 **180px 全宽** 算 margin:12% 的。
+  // cjxt 用原生 overflow:auto，滚动条占去 10px → 列内容只有 50px、与横线的计算基准错位，
+  // 表现就是「横线每列断一截、列间有缝」（用户反馈的第一张图）。
+  //
+  // Chromium 已废弃 overflow-y: overlay（计算值仍是 auto），负 margin 又会把内容挤出列外。
+  // 所以采用零宽滚动条：滚动能力完全保留（实测 scrollTop 可设、scrollHeight 正常），
+  // 只是不绘制原生滚动条——与 EP 的 el-scrollbar 一样「不占布局宽度」，
+  // 差异仅是少了那条 6px 的可视 thumb（EP 的 thumb 是 JS 绘制的）。
+  // 若将来需要可视 thumb，正确做法是接入 el-scrollbar 组件，而不是调原生滚动条宽度。
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+}

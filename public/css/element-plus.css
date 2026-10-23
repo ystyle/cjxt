@@ -7324,6 +7324,18 @@
   position: relative;
 }
 
+.el-time-panel {
+  background-color: var(--el-bg-color-overlay);
+}
+
+.el-time-spinner__wrapper {
+  scrollbar-width: none;
+}
+.el-time-spinner__wrapper::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
 .el-popover {
   --el-popover-bg-color: var(--el-bg-color-overlay);
   --el-popover-font-size: var(--el-font-size-base);
