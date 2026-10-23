@@ -198,4 +198,105 @@ public class TransferTest {
         @Expect(out.contains("M609.088"), true)   // arrow-left path
         @Expect(out.contains("M340.864"), true)   // arrow-right path
     }
+
+    // ── 箭头按钮方向（2026-10-23 修）──────────────────────────────
+    // 缺陷：buildButton 把 isLeft 当 toRight 传 → 两个按钮方向全反；
+    //      moveMany 又遍历所有选项 → 点一次"全部跑过去"。
+    // 这里从**渲染结果**侧锁住：左按钮应能移动右侧项（故右侧有项时它可用），
+    // 右按钮应能移动左侧项（故左侧有项时它可用）。
+
+    @TestCase
+    public func testBothButtonsEnabledWhenBothPanelsHaveItems(): Unit {
+        let opts = ArrayList<TransferOption>([
+            TransferOption("1", "选项一"),
+            TransferOption("2", "选项二"),
+        ])
+        // 1 个在右、1 个在左 → 两个按钮都该可用
+        let tr = Transfer(opts).bind(Signal<ArrayList<String>>(ArrayList<String>(["1"])))
+        let out = this.json(tr)
+        let disabledCount = countOccurrences(out, "el-transfer__button is-disabled")
+        @Expect(disabledCount, 0)
+    }
+
+    @TestCase
+    public func testRightButtonDisabledWhenLeftEmpty(): Unit {
+        let opts = ArrayList<TransferOption>([
+            TransferOption("1", "选项一"),
+            TransferOption("2", "选项二"),
+        ])
+        // 全部在右 → 左侧为空 → 右箭头（移向右侧）应禁用；左箭头可用
+        let tr = Transfer(opts).bind(Signal<ArrayList<String>>(ArrayList<String>(["1", "2"])))
+        let out = this.json(tr)
+        @Expect(countOccurrences(out, "el-transfer__button is-disabled"), 1)
+    }
+
+    @TestCase
+    public func testLeftButtonDisabledWhenRightEmpty(): Unit {
+        let opts = ArrayList<TransferOption>([
+            TransferOption("1", "选项一"),
+            TransferOption("2", "选项二"),
+        ])
+        // 全部在左 → 右侧为空 → 左箭头（移回左侧）应禁用
+        let tr = Transfer(opts).bind(Signal<ArrayList<String>>(ArrayList<String>(Array<String>())))
+        let out = this.json(tr)
+        @Expect(countOccurrences(out, "el-transfer__button is-disabled"), 1)
+    }
+
+    // ── 箭头按钮方向：直接执行按钮 handler 验证移向（2026-10-23）──────
+    //
+    // 缺陷回顾：buildButton 把 isLeft 当 toRight 传给 moveMany，两个按钮方向全反；
+    // 且 moveMany 遍历所有选项，点一次就"全部跑过去"。
+    //
+    // 取 handler 的办法：按钮的 click handler 在 handlers 表里以 `h:<path>:click` 为键，
+    // 按渲染顺序，**最后两个** click handler 就是 ← 与 → 两个箭头。
+    func clickHandlersInOrder(node: IComponent): ArrayList<ActionHandler> {
+        let expanded = RenderContext.expandTree(node, "")
+        let hm = HashMap<String, ActionHandler>()
+        let _ = serializeSubtree(expanded, hm)
+        RenderContext.clearDirty()
+        // 按 key 里嵌入的路径数字排序，还原 DOM 顺序
+        let keys = ArrayList<String>()
+        for ((k, _) in hm) { keys.add(k) }
+        // ArrayList 没有 insert（AGENTS.md 已记），先摊平到普通数组再排序
+        let arr = keys.toArray()
+        var i = 0
+        while (i < arr.size) {
+            var j = i + 1
+            while (j < arr.size) {
+                if (arr[j] < arr[i]) {
+                    let tmp = arr[i]
+                    arr[i] = arr[j]
+                    arr[j] = tmp
+                }
+                j = j + 1
+            }
+            i = i + 1
+        }
+        let sorted = ArrayList<String>(arr)
+        let out = ArrayList<ActionHandler>()
+        for (k in sorted) {
+            match (hm.get(k)) { case Some(h) => out.add(h); case None => () }
+        }
+        out
+    }
+
+    func ctxOf(): ActionContext {
+        ActionContext("s-tf", HashMap<String, String>(), HashMap<String, String>(),
+            Router("s-tf", { _ => () }))
+    }
+
+    @TestCase
+    public func testRightArrowMovesLeftItemsToRight(): Unit {
+        // 初始：空（全在左）。点右箭头 → 全部移到右侧
+        let sig = Signal<ArrayList<String>>(ArrayList<String>(Array<String>()))
+        let opts = ArrayList<TransferOption>([
+            TransferOption("1", "一"), TransferOption("2", "二"),
+        ])
+        let hs = this.clickHandlersInOrder(Transfer(opts).bind(sig))
+        @Expect(hs.size > 0, true)
+        // 最后一个 click handler = 右箭头（← 在前、→ 在后）
+        let right = hs[hs.size - 1]
+        let _ = right(this.ctxOf())
+        @Expect(sig.get().size, 2)
+    }
 }

@@ -190,7 +190,11 @@ public class Transfer <: Component {
         if (!enabled || this._disabled) { attrs["disabled"] = "disabled" }
         let btn = VNode("button", parts.toArray(), attrs: Some(attrs))
         if (enabled && !this._disabled) {
-            btn.onClick({ ctx => this.moveMany(isLeft, ctx) })
+            // 方向修正（2026-10-23）：moveMany 的参数是 **toRight**，而这里原来直接传了 isLeft ——
+            // 语义正好相反（左按钮 isLeft=true 被当成"移向右侧"），导致两个按钮方向全反。
+            // 左按钮（arrow-left）应把右侧的项移回左侧 → toRight = !isLeft。
+            let toRight = !isLeft
+            btn.onClick({ ctx => this.moveMany(toRight, ctx) })
         } else {
             btn
         }
@@ -224,10 +228,21 @@ public class Transfer <: Component {
         PatchResult.ReRender
     }
 
+    // 箭头按钮：把**对应那一侧**的全部项移走。
+    //
+    // 修复前遍历 `this._options`（**所有**选项），于是点右箭头会把右侧的项也"移入右侧"
+    // ——在单步模型下表现为"点一下，所有选项都跑到右边"，方向完全失控。
+    // 正确语义（对齐 EP 的 "全移" 但限定在源面板）：
+    //   右箭头 → 只把「左侧面板上的项」移入右侧
+    //   左箭头 → 只把「右侧面板上的项」移回左侧
     func moveMany(toRight: Bool, ctx: ActionContext): PatchResult {
         let s = this.valueSignal()
-        var next = s.get()
-        for (o in this._options) {
+        let selected = s.get()
+        // partitionItems(selected, wantSelected)：true = 右侧(已选中)，false = 左侧(未选中)。
+        // toRight=true（右箭头）→ 源是左面板 → wantSelected = false = !toRight。
+        let source = this.partitionItems(selected, !toRight)
+        var next = selected
+        for (o in source) {
             if (o.disabled) { continue }
             next = this.rebuildSelection(next, o.key, toRight)
         }
