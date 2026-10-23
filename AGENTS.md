@@ -192,6 +192,45 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 
 ## 代码总结
 
+### 2026-10-23 Splitter 拖拽接入（复用 slider 的 bind 模式，不新增协议消息）
+
+**问题**：Splitter 此前只有静态 `flex-basis`，dragger 样式（16px 命中区、`ew-resize`/`ns-resize`）
+都对齐了 EP 但拖不动。调研结论：**底层协议不缺**——`bind` 消息已经够用，
+`Slider` 早在用它做 pointer 拖拽（`attachSlider` + `data-bind-id` + rAF 节流）。
+
+**实现**（三层，照 Slider 逐层对照）：
+1. 服务端 `Splitter.sizes(Signal<ArrayList<String>>)`：存每面板尺寸（"40%"/"240px"）。
+   `effectiveSize()` 让拖拽尺寸优先于 `SplitterPanel.size`；外置信号可跨渲染持久化，
+   未给则用 `_fallbackSizes` 兜底（同 `collapsedSignal` 的模式）。
+2. dragger 输出 `data-splitter-drag` + `data-bind-id` + `data-splitter-axis/-index/-min/-max`，
+   `handlers` 里挂 bind handler → `applyDragSize(idx, raw)` 写入信号。
+   **只改被拖的那一块**——其余面板由 `flex-grow` 规则自然吸收，不必像 EP 那样同时改写相邻尺寸。
+3. 前端 `attachSplitter(el)`：`pointerdown` 记起点、`pointermove` 按容器比例算新尺寸、
+   rAF 节流后 `send({type:'bind', name:bid, value:px+'px'})`；含 `min/max` clamp、
+   pointer capture、键盘可达（方向键 ±16px、Home/End）。
+
+**验证**：浏览器实测——横向拖 −60px → 393/389 变 333/449（basis 333px）；
+垂直拖 +30px → 69/69 变 99/39；键盘右方向键 333 → 349（+16px）；
+主包 339/339、tests 309/309（+4 例拖拽用例）。
+
+**坑**：
+- **`ActionContext` 的构造是 `(sessionId, context, params, router)`**，`params` 是**第 3 个**
+  位置参数。我一开始写成 `(id, params, HashMap(), router)`，参数错位后
+  `ctx.params.get("value")` 恒为 None → handler 执行但静默不写。
+  **症状极具误导性**：handler 确实被调用（没有异常），信号就是不变。
+- **挂载点有三处**，漏一处就是「首次进页面能用、切页后失效」：
+  `renderTree`（初始）、`createNode`（patch 新建）、`reconcile`（patch 就地更新）。
+  `attachSplitter` 要全部加上，且 reconcile 分支要带 `__cjxtSplitter` 幂等标志。
+- **`data-bind-id` 会被 `stabilizeVNodeHandlers` 重映射**成 `b:<path>:bind`（路径派生），
+  所以测试里不能写死 `_b1` 这种原始 id，要从 JSON 里取实际值再去 handlerMap 查。
+- 验证时「改了 JS 但页面还是旧行为」先看两个时间戳：`public/js/cangjie-ui.js` 的 mtime
+  必须早于 `examples/target/release/bin/main`（`@EmbedString` 是编译期嵌入）。
+
+**取舍**：纯 bind 往返，拖拽跟手但有一帧延迟（本地几 ms）。EP 那种零延迟需要
+**前端本地先改宽度、松手才上报**（乐观更新）——那会让前端持有临时状态，
+与「状态都在服务端」的模型冲突，故未采用。这条已写进 `docs/component-library-plan.md`
+的能力边界表，要改需作为架构决策单独讨论。
+
 ### 2026-10-23 第 1-5 批组件补齐（19 个组件 + 259 例测试）
 
 **规模**：一夜补齐 EP 文档口径缺口的第 1-5 批 —— `Scrollbar`、`Timeline`/`TimelineItem`、`Image`、

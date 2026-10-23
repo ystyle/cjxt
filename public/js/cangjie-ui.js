@@ -363,6 +363,7 @@ class CangjieUI {
         if (el.hasAttribute('data-bind-id')) this.attachBind(el);
         if (el.hasAttribute('data-vscroll')) this.attachVScroll(el);
         if (el.hasAttribute('data-slider')) this.attachSlider(el);
+        if (el.hasAttribute('data-splitter-drag')) this.attachSplitter(el);
         if (el.hasAttribute('data-select')) this.attachSelect(el);
         if (el.hasAttribute('data-rate')) this.attachRate(el);
         // 自动消失（Message/Notification 等）：data-auto-dismiss="ms" → 到时触发点击（关闭 action）
@@ -400,6 +401,7 @@ class CangjieUI {
         if (el.hasAttribute('data-bind-id')) this.attachBind(el);
         if (el.hasAttribute('data-vscroll')) this.attachVScroll(el);
         if (el.hasAttribute('data-slider')) this.attachSlider(el);
+        if (el.hasAttribute('data-splitter-drag')) this.attachSplitter(el);
         if (el.hasAttribute('data-select')) this.attachSelect(el);
         if (el.hasAttribute('data-rate')) this.attachRate(el);
         if (el.hasAttribute('data-auto-dismiss')) this.attachAutoDismiss(el);
@@ -501,6 +503,7 @@ class CangjieUI {
         if (el.hasAttribute('data-bind-id') && !el.__cjxtBound) { this.attachBind(el); el.__cjxtBound = true; }
         if (el.hasAttribute('data-vscroll') && !el.__cjxtVScroll) { this.attachVScroll(el); el.__cjxtVScroll = true; }
         if (el.hasAttribute('data-slider') && !el.__cjxtSlider) { this.attachSlider(el); el.__cjxtSlider = true; }
+        if (el.hasAttribute('data-splitter-drag') && !el.__cjxtSplitter) { this.attachSplitter(el); el.__cjxtSplitter = true; }
         if (el.hasAttribute('data-select') && !el.__cjxtSelect) { this.attachSelect(el); el.__cjxtSelect = true; }
         if (el.hasAttribute('data-rate') && !el.__cjxtRate) { this.attachRate(el); el.__cjxtRate = true; }
         if (el.hasAttribute('data-auto-dismiss') && !el.__cjxtAutoDismiss) { this.attachAutoDismiss(el); el.__cjxtAutoDismiss = true; }
@@ -752,6 +755,115 @@ class CangjieUI {
         window.__CJXT_COMPONENTS__ = window.__CJXT_COMPONENTS__ || {};
         window.__CJXT_COMPONENTS__[name] = compClass;
     }
+    // 分割面板拖拽（EP splitter DOM）：pointer 拖动 → 按容器比例算面板新尺寸
+    //    → bind 消息回传（rAF 节流），服务端写 sizes 信号后重渲染。
+    // 与 Slider 同一套模式（data-bind-id + bind 消息），不新增协议消息类型。
+    // 只上报「被拖的那一块」的新尺寸，相邻面板由 flex-grow 规则自然吸收。
+    attachSplitter(el) {
+        const bid = el.getAttribute('data-bind-id');
+        if (!bid) return;
+        const self = this;
+        const index = Number(el.getAttribute('data-splitter-index') || 0);
+        const horizontal = el.getAttribute('data-splitter-axis') !== 'vertical';
+        const minPx = parseFloat(el.getAttribute('data-splitter-min') || '0') || 0;
+        const maxAttr = el.getAttribute('data-splitter-max') || '';
+        const maxPx = maxAttr ? (parseFloat(maxAttr) || Infinity) : Infinity;
+        const canResize = !el.classList.contains('is-disabled');
+        if (!canResize) return;
+
+        // 容器与目标面板：dragger 在 .el-splitter-bar 里，bar 与目标 panel 同级
+        const bar = el.closest('.el-splitter-bar');
+        const root = el.closest('.el-splitter');
+        if (!bar || !root) return;
+        const targetPanel = root.querySelector('[data-splitter-panel="' + index + '"]');
+        if (!targetPanel) return;
+
+        let dragging = false;
+        let raf = null;
+        let lastSize = null;
+        let startPos = 0;
+        let startSize = 0;
+
+        const measure = () => {
+            const rr = root.getBoundingClientRect();
+            const pr = targetPanel.getBoundingClientRect();
+            return {
+                container: horizontal ? rr.width : rr.height,
+                current: horizontal ? pr.width : pr.height,
+                origin: horizontal ? rr.left : rr.top
+            };
+        };
+
+        const emit = (px) => {
+            const rounded = Math.round(px);
+            if (rounded === lastSize) return;
+            lastSize = rounded;
+            if (raf) return;
+            raf = requestAnimationFrame(() => {
+                raf = null;
+                // 服务端 normalizePanelSize 接受 "313px"，按 px 落 flex-basis
+                self.send({ type: 'bind', name: bid, value: lastSize + 'px' });
+            });
+        };
+
+        const clampPx = (px, container) => {
+            let v = px;
+            if (v < minPx) v = minPx;
+            if (v > maxPx) v = maxPx;
+            // 至少留 20px 给相邻面板，避免拖成 0 宽后无法再拖回来
+            const room = Math.max(20, container - 20);
+            if (v > room) v = room;
+            return v;
+        };
+
+        el.addEventListener('pointerdown', (e) => {
+            if (el.setPointerCapture) { try { el.setPointerCapture(e.pointerId); } catch (_) {} }
+            const m = measure();
+            dragging = true;
+            startPos = horizontal ? e.clientX : e.clientY;
+            startSize = m.current;
+            el.classList.add('is-dragging');
+            e.preventDefault();
+        });
+
+        el.addEventListener('pointermove', (e) => {
+            if (!dragging) return;
+            const m = measure();
+            const now = horizontal ? e.clientX : e.clientY;
+            emit(clampPx(startSize + (now - startPos), m.container));
+        });
+
+        const stop = () => {
+            if (!dragging) return;
+            dragging = false;
+            el.classList.remove('is-dragging');
+        };
+        el.addEventListener('pointerup', stop);
+        el.addEventListener('pointercancel', stop);
+
+        // 键盘可达：方向键 ±16px，Home/End 到上下限
+        el.setAttribute('tabindex', el.getAttribute('tabindex') || '0');
+        el.addEventListener('keydown', (e) => {
+            const m = measure();
+            let px = m.current;
+            if (horizontal) {
+                if (e.key === 'ArrowLeft') px -= 16;
+                else if (e.key === 'ArrowRight') px += 16;
+                else if (e.key === 'Home') px = minPx;
+                else if (e.key === 'End') px = Math.min(maxPx, m.container - 20);
+                else return;
+            } else {
+                if (e.key === 'ArrowUp') px -= 16;
+                else if (e.key === 'ArrowDown') px += 16;
+                else if (e.key === 'Home') px = minPx;
+                else if (e.key === 'End') px = Math.min(maxPx, m.container - 20);
+                else return;
+            }
+            emit(clampPx(px, m.container));
+            e.preventDefault();
+        });
+    }
+
     getComponent(name) {
         return (window.__CJXT_COMPONENTS__ || {})[name];
     }

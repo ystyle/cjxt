@@ -180,7 +180,9 @@
 
 **全部已完成（2026-10-23）**：`ConfigProvider` / `Splitter` / `Carousel` / `Transfer` / `ColorPicker` / `Tour` / `Watermark`。
 已知能力边界（均写在各文件头注释，非 TODO）：Tour 不定位目标元素（居中）、Carousel 无 autoplay、
-Splitter 无拖拽、Transfer 无 filterable、ColorPicker 无自由取色、Watermark 用 SVG 而非 canvas。
+Transfer 无 filterable、ColorPicker 无自由取色、Watermark 用 SVG 而非 canvas。
+`Splitter` **拖拽已实现**（2026-10-23）：照 Slider 的既有模式走标准 `bind` 消息，
+不新增协议消息；纯 bind 往返有一帧延迟（未做前端乐观更新，见下方能力边界表）。
 `ConfigProvider` 因 cjxt 无上下文通道，改用 CSS 变量继承，必然多一层包裹元素。
 
 另有 `InfiniteScroll`：EP 侧是**指令**不是组件，cjxt 需按服务端模型重新设计（见第 6 批末条）。
@@ -240,7 +242,7 @@ Splitter 无拖拽、Transfer 无 filterable、ColorPicker 无自由取色、Wat
 | `Tour` | 不定位到目标元素，**居中显示** | 服务端拿不到目标 rect（EP 靠客户端 FloatingUI 测量）。`target` 仍落到 `data-tour-target`，供后续前端接线 |
 | `Carousel` | **无 autoplay**，仅手动切换 | EP 用客户端 `setInterval` 推进，cjxt 组件无时钟。DOM 与 `data-carousel` 标记已备好 |
 | `Carousel` | `type=card` 只落类名 + 遮罩 | 3D 层叠位移依赖容器实时像素宽 |
-| `Splitter` | **无拖拽改尺寸** | 需前端 pointer 测量与实时重排。已备 `data-splitter*` 标记 |
+
 | `Transfer` | 无 `filterable` / `virtualScroll` | 需输入过滤与虚拟列表；交互上把"两侧勾选+箭头"压成"勾选即移动"一步，避免双份状态 |
 | `ColorPicker` | 无 `showAlpha` / 自由取色 | EP 面板是饱和度区拖拽 + 色相条（大量指针交互），改为预设色板网格 |
 | `Watermark` | 用 **SVG** 而非 canvas | 服务端无 canvas；SVG 的 `text`+`rotate` 等价，CSS 用法一致。无 image 型水印、无 MutationObserver 防篡改 |

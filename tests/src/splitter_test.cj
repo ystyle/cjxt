@@ -22,6 +22,38 @@ public class SplitterTest {
         out
     }
 
+    // 渲染并取回 handlers（含 bind），用于验证拖拽回传写尺寸
+    func renderSplitterJson(node: IComponent): (String, HashMap<String, ActionHandler>) {
+        let expanded = RenderContext.expandTree(node, "")
+        let handlerMap = HashMap<String, ActionHandler>()
+        let out = serializeSubtree(expanded, handlerMap)
+        RenderContext.clearDirty()
+        (out, handlerMap)
+    }
+
+    // 模拟前端 bind 回传：params 带 value = 新尺寸字符串
+    func makeSplitterCtxWithValue(v: String): ActionContext {
+        let params = HashMap<String, String>()
+        params["value"] = v
+        // 签名是 (sessionId, context, params, router) —— params 是第 3 个位置参数
+        ActionContext("s-sp", HashMap<String, String>(), params,
+            Router("s-sp", { _ => () }))
+    }
+
+    // 从 JSON 里取第一个 data-bind-id 的值（形如 b:children/...:bind）
+    func extractBid(out: String): String {
+        let marker = "\"data-bind-id\":\""
+        match (out.indexOf(marker)) {
+            case Some(i) =>
+                let from = i + marker.size
+                match (out.indexOf("\"", from)) {
+                    case Some(end) => out[from..end]
+                    case None => ""
+                }
+            case None => ""
+        }
+    }
+
     func twoPanels(): Splitter {
         Splitter([
             SplitterPanel([text("left")]),
@@ -208,5 +240,67 @@ public class SplitterTest {
         @Expect(out.contains("data-splitter"), true)
         @Expect(out.contains("data-splitter-panel"), true)
         @Expect(out.contains("data-splitter-bar"), true)
+    }
+
+    // ── 拖拽接线（2026-10-23 接入）──────────────────────────────────
+    // 模式与 Slider 一致：dragger 挂 data-bind-id，前端 pointermove 经标准 bind
+    // 回传尺寸字符串，服务端写 sizes 信号后重渲染。不新增协议消息。
+
+    @TestCase
+    public func testDraggerCarriesBindIdForDrag(): Unit {
+        let out = this.json(this.twoPanels())
+        @Expect(out.contains("data-splitter-drag"), true)
+        @Expect(out.contains("data-splitter-axis"), true)
+        @Expect(out.contains("data-splitter-index"), true)
+        // 拖拽靠标准 bind 消息，必须有 data-bind-id
+        @Expect(out.contains("data-bind-id"), true)
+    }
+
+    @TestCase
+    public func testDragBindHandlerWritesSize(): Unit {
+        // 模拟前端回传 "300px" → sizes 信号被写入 → 面板 flex-basis 变化
+        let sizes = Signal<ArrayList<String>>(ArrayList<String>(["40%", ""]))
+        let sp = Splitter([
+            SplitterPanel([text("a")]).size("40%"),
+            SplitterPanel([text("b")]),
+        ]).sizes(sizes)
+        let (out, handlers) = renderSplitterJson(sp)
+        @Expect(handlers.size > 0, true)
+        @Expect(out.contains("data-bind-id"), true)
+        for ((_, h) in handlers) { let _ = h(makeSplitterCtxWithValue("300px")) }
+        let got = sizes.get()
+        @Expect(got.size, 2)
+        @Expect(got[0], "300px")
+    }
+
+    @TestCase
+    public func testDraggedSizeOverridesStaticSize(): Unit {
+        // 拖拽尺寸优先于组件自带的 size
+        let sizes = Signal<ArrayList<String>>(ArrayList<String>(["55%", ""]))
+        let (out, _) = renderSplitterJson(Splitter([
+            SplitterPanel([text("a")]).size("40%"),
+            SplitterPanel([text("b")]),
+        ]).sizes(sizes))
+        @Expect(out.contains("flex-basis:55%"), true)
+        @Expect(out.contains("flex-basis:40%"), false)
+    }
+
+    @TestCase
+    public func testAfterDragOnlyTouchedPanelKeepsExplicitSize(): Unit {
+        // 只改被拖的那一块，其余保留各自的原尺寸（空则继续平分）
+        let sizes = Signal<ArrayList<String>>(ArrayList<String>(["", ""]))
+        let sp = Splitter([
+            SplitterPanel([text("a")]).size("40%"),
+            SplitterPanel([text("b")]).size("60%"),
+        ]).sizes(sizes)
+        let (out, handlers) = renderSplitterJson(sp)
+        let bid = extractBid(out)
+        match (handlers.get(bid)) {
+            case Some(h) => let _ = h(makeSplitterCtxWithValue("200px"))
+            case None => @Fail("handlers 里找不到 bind handler")
+        }
+        let got = sizes.get()
+        @Expect(got[0], "200px")
+        @Expect(got[1], "60%")
     }
 }

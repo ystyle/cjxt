@@ -127,6 +127,9 @@ public class ShowcaseState <: AppState {
     var carouselIndex2 = Signal<Int64>(0)
     var carouselIndex3 = Signal<Int64>(0)
     var carouselIndex4 = Signal<Int64>(0)
+    // Splitter 拖拽尺寸（每面板一个字符串；空串表示用组件自带 size / 平分）
+    var splitterSizesH = Signal<ArrayList<String>>(ArrayList<String>(["40%", ""]))
+    var splitterSizesV = Signal<ArrayList<String>>(ArrayList<String>(["50%", ""]))
     var transferValues2 = Signal<ArrayList<String>>(ArrayList<String>())
     var transferValues3 = Signal<ArrayList<String>>(ArrayList<String>(["1"]))
     var tourVisible2 = Signal<Bool>(false)

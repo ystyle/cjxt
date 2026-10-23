@@ -27,10 +27,14 @@ import std.collection.{HashMap, ArrayList}
 // 同样不需要容器尺寸。吸收方向与 EP 一致：点 start 图标 → 当前面板塌陷、空间给下一个；
 // 点 end 图标 → 下一个面板塌陷、空间给当前。
 //
-// **未实现**：拖拽改尺寸（EP 的 mouse/touch 拖动）。它需要前端按 pointer 事件实时测量
-// 容器与相邻面板的像素宽度，属于 `public/js/cangjie-ui.js` 的机制（对照已有
-// `data-slider` 的实现），不在本组件可控范围内；本组件已把 DOM 与 `data-splitter-*`
-// 标记按 EP 结构备好，接线时无需改结构。
+// 拖拽改尺寸（2026-10-23 接入）：照 Slider 的既有模式，**不新增协议消息**——
+//   dragger 挂 `data-bind-id`，前端 `attachSplitter` 在 pointermove 时按容器比例算新尺寸，
+//   经标准 `bind` 消息回传（rAF 节流），服务端写份数信号后重渲染。
+// 尺寸状态：`sizes(Signal<ArrayList<String>>)`，存每个面板的尺寸字符串（"40%" / "240px"）。
+//   外置信号可跨渲染持久化；未给则用内部信号兜底（同 collapsedSignal 的模式）。
+// 取舍（纯 bind 往返，不做前端乐观更新）：拖拽跟手但有一帧往返延迟（本地几 ms）。
+//   要做到 EP 那种零延迟，需前端本地先改宽度、松手才上报——那会让前端持有临时状态，
+//   与「状态都在服务端」的模型冲突，故未采用（见 docs 的能力边界章节）。
 
 public class SplitterPanel <: Component {
     var _children: Array<IComponent>
@@ -61,6 +65,9 @@ public class Splitter <: Component {
     // 未给则用内部信号（同一页面内的 ReRender 有效，与 Collapse 内部状态同模式）。
     var _collapsedSignal: Option<Signal<ArrayList<String>>> = None
     var _fallbackCollapsed: Signal<ArrayList<String>> = Signal<ArrayList<String>>(ArrayList<String>())
+    // 拖拽后的面板尺寸（与 SplitterPanel.size 同格式；为空则该面板用其 size 或平分）
+    var _sizesSignal: Option<Signal<ArrayList<String>>> = None
+    var _fallbackSizes: Signal<ArrayList<String>> = Signal<ArrayList<String>>(ArrayList<String>())
 
     public init(children: Array<IComponent>) { this._children = children }
 
@@ -68,6 +75,8 @@ public class Splitter <: Component {
     // lazy：拖拽时只动偏移量、松开才落尺寸（EP 的 lazy）。服务端渲染体现为 dragger 的 is-lazy 类。
     public func lazy(): Splitter { this._lazy = true; this }
     public func bind(signal: Signal<ArrayList<String>>): Splitter { this._collapsedSignal = Some(signal); this }
+    // 拖拽尺寸信号（每面板一个字符串，"40%" / "240px"）。外置可跨渲染持久化。
+    public func sizes(signal: Signal<ArrayList<String>>): Splitter { this._sizesSignal = Some(signal); this }
 
     public func render(): IComponent {
         let panels = this.collectPanels()
@@ -111,6 +120,23 @@ public class Splitter <: Component {
         }
     }
 
+    func sizesSignal(): Signal<ArrayList<String>> {
+        match (this._sizesSignal) {
+            case Some(s) => s
+            case None => this._fallbackSizes
+        }
+    }
+
+    // 第 index 个面板的生效尺寸：拖拽尺寸优先，其次组件自带的 size
+    func effectiveSize(p: SplitterPanel, index: Int64): String {
+        let list = this.sizesSignal().get()
+        if (index < list.size) {
+            let v = list[index]
+            if (v != "") { return v }
+        }
+        p._size
+    }
+
     func collapsedSet(): HashMap<String, Bool> {
         let m = HashMap<String, Bool>()
         for (k in this.collapsedSignal().get()) { m[k] = true }
@@ -122,7 +148,8 @@ public class Splitter <: Component {
     //   给定 size 的面板默认 grow=0，只有折叠发生时、作为其相邻吸收方的那一块才 grow=1。
     func computeGrowFlags(panels: ArrayList<SplitterPanel>, collapsed: HashMap<String, Bool>): ArrayList<Bool> {
         let flags = ArrayList<Bool>()
-        for (p in panels) { flags.add(p._size == "") }
+        var gi = 0
+        for (p in panels) { flags.add(this.effectiveSize(p, gi) == ""); gi = gi + 1 }
         var i = 0
         while (i < panels.size - 1) {
             let hereCollapsed = collapsedContains(collapsed, "${i}")
@@ -149,7 +176,8 @@ public class Splitter <: Component {
             styles.add("flex-shrink:0")
         } else {
             // 显式 size 按 basis 固定；未给 size 则 basis=0 + grow=1 平分剩余
-            styles.add("flex-basis:${if (p._size != "") { normalizePanelSize(p._size) } else { "0" }}")
+            let eff = this.effectiveSize(p, index)
+            styles.add("flex-basis:${if (eff != "") { normalizePanelSize(eff) } else { "0" }}")
             styles.add("flex-grow:${if (growFlags[index]) { "1" } else { "0" }}")
             // 上下限落在 CSS 的 min/max 尺寸上（EP 的 min/max 只在拖拽时 clamp，
             // 但同样的约束用 CSS 表达对静态布局也成立，且不依赖容器尺寸）
@@ -209,7 +237,36 @@ public class Splitter <: Component {
             ("style", joinStyleParts(draggerStyles)),
             ("data-splitter-bar", "${index}"),
         ])
-        parts.add(VNode("div", [], attrs: Some(draggerAttrs)))
+
+        // 拖拽接线（照 Slider 的模式，不新增协议消息）：
+        //   data-splitter-drag 让前端 attachSplitter 挂 pointer 监听；
+        //   data-bind-id + handlers 让 pointermove 的尺寸变化经标准 bind 消息回传。
+        // 回传值形如 "313px"（本次拖拽后左侧面板的新尺寸），由 handler 写进 sizes 信号。
+        var hmap: Option<HashMap<String, ActionHandler>> = None
+        if (canResize) {
+            let bid = nextBid()
+            draggerAttrs["data-splitter-drag"] = "1"
+            draggerAttrs["data-bind-id"] = bid
+            draggerAttrs["data-splitter-index"] = "${index}"
+            if (isHorizontal) {
+                draggerAttrs["data-splitter-axis"] = "horizontal"
+            } else {
+                draggerAttrs["data-splitter-axis"] = "vertical"
+            }
+            // 面板上下限透传给前端做 clamp（避免每次拖拽都往返问服务端）
+            draggerAttrs["data-splitter-min"] = normalizePanelSize(if (thisPanel._min != "") { thisPanel._min } else { "0" })
+            draggerAttrs["data-splitter-max"] = if (thisPanel._max != "") { normalizePanelSize(thisPanel._max) } else { "" }
+
+            let m = HashMap<String, ActionHandler>()
+            let idx = index
+            m[bid] = { ctx =>
+                let raw = match (ctx.params.get("value")) { case Some(x) => x case None => "" }
+                if (raw != "") { this.applyDragSize(idx, raw) }
+                PatchResult.ReRender
+            }
+            hmap = Some(m)
+        }
+        parts.add(VNode("div", [], attrs: Some(draggerAttrs), handlers: hmap))
 
         // end 折叠图标：下一个面板可折叠（EP 的 endCollapsible）
         if (nextPanel._collapsible) {
@@ -221,6 +278,29 @@ public class Splitter <: Component {
             ("style", barStyle),
         ])
         VNode("div", parts.toArray(), attrs: Some(barAttrs))
+    }
+
+    // 拖拽回传：把「第 index 个面板的新尺寸」写进 sizes 信号。
+    // 只改被拖的那一块——其余面板由 flex 的 grow 规则自然吸收（与静态布局同一套规则），
+    // 所以不必像 EP 那样同时改写相邻面板的尺寸。
+    func applyDragSize(index: Int64, rawSize: String): Unit {
+        let s = this.sizesSignal()
+        let cur = s.get()
+        let panels = this.collectPanels()
+        let next = ArrayList<String>()
+        var i = 0
+        for (p in panels) {
+            if (i == index) {
+                next.add(rawSize)
+            } else if (i < cur.size && cur[i] != "") {
+                next.add(cur[i])
+            } else {
+                // 未拖过的面板沿用组件自带 size（空则继续平分）
+                next.add(p._size)
+            }
+            i = i + 1
+        }
+        s.set(next)
     }
 
     // 折叠图标：horizontal 时 start=ArrowLeft / end=ArrowRight，vertical 时 start=ArrowUp / end=ArrowDown

@@ -448,17 +448,17 @@ public func demoSplitter(st: ShowcaseState): Array<IComponent> {
             div([Splitter([
                 SplitterPanel([div([text("左侧面板")]).style("padding:16px;background:#f0f9ff;height:100%")]).size("40%"),
                 SplitterPanel([div([text("右侧面板")]).style("padding:16px;background:#e1f3d8;height:100%")]),
-            ]).layout(SplitterLayout.Horizontal)]).style("height:120px;border:1px solid #dcdfe6;border-radius:6px;overflow:hidden"),
+            ]).layout(SplitterLayout.Horizontal).sizes(st.splitterSizesH)]).style("height:120px;border:1px solid #dcdfe6;border-radius:6px;overflow:hidden"),
         ]),
         demoSection("垂直分割", [
             div([Splitter([
                 SplitterPanel([div([text("上面板")]).style("padding:12px;background:#f0f9ff;height:100%")]).size("50%"),
                 SplitterPanel([div([text("下面板")]).style("padding:12px;background:#e1f3d8;height:100%")]),
-            ]).layout(SplitterLayout.Vertical)]).style("height:140px;border:1px solid #dcdfe6;border-radius:6px;overflow:hidden"),
+            ]).layout(SplitterLayout.Vertical).sizes(st.splitterSizesV)]).style("height:140px;border:1px solid #dcdfe6;border-radius:6px;overflow:hidden"),
         ]),
         demoSection("说明", [
-            div([text("拖拽改尺寸需要前端 pointer 测量，属 cangjie-ui.js 机制；组件已备 data-splitter* 标记供后续接线。")])
-                .style("color:#909399;font-size:12px"),
+            div([text("拖拽已支持：pointermove 按容器比例算面板尺寸 → 标准 bind 消息回传（rAF 节流）→ 服务端写 sizes 信号重渲染。纯 bind 往返，不新增协议消息。dragger 也可聚焦后用方向键 ±16px 调整。")])
+                .style("color:#909399;font-size:12px;line-height:1.7"),
         ]),
     ]
 }
