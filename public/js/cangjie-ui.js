@@ -414,6 +414,18 @@ class CangjieUI {
     // 设置元素属性（新建/reconcile 通用；bound input 的 value 更新走守卫，避免打断输入）
     applyAttrs(el, node) {
         const attrs = node.attrs || {};
+        // value 是特殊属性：服务端**不再给出** value 时表示"清空"（如 DatePicker 的 × 清空），
+        // 必须把 el.value 也清掉 —— 之前这里 `continue` 跳过了移除，
+        // 导致「服务端已清空但界面仍显示旧值」（点 × 值不去掉的根因）。
+        // 但仍要尊重输入态守卫：正在输入(composing)或有未提交绑定(dirty)时不覆盖。
+        const valueMissing = !('value' in attrs);
+        if (valueMissing) {
+            const composing = el.dataset.composing === '1';
+            const dirty = el.dataset.bindDirty === '1';
+            // 只对表单控件生效，避免误改普通元素的同名属性
+            const isFormField = el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT';
+            if (isFormField && !composing && !dirty && el.value !== '') el.value = '';
+        }
         for (const a of Array.from(el.attributes)) {
             const n = a.name;
             if (n in attrs) continue;
