@@ -201,7 +201,14 @@ public class DateRangePicker <: Component {
         var cls = "el-range-editor el-input__wrapper"
         if (this._disabled) { cls = "${cls} is-disabled" }
         if (this._open.get()) { cls = "${cls} is-focused" }
-        var editor = VNode("div", children.toArray(), attrs: Some(HashMap<String, String>([("class", cls)])))
+        // 为 × 预留右侧空间（2026-10-23 修）。
+        // × 是 absolute right:8px 浮在容器上，若输入框铺满整宽，第二个输入框会压到 × 下面
+        // （实测 endInput.right=1340 vs ×.x=1328，重叠 12px，看起来像「× 跑到外面/压住值」）。
+        // EP 的做法同样是在 clearable 时给容器留右内边距。
+        let hasClear = this._clearable && (this.startVal() != "" || this.endVal() != "") && !this._disabled
+        let editorAttrs = HashMap<String, String>([("class", cls)])
+        if (hasClear) { editorAttrs["style"] = "padding-right:30px" }
+        var editor = VNode("div", children.toArray(), attrs: Some(editorAttrs))
         if (!this._disabled) {
             editor = editor.onClick({ ctx => this.toggleOpen(ctx) })
         }

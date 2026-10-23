@@ -86,4 +86,35 @@ public class DatePickerTest {
         }
         @Expect(sig.get(), "")
     }
+
+    // ── 区间选择器：为 × 预留空间（2026-10-23 修）──────────────────
+    // 原始缺陷：× 是 absolute right:8px 浮在容器上，而 .el-range-editor 的两个输入框
+    // 铺满整宽 → 第二个输入框与 × 重叠 12px，视觉上「× 压住了值 / 像跑到外面」。
+
+    @TestCase
+    public func testRangeEditorReservesSpaceWhenClearable(): Unit {
+        let start = Signal<String>("2026-08-01")
+        let end = Signal<String>("2026-08-15")
+        let out = this.json(DateRangePicker().start(start).end(end).clearable())
+        // clearable + 有值时，容器必须留右内边距给 ×
+        @Expect(out.contains("padding-right:"), true)
+        @Expect(out.contains("padding-right:30px"), true)
+    }
+
+    @TestCase
+    public func testRangeEditorNoPaddingWhenNotClearable(): Unit {
+        let start = Signal<String>("2026-08-01")
+        let end = Signal<String>("2026-08-15")
+        let out = this.json(DateRangePicker().start(start).end(end))
+        @Expect(out.contains("padding-right:30px"), false)
+    }
+
+    @TestCase
+    public func testRangeEditorNoPaddingWhenEmpty(): Unit {
+        // 无值时不出 ×，也就无需预留空间
+        let start = Signal<String>("")
+        let end = Signal<String>("")
+        let out = this.json(DateRangePicker().start(start).end(end).clearable())
+        @Expect(out.contains("padding-right:30px"), false)
+    }
 }
