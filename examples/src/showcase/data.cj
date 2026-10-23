@@ -12,7 +12,7 @@ public func demoCollapse(st: ShowcaseState): Array<IComponent> {
                 CollapseItem([Text([text("第一节的内容区域")])], "第一节", "1"),
                 CollapseItem([Text([text("第二节的内容区域")])], "第二节", "2").disabled(true),
                 CollapseItem([Text([text("第三节的内容区域")])], "第三节", "3"),
-            ]),
+            ]).bind(st.collapseActive),
         ]),
         demoSection("手风琴模式（单开）", [
             Collapse([
@@ -28,6 +28,7 @@ public func propsCollapse(): IComponent {
     div([
         propRow("accordion", "false", "手风琴模式（单开）"),
         propRow("CollapseItem.title", "String", "面板标题"),
+        propRow("Collapse.bind", "Signal<ArrayList<String>>", "激活项集合（外置可跨渲染持久化）"),
         propRow("CollapseItem.name", "String", "唯一标识"),
         propRow("CollapseItem.disabled", "false", "禁用面板"),
     ], attrs: Some(HashMap<String, String>([("class", cls("row"))])))

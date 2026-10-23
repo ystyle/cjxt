@@ -87,17 +87,30 @@ public class CollapseItem <: Component {
 
         let childrenParts = ArrayList<IComponent>()
         childrenParts.add(headerEl)
-        // 仅激活时渲染 wrap>content（EP v-show 语义；服务端条件渲染，收起不占 DOM）
-        if (active) {
-            let wrap = VNode("div", [
-                VNode("div", this._children, attrs: Some(HashMap<String, String>([("class", "el-collapse-item__content")]))),
-            ], attrs: Some(HashMap<String, String>([
-                ("class", "el-collapse-item__wrap"),
-                ("role", "region"),
-                ("aria-hidden", "false"),
-            ])))
-            childrenParts.add(wrap)
+        // 展开动画（2026-10-23 补）。
+        //
+        // EP 用 `<transition>` + JS 动态设 max-height（0 → scrollHeight → auto）做动画，
+        // 服务端拿不到 scrollHeight，所以改用**纯 CSS 等效方案**：
+        //   - wrap **始终渲染**（不再条件渲染）——条件渲染意味着内容直接插入 DOM，
+        //     元素从无到有不会触发 transition，这正是"没动画"的根因；
+        //   - 展开：max-height 给一个大值（100vh），配合 CSS transition 平滑展开；
+        //   - 收起：max-height:0 + overflow:hidden（__wrap 自身已有 overflow:hidden）。
+        // 代价：展开态 max-height 是估值而非精确内容高度，若内容超过 100vh 会被截断——
+        // 折叠面板的场景基本不会超过一屏，且 EP 的 auto 也依赖 JS 才能做到。
+        let wrapStyle = if (active) {
+            "max-height:100vh;transition:max-height 0.3s ease-in-out"
+        } else {
+            "max-height:0;overflow:hidden;transition:max-height 0.3s ease-in-out"
         }
+        let wrap = VNode("div", [
+            VNode("div", this._children, attrs: Some(HashMap<String, String>([("class", "el-collapse-item__content")]))),
+        ], attrs: Some(HashMap<String, String>([
+            ("class", "el-collapse-item__wrap"),
+            ("role", "region"),
+            ("aria-hidden", if (active) { "false" } else { "true" }),
+            ("style", wrapStyle),
+        ])))
+        childrenParts.add(wrap)
         VNode("div", childrenParts.toArray(), attrs: Some(attrs))
     }
 }
@@ -114,15 +127,29 @@ public class Collapse <: Component {
     var _children: Array<IComponent>
     var _accordion: Bool = false
     var _activeSignal: Signal<ArrayList<String>>
+    // 外置激活信号（2026-10-23 补）：与 Dialog/Tabs 一致，可跨渲染持久化。
+    // 未给则用内部 _activeSignal 兜底（简单场景仍可直接用）。
+    var _externalActive: Option<Signal<ArrayList<String>>> = None
 
     public init(children: Array<IComponent>) {
         this._children = children
         this._activeSignal = Signal<ArrayList<String>>(ArrayList<String>())
     }
     public func accordion(): Collapse { this._accordion = true; this }
+    // 绑定激活项集合（外置信号可跨渲染持久化；不给则用内部信号）
+    public func bind(signal: Signal<ArrayList<String>>): Collapse {
+        this._externalActive = Some(signal)
+        this._activeSignal = signal
+        this
+    }
     public func getChildren(): Array<IComponent> { this._children }
 
     public func render(): IComponent {
+        // 外置信号优先（每轮渲染重新解析，保证外部替换后立即生效）
+        match (this._externalActive) {
+            case Some(s) => this._activeSignal = s
+            case None => ()
+        }
         let items = ArrayList<IComponent>()
         for (c in this._children) {
             match (c) {

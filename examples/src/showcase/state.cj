@@ -128,6 +128,8 @@ public class ShowcaseState <: AppState {
     var carouselIndex3 = Signal<Int64>(0)
     var carouselIndex4 = Signal<Int64>(0)
     // Splitter 拖拽尺寸（每面板一个字符串；空串表示用组件自带 size / 平分）
+    // Collapse 激活项（外置信号：跨渲染/切页保持展开状态）
+    var collapseActive = Signal<ArrayList<String>>(ArrayList<String>(["1"]))
     var splitterSizesH = Signal<ArrayList<String>>(ArrayList<String>(["40%", ""]))
     var splitterSizesV = Signal<ArrayList<String>>(ArrayList<String>(["50%", ""]))
     var transferValues2 = Signal<ArrayList<String>>(ArrayList<String>())
