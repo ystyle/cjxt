@@ -605,12 +605,6 @@ class CangjieUI {
         const bid = el.getAttribute('data-bind-id');
         let timer = null;
         let composing = false;
-        const send = () => {
-            if (composing) return;
-            const raw = el.value ?? el.textContent ?? '';
-            const value = el.type === 'range' ? parseFloat(raw) : raw;
-            this.send({ type: 'bind', name: bid, value });
-        };
         el.addEventListener('compositionstart', () => { composing = true; el.dataset.composing = '1'; });
         el.addEventListener('compositionend', () => {
             composing = false;
@@ -618,15 +612,38 @@ class CangjieUI {
             clearTimeout(timer);
             timer = setTimeout(send, 300);
         });
+        // dirty 的生命周期必须严格可控：标记期间服务端回写会被守卫挡住，
+        // 若标记永远不清，这个输入框的 DOM 就再也不更新了（"界面卡住旧值"）。
+        // 因此：标记时启动超时兜底（即使 blur/补丁清理都漏了，也会自动解除）。
+        let dirtyTimer = null;
+        const markDirty = () => {
+            el.dataset.bindDirty = '1';
+            if (dirtyTimer) clearTimeout(dirtyTimer);
+            dirtyTimer = setTimeout(() => { delete el.dataset.bindDirty; dirtyTimer = null; }, 5000);
+        };
+        const clearDirty = () => {
+            delete el.dataset.bindDirty;
+            if (dirtyTimer) { clearTimeout(dirtyTimer); dirtyTimer = null; }
+        };
+        el.__cjxtClearDirty = clearDirty;
+        const send = () => {
+            if (composing) return;
+            const raw = el.value ?? el.textContent ?? '';
+            const value = el.type === 'range' ? parseFloat(raw) : raw;
+            this.send({ type: 'bind', name: bid, value });
+            // 上报后本地不再需要"挡"服务端回写（服务端即将持有该值）——
+            // 但不清 composing 标记：IME 组合期内仍不能动它的值。
+            if (typeof el.__cjxtClearDirty === 'function') { el.__cjxtClearDirty(); }
+        };
         el.addEventListener('input', () => {
             if (composing) return;
             clearTimeout(timer);
             timer = setTimeout(send, 300);
-            el.dataset.bindDirty = '1';
+            markDirty();
         });
         el.addEventListener('blur', () => {
             clearTimeout(timer);
-            if (el.dataset.bindDirty) { send(); delete el.dataset.bindDirty; }
+            if (el.dataset.bindDirty) { send(); clearDirty(); }
         });
         el.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') { clearTimeout(timer); send(); }
@@ -1075,7 +1092,15 @@ class CangjieUI {
             }
         }
 
-        // 补丁应用完成：输入已与服务端同步，清除 dirty 标记
+        // 补丁应用完成：服务端已是权威，清除**所有**输入框的 dirty 标记。
+        // 原来只清 document.activeElement —— 若用户输入了 A 却不 blur、去点别处触发补丁，
+        // A 的 dirty 会一直挂着，导致 A 的 DOM 从此不再被服务端更新（界面停在旧值）。
+        // 这里统一清干净；正在 IME 组合的（composing）除外——那时不能动它的值。
+        document.querySelectorAll('[data-bind-dirty="1"]').forEach((el) => {
+            if (el.dataset.composing === '1') return;
+            if (typeof el.__cjxtClearDirty === 'function') { el.__cjxtClearDirty(); }
+            else { delete el.dataset.bindDirty; }
+        });
         if (activeEl) { delete activeEl.dataset.bindDirty; }
 
         if (focusIdx >= 0) {
