@@ -139,7 +139,7 @@ public class ShowcaseState <: AppState {
     var colorValue3 = Signal<String>("#e6a23c")
     var colorValue4 = Signal<String>("#f56c6c")
     var tourVisible = Signal<Bool>(false)
-    var pageHeaderMsg = "未点击"
+    var pageHeaderMsg = Signal<String>("未点击")
 
     public func segmentedIndex(): Int64 {
         match (this.segmentedValue.get()) {

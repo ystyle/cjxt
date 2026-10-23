@@ -57,23 +57,23 @@ public func demoImage(st: ShowcaseState): Array<IComponent> {
     let sample = "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='140'%3E%3Crect width='240' height='140' fill='%23d9ecff'/%3E%3Ctext x='120' y='76' font-size='16' text-anchor='middle' fill='%23409eff'%3ECangjie UI%3C/text%3E%3C/svg%3E"
     [
         demoSection("基础图片（fit: cover）", [
-            div([Image(sample).alt("示例图").fit(ImageFit.Cover)]).style("width:240px;height:140px"),
+            Image(sample).alt("示例图").fit(ImageFit.Cover).width("240px").height("140px"),
         ]),
         demoSection("不同 fit", [
             div([
-                div([Image(sample).fit(ImageFit.Fill)]).style("width:120px;height:80px"),
-                div([Image(sample).fit(ImageFit.Contain)]).style("width:120px;height:80px"),
-                div([Image(sample).fit(ImageFit.Cover)]).style("width:120px;height:80px"),
+                Image(sample).fit(ImageFit.Fill).width("120px").height("80px"),
+                Image(sample).fit(ImageFit.Contain).width("120px").height("80px"),
+                Image(sample).fit(ImageFit.Cover).width("120px").height("80px"),
             ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
         ]),
         demoSection("错误态 / 占位态", [
             div([
-                div([Image("https://invalid.example/no.png").error("加载失败")]).style("width:160px;height:90px"),
-                div([Image(sample).placeholder()]).style("width:160px;height:90px"),
+                Image("https://invalid.example/no.png").error("加载失败").width("160px").height("90px"),
+                Image(sample).placeholder().width("160px").height("90px"),
             ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
         ]),
         demoSection("点击预览（简化版）", [
-            div([Image(sample).alt("点我预览").previewSrcList([sample]).initialIndex(0)]).style("width:240px;height:140px"),
+            Image(sample).alt("点我预览").previewSrcList([sample]).initialIndex(0).width("240px").height("140px"),
         ]),
     ]
 }
@@ -390,10 +390,10 @@ public func demoPageHeader(st: ShowcaseState): Array<IComponent> {
         ]),
         demoSection("带返回按钮", [
             PageHeader().title("用户管理").content("编辑用户信息").onBack({
-                ctx => st.pageHeaderMsg = "点击了返回"
+                ctx => st.pageHeaderMsg.set("点击了返回（服务端回调已执行）")
                 PatchResult.ReRender
             }),
-            div([text(st.pageHeaderMsg)]).style("margin-top:8px;color:#909399;font-size:12px"),
+            div([text(st.pageHeaderMsg.get())]).style("margin-top:8px;color:#909399;font-size:12px"),
         ]),
     ]
 }
@@ -410,14 +410,24 @@ public func propsPageHeader(st: ShowcaseState): IComponent {
 // ── ConfigProvider ────────────────────────────────────────────────
 public func demoConfigProvider(st: ShowcaseState): Array<IComponent> {
     [
-        demoSection("尺寸注入（size: small）", [
-            ConfigProvider([PrimaryButton("小尺寸按钮"), Button("小尺寸按钮")]).size(ComponentSize.Small),
+        demoSection("尺寸注入（size: small → --el-component-size:24px）", [
+            ConfigProvider([
+                Input().placeholder("输入框高度由 --el-component-size 决定"),
+            ]).size(ComponentSize.Small),
+            div([text("↑ 注入 small 后输入框高度应为 24px")])
+                .style("margin-top:6px;color:#909399;font-size:12px"),
         ]),
-        demoSection("默认尺寸", [
-            ConfigProvider([PrimaryButton("默认按钮")]),
+        demoSection("默认尺寸（不注入）", [
+            ConfigProvider([
+                Input().placeholder("默认 32px"),
+            ]),
+            div([text("↑ 未注入时继承主题默认 32px")])
+                .style("margin-top:6px;color:#909399;font-size:12px"),
         ]),
         demoSection("说明", [
             div([text("EP 的 ConfigProvider 靠 provide/inject，不输出元素；cjxt 无上下文通道，改用 CSS 变量继承，因此多一层 .el-config-provider 包裹元素。这是架构适配，不是对齐疏漏。")])
+                .style("color:#909399;font-size:12px;line-height:1.7"),
+            div([text("注意：--el-component-size 只被 Input / Radio / InputNumber 等消费（--el-input-height: var(--el-component-size)）；Button 的尺寸走 el-button--small 类，不受该变量影响。")])
                 .style("color:#909399;font-size:12px;line-height:1.7"),
         ]),
     ]

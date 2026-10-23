@@ -26,6 +26,9 @@ import std.collection.{ArrayList, HashMap}
 public class Image <: Component {
     var _src: String = ""
     var _alt: String = ""
+    var _width: String = ""
+    var _height: String = ""
+    var _style: String = ""
     // ImageFit 自带 None 变体，与 Option 的 None 同名 → 必须全限定（AGENTS.md 记过此坑）
     var _fit: Option<ImageFit> = Option<ImageFit>.None
     var _lazy: Bool = false
@@ -43,6 +46,11 @@ public class Image <: Component {
     public init(src: String) { this._src = src }
 
     public func alt(v: String): Image { this._alt = v; this }
+    // 尺寸与额外样式。EP 的 el-image 没有 width/height prop（由外层 style 控制），
+    // 但错误态没有 img 撑开、占位态依赖 img 尺寸，容器会塌缩到内容宽 —— 故提供显式尺寸。
+    public func width(v: String): Image { this._width = v; this }
+    public func height(v: String): Image { this._height = v; this }
+    public func style(v: String): Image { this._style = v; this }
     public func fit(v: ImageFit): Image { this._fit = Some(v); this }
     public func lazy(): Image { this._lazy = true; this }
     // 可预览的地址列表。非空即开启预览（EP 的 preview = previewSrcList.length > 0）
@@ -84,9 +92,18 @@ public class Image <: Component {
             parts.add(this.buildViewer())
         }
 
-        VNode("div", parts.toArray(), attrs: Some(HashMap<String, String>([
-            ("class", "el-image")
-        ])))
+        let rootAttrs = HashMap<String, String>([("class", "el-image")])
+        var style = ""
+        if (this._width != "") { style = "width:${this._width}" }
+        if (this._height != "") {
+            let part = "height:${this._height}"
+            style = if (style == "") { part } else { "${style};${part}" }
+        }
+        if (this._style != "") {
+            style = if (style == "") { this._style } else { "${style};${this._style}" }
+        }
+        if (style != "") { rootAttrs["style"] = style }
+        VNode("div", parts.toArray(), attrs: Some(rootAttrs))
     }
 
     func buildImg(isLoading: Bool): IComponent {

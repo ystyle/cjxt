@@ -179,4 +179,52 @@ public class ImageTest {
             .previewSrcList(["/big.png"]).viewerVisible(vis))
         @Expect(json.contains("el-image-viewer__wrapper"), false)
     }
+
+    // ── 尺寸与 style（2026-10-23 补）────────────────────────────────
+    // 背景：错误态没有 img 撑开、占位态依赖 img 尺寸，容器会塌缩到内容宽
+    // （浏览器实测错误态 56×20 而非期望的 160×90）→ 提供显式 width/height。
+
+    @TestCase
+    public func testWidthAndHeightInlineStyle(): Unit {
+        let (json, _) = renderImageJson(Image("/a.png").width("160px").height("90px"))
+        @Expect(json.contains("width:160px"), true)
+        @Expect(json.contains("height:90px"), true)
+    }
+
+    @TestCase
+    public func testWidthOnly(): Unit {
+        let (json, _) = renderImageJson(Image("/a.png").width("240px"))
+        @Expect(json.contains("width:240px"), true)
+        @Expect(json.contains("height:"), false)
+    }
+
+    @TestCase
+    public func testErrorStateKeepsExplicitSize(): Unit {
+        // 钉住缺陷：错误态无 img，尺寸必须由根元素内联样式提供
+        let (json, _) = renderImageJson(Image("/bad.png").error("加载失败").width("160px").height("90px"))
+        @Expect(json.contains("el-image__error"), true)
+        @Expect(json.contains("width:160px"), true)
+        @Expect(json.contains("height:90px"), true)
+    }
+
+    @TestCase
+    public func testPlaceholderStateKeepsExplicitSize(): Unit {
+        let (json, _) = renderImageJson(Image("/a.png").placeholder().width("160px"))
+        @Expect(json.contains("el-image__placeholder"), true)
+        @Expect(json.contains("width:160px"), true)
+    }
+
+    @TestCase
+    public func testExtraStyleMergedWithSize(): Unit {
+        let (json, _) = renderImageJson(Image("/a.png").width("100px").style("border:1px solid red"))
+        @Expect(json.contains("width:100px"), true)
+        @Expect(json.contains("border:1px solid red"), true)
+    }
+
+    @TestCase
+    public func testNoStyleAttrWhenNoSizeAndNoExtraStyle(): Unit {
+        // 不设尺寸时不写 style，让 scss / 外层布局决定
+        let (json, _) = renderImageJson(Image("/a.png"))
+        @Expect(json.contains("\"style\":\"\""), false)
+    }
 }
