@@ -209,6 +209,65 @@ Splitter 无拖拽、Transfer 无 filterable、ColorPicker 无自由取色、Wat
 > ⚠️ 交叉核对结论：`Message`/`Notification` 在 Stage 4 标为已完成，指的确实是 `MessageHost`/`NotificationHost` 这对宿主组件；
 > 若后续需要 EP 那种 `Message.success()` 式命令式调用，应作为**新的便利 API** 单独评估，不计入组件缺口。
 
+### EP scss 的覆盖检查（2026-10-23 全量核对）
+
+> 教训：**EP 把组件拆成多个 scss，只拷主文件会静默丢样式**（`collapse`+`collapse-item`、
+> `splitter`+`splitter-panel`、`carousel`+`carousel-item`、`anchor`+`anchor-link`、`radio-group`、`checkbox-group`）。
+> 拷之前 `ls theme-chalk/src/ | grep -i <组件名>` 看全量，并按 EP `index.scss` 的**相对次序**接入。
+
+已补入（本轮之前缺失、但组件确实在用的）：
+
+| scss | 影响的组件 | 缺失后果 |
+|------|-----------|---------|
+| `splitter-panel.scss` | Splitter | 无 `flex-grow:0`，`flex-basis` 尺寸模型失效（面板平分而非按 size） |
+| `carousel-item.scss` | Carousel | 无 `position:absolute`，所有 item 纵向堆叠，轮播不成立 |
+| `anchor-link.scss` | Anchor | `__link` 只有结构无样式（字号/行高/内边距/颜色/hover/is-active 全丢） |
+| `radio-group.scss` | RadioGroup | 无 `display:inline-flex` + `flex-wrap`，一行放不下不换行；`font-size:0` 缺失导致项间出现空隙 |
+| `checkbox-group.scss` | CheckboxGroup | 无 `font-size:0` / `line-height:0`，项间出现空隙 |
+
+**经核对确认「不是缺口」的**（避免后人重复排查）：
+- `dropdown-item.scss` / `tab-pane.scss` 在 EP 上游就是 **0 字节空文件**；`el-dropdown-menu__item`、`el-tab-pane` 的样式分别由 `dropdown.scss` 的 `e(item)` 与 EP 自身（无样式，仅 `role=tabpanel`）承担
+- `spinner.scss`：cjxt **零使用** `el-spinner`，Loading 走 `el-loading-spinner`（`loading.scss` 已含）
+
+## 能力边界（已实现但有取舍的组件）
+
+> 下列组件**结构、类名、DOM 已对齐 EP**，但因 cjxt 是**服务端渲染模型**，某些纯客户端交互
+> 无法实现或改用了等价方案。每一项都写进了对应组件的文件头注释，**不是 TODO、也不是漏做**。
+> 若某项业务确实需要 EP 的完整交互，需要动 `public/js/cangjie-ui.js`（前端 JS 改造），单独立项评估。
+
+| 组件 | 边界 | 原因 / 等价方案 |
+|------|------|----------------|
+| `Tour` | 不定位到目标元素，**居中显示** | 服务端拿不到目标 rect（EP 靠客户端 FloatingUI 测量）。`target` 仍落到 `data-tour-target`，供后续前端接线 |
+| `Carousel` | **无 autoplay**，仅手动切换 | EP 用客户端 `setInterval` 推进，cjxt 组件无时钟。DOM 与 `data-carousel` 标记已备好 |
+| `Carousel` | `type=card` 只落类名 + 遮罩 | 3D 层叠位移依赖容器实时像素宽 |
+| `Splitter` | **无拖拽改尺寸** | 需前端 pointer 测量与实时重排。已备 `data-splitter*` 标记 |
+| `Transfer` | 无 `filterable` / `virtualScroll` | 需输入过滤与虚拟列表；交互上把"两侧勾选+箭头"压成"勾选即移动"一步，避免双份状态 |
+| `ColorPicker` | 无 `showAlpha` / 自由取色 | EP 面板是饱和度区拖拽 + 色相条（大量指针交互），改为预设色板网格 |
+| `Watermark` | 用 **SVG** 而非 canvas | 服务端无 canvas；SVG 的 `text`+`rotate` 等价，CSS 用法一致。无 image 型水印、无 MutationObserver 防篡改 |
+| `Affix` | 走 **CSS `position: sticky`**，非 JS 测量 | 无需滚动监听；受祖先 `overflow` 约束属 CSS 语义。EP 的 `position:fixed` + teleport 补偿不适用 |
+| `Affix` | `visibilityHeight` 类显隐做不到 | 纯客户端滚动状态，服务端读不到 |
+| `Backtop` | **恒显示**，无 `visibilityHeight` 显隐 | 同上；阈值以 `data-visibility-height` 输出备用 |
+| `Backtop` | 走原生 `<a href="#">`，非 action | cjxt 的 `dom_command` 只有 focus/scrollIntoView/setProperty/getProperty，**没有 `scrollTo`**，挂 action 只会空转 |
+| `Image` | `lazy` 用原生 `loading="lazy"` | EP 用 IntersectionObserver + 滚动容器；原生属性语义等价且零前端代码 |
+| `Image` | 加载中 / 失败态由**调用方显式驱动** | 服务端拿不到 img 的 `load`/`error` 原生事件 |
+| `Image` | 预览为**简化版**遮罩 | 未做 EP 全套缩放/旋转/工具栏 |
+| `Anchor` | 无 marker 跟随定位 | EP 用 rect 差值 + 客户端测量；改为 `current(href)` 静态或 `bindAnchorCurrent(Signal)` 外置驱动 |
+| `Anchor` | 高亮不由滚动位置自动驱动 | 滚动位置是客户端状态，沿 VirtualList 的 Signal 外置结论 |
+| `Segmented` | 选中滑块用**服务端几何计算** | 替代 EP 的 ResizeObserver：`flex:1` 等宽前提下 `calc(100%/n)` + `translateX`，逐像素一致；某项被内容撑开时会有偏差 |
+| `AvatarGroup` | 组级 `shape` 会覆盖子头像 | `Avatar._shape` 非 Option、默认 Circle，服务端分不清"未设"与"显式 circle"；要混排需把该头像放组外 |
+| `ConfigProvider` | 必多一层 `.el-config-provider` 包裹元素 | EP 靠 provide/inject 不输出元素；cjxt 无上下文通道，改用 **CSS 变量继承**。架构适配，非对齐疏漏 |
+| `Timeline` | mode 下发是构造期副作用 | `Timeline.render()` 写子 item 的 `_timelineMode`；同一 item 实例复用到两个不同 mode 的 Timeline 会互相覆盖 |
+
+### 与 EP 的其它已知差异（非能力边界，是有意的设计选择）
+
+| 项 | 说明 |
+|----|------|
+| `Scrollbar` | EP 的 JS thumb 方案改为 `native` 开关：默认用浏览器原生滚动条，`native(false)` 时加 `__wrap--hidden-default` 隐藏原生滚动条（滚动能力保留） |
+| `InputOtp` | EP 的 `type` prop 因 `type` 是仓颉关键字，改名为 `kind(...)`；原生 input 的 type 另叫 `inputType(...)` |
+| `InputTag` | 草稿文本不存内部信号（组件重渲染会新建实例、内部状态丢失），改为从 action 的 `params.value` 现取 |
+| `Anchor` | 只保留唯一构造器 `Anchor(Array<IComponent>)` + `static func ofLinks(...)`；双 init 重载会 `ambiguous match` |
+| `PageHeader` | 比 EP 多做：`tabindex=0` 补了 Enter/Space 键盘触发（EP 模板只写 click） |
+
 ## CSS 加载流程
 
 ### 概览

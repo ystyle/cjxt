@@ -213,6 +213,19 @@ public func demoCheckboxButton(st: ShowcaseState): Array<IComponent> {
                 CheckboxButton([text("禁用")], "b").disabled(),
             ]).bind(st.checkboxButtonValue2),
         ]),
+        demoSection("尺寸", [
+            div([
+                CheckboxGroup([CheckboxButton([text("大")], "l"), CheckboxButton([text("大2")], "l2")]).bind(st.checkboxButtonValue3),
+            ], attrs: Some(HashMap<String, String>([("class", cls("row"))]))),
+        ]),
+        demoSection("与普通 Checkbox 混排", [
+            CheckboxGroup([
+                Checkbox([text("普通勾选")], "plain"),
+                CheckboxButton([text("按钮勾选")], "btn"),
+            ]).bind(st.checkboxButtonValue4),
+            div([text("↑ 同一组内两种形态可混排（Group 的 match 分支同时支持 Checkbox 与 CheckboxButton）")])
+                .style("margin-top:8px;color:#909399;font-size:12px"),
+        ]),
     ]
 }
 
@@ -460,7 +473,26 @@ public func demoCarousel(st: ShowcaseState): Array<IComponent> {
             ]).bind(st.carouselIndex)]).style("height:180px;border-radius:6px;overflow:hidden"),
             div([text("当前第 "), text("${st.carouselIndex.get() + 1}"), text(" 张")]).style("margin-top:8px;font-size:13px;color:#606266"),
         ]),
-        demoSection("说明", [
+        demoSection("纵向方向", [
+            div([Carousel([
+                CarouselItem([div([text("纵向 1")]).style("display:flex;align-items:center;justify-content:center;height:100%;background:#d9ecff;color:#409eff")]),
+                CarouselItem([div([text("纵向 2")]).style("display:flex;align-items:center;justify-content:center;height:100%;background:#e1f3d8;color:#67c23a")]),
+            ]).direction(CarouselDirection.Vertical).bind(st.carouselIndex2)]).style("height:160px;border-radius:6px;overflow:hidden"),
+        ]),
+        demoSection("指示器位置 / 关闭箭头", [
+            div([Carousel([
+                CarouselItem([div([text("Outside 指示器")]).style("display:flex;align-items:center;justify-content:center;height:100%;background:#faecd8;color:#e6a23c")]),
+                CarouselItem([div([text("第 2 页")]).style("display:flex;align-items:center;justify-content:center;height:100%;background:#d9ecff;color:#409eff")]),
+            ]).indicatorPosition("outside").arrow("never").bind(st.carouselIndex3)]).style("height:140px;border-radius:6px;overflow:hidden"),
+        ]),
+        demoSection("卡片模式（type: card）", [
+            div([Carousel([
+                CarouselItem([div([text("卡片 1")]).style("display:flex;align-items:center;justify-content:center;height:100%;background:#d9ecff;color:#409eff")]),
+                CarouselItem([div([text("卡片 2")]).style("display:flex;align-items:center;justify-content:center;height:100%;background:#e1f3d8;color:#67c23a")]),
+                CarouselItem([div([text("卡片 3")]).style("display:flex;align-items:center;justify-content:center;height:100%;background:#faecd8;color:#e6a23c")]),
+            ]).carouselType(CarouselType.Card).bind(st.carouselIndex4)]).style("height:160px;border-radius:6px;overflow:hidden"),
+        ]),
+        demoSection("说明（能力边界）", [
             div([text("无 autoplay——EP 用客户端 setInterval 推进，cjxt 组件无时钟；DOM 与 data-carousel 标记已备好供后续接线。")])
                 .style("color:#909399;font-size:12px"),
         ]),
@@ -488,7 +520,21 @@ public func demoTransfer(st: ShowcaseState): Array<IComponent> {
                 TransferOption("4", "选项四"),
             ])).bind(st.transferValues),
         ]),
-        demoSection("说明", [
+        demoSection("自定义标题 / 按钮文案", [
+            Transfer(ArrayList<TransferOption>([
+                TransferOption("1", "选项一"),
+                TransferOption("2", "选项二"),
+                TransferOption("3", "选项三"),
+            ])).titles("待选", "已选").buttonTexts("←", "→").bind(st.transferValues2),
+        ]),
+        demoSection("含禁用项", [
+            Transfer(ArrayList<TransferOption>([
+                TransferOption("1", "可用"),
+                TransferOption("2", "禁用项", disabled: true),
+                TransferOption("3", "可用二"),
+            ])).bind(st.transferValues3),
+        ]),
+        demoSection("说明（能力边界）", [
             div([text("无 filterable / virtualScroll——需输入过滤与虚拟列表。交互上把 EP 的「两侧勾选+箭头」两步压成「勾选即移动」一步，避免两份状态打架。")])
                 .style("color:#909399;font-size:12px;line-height:1.7"),
         ]),
@@ -549,7 +595,18 @@ public func demoTour(st: ShowcaseState): Array<IComponent> {
                 PatchResult.ReRender
             }),
         ]),
-        demoSection("说明", [
+        demoSection("可关闭 / 自定义按钮文案", [
+            PrimaryButton("开始（可关闭）").onClick(tourStartHandler2(st)),
+            Tour([
+                TourStep("步骤一", "带关闭按钮，可随时退出"),
+                TourStep("步骤二", "按钮文案已自定义"),
+            ]).bindVisible(st.tourVisible2).showClose(true).buttonTexts("上一步", "下一步", "我知道了")
+                .bindCurrent(st.tourCurrent).onClose({
+                    ctx => st.tourVisible2.set(false)
+                    PatchResult.ReRender
+                }),
+        ]),
+        demoSection("说明（能力边界）", [
             div([text("不定位到目标元素——服务端拿不到目标 rect（EP 靠客户端 FloatingUI 测量），内容改为 position:fixed 居中；target 仍落到 data-tour-target 供后续前端接线。")])
                 .style("color:#909399;font-size:12px;line-height:1.7"),
         ]),
@@ -598,5 +655,10 @@ public func propsWatermark(st: ShowcaseState): IComponent {
 // 先声明成 ActionHandler 再传入（AGENTS.md 记过的老坑）。
 func tourStartHandler(st: ShowcaseState): ActionHandler {
     let h: ActionHandler = { ctx => st.tourVisible.set(true); PatchResult.ReRender }
+    h
+}
+
+func tourStartHandler2(st: ShowcaseState): ActionHandler {
+    let h: ActionHandler = { ctx => st.tourVisible2.set(true); st.tourCurrent.set(0); PatchResult.ReRender }
     h
 }
