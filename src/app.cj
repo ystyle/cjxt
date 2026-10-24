@@ -589,9 +589,9 @@ public class App {
         try {
             this.upgradeWSInner(ctx)
         } catch (e: Error) {
-            println("cjxt-diag upgradeWS ERR(Error): " + TypeInfo.of(e).name + " " + e.message)
+            println("cjxt-diag upgradeWS ERR(Error): " + e.toString())
         } catch (e: Exception) {
-            println("cjxt-diag upgradeWS EX: " + TypeInfo.of(e).name + " " + e.message)
+            println("cjxt-diag upgradeWS EX: " + e.toString())
             this.logStack(e)
         }
     }
@@ -1044,11 +1044,11 @@ public class App {
             // 登录/登出等动作可能修改上下文 token → 同步给前端（localStorage）
             this.syncAuthToken(sink, session)
         } catch (e: Exception) {
-            println("cjxt runAction ERROR: " + TypeInfo.of(e).name + " " + e.message)
+            println("cjxt runAction ERROR: " + e.toString())
             println("cjxt-diag stack " + e.getStackTrace().toString())
             state.page.onError(ErrorContext("", name, e))
         } catch (e: Error) {
-            println("cjxt runAction ERROR(Error): " + TypeInfo.of(e).name + " " + e.message)
+            println("cjxt runAction ERROR(Error): " + e.toString())
         } finally {
             // 必须保证释放 execMutex：handler 抛非 Error 异常时
             // 若跳过 unlock，静态锁永久泄漏 → 后续所有会话/测试死锁
@@ -1164,7 +1164,7 @@ public class App {
         } catch (e: Exception) {
             // 对齐 runAction：onError 默认是 no-op，框架层不留痕的话，推送回调抛的异常
             // 在整条链路上完全不可见（表现为「界面没反应」却查不到原因）
-            println("cjxt pushUpdate ERROR: " + TypeInfo.of(e).name + " " + e.message)
+            println("cjxt pushUpdate ERROR: " + e.toString())
             println("cjxt-diag stack " + e.getStackTrace().toString())
             state.page.onError(ErrorContext("", "push", e))
         } finally {
