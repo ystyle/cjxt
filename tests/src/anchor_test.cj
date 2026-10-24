@@ -172,4 +172,38 @@ public class AnchorTest {
         @Expect(json.contains("导航标题"), true)
         @Expect(json.contains("el-anchor__link"), true)
     }
+
+    // ── 点击/滚动高亮改由前端按 location.hash 驱动（2026-10-23）──────
+    // 高亮不需要滚动高度：点击后 hash 立刻变化，前端比对 href 即可决定 is-active，
+    // 零往返、天然支持前进后退与带 hash 打开。服务端只负责打标记。
+
+    @TestCase
+    public func testRootCarriesHashActiveMarker(): Unit {
+        // 根元素必须带 data-anchor-active，前端据此挂 hashchange 高亮
+        let (out, _) = renderAnchorJson(Anchor([
+            AnchorLink("第一节", "#s1"),
+            AnchorLink("第二节", "#s2"),
+        ]))
+        @Expect(out.contains("data-anchor-active"), true)
+    }
+
+    @TestCase
+    public func testStaticCurrentStillRenderedAsActive(): Unit {
+        // 无 hash 时前端沿用服务端渲染的静态高亮，所以它必须照常输出 is-active
+        let (out, _) = renderAnchorJson(Anchor([
+            AnchorLink("第一节", "#s1"),
+            AnchorLink("第二节", "#s2"),
+        ]).current("#s1"))
+        @Expect(out.contains("el-anchor__link is-active"), true)
+        @Expect(out.contains("aria-current"), true)
+    }
+
+    @TestCase
+    public func testNoScrollMathInComponent(): Unit {
+        // 锚点滚动是浏览器原生能力（href 跳转），组件不该做滚动计算。
+        // 这里从渲染产物侧确认：链接的 href 就是纯锚点，没有额外的滚动属性/脚本钩子。
+        let (out, _) = renderAnchorJson(Anchor([AnchorLink("第一节", "#s1")]))
+        @Expect(out.contains("#s1"), true)
+        @Expect(out.contains("data-scroll-to"), false)
+    }
 }

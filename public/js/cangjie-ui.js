@@ -377,6 +377,7 @@ class CangjieUI {
         if (el.hasAttribute('data-slider')) this.attachSlider(el);
         if (el.hasAttribute('data-splitter-drag')) this.attachSplitter(el);
         if (el.hasAttribute('data-scrollbar')) this.attachScrollbar(el);
+        if (el.hasAttribute('data-anchor-active')) this.attachAnchor(el);
         if (el.hasAttribute('data-select')) this.attachSelect(el);
         if (el.hasAttribute('data-rate')) this.attachRate(el);
         // 自动消失（Message/Notification 等）：data-auto-dismiss="ms" → 到时触发点击（关闭 action）
@@ -416,6 +417,7 @@ class CangjieUI {
         if (el.hasAttribute('data-slider')) this.attachSlider(el);
         if (el.hasAttribute('data-splitter-drag')) this.attachSplitter(el);
         if (el.hasAttribute('data-scrollbar')) this.attachScrollbar(el);
+        if (el.hasAttribute('data-anchor-active')) this.attachAnchor(el);
         if (el.hasAttribute('data-select')) this.attachSelect(el);
         if (el.hasAttribute('data-rate')) this.attachRate(el);
         if (el.hasAttribute('data-auto-dismiss')) this.attachAutoDismiss(el);
@@ -531,6 +533,7 @@ class CangjieUI {
         if (el.hasAttribute('data-slider') && !el.__cjxtSlider) { this.attachSlider(el); el.__cjxtSlider = true; }
         if (el.hasAttribute('data-splitter-drag') && !el.__cjxtSplitter) { this.attachSplitter(el); el.__cjxtSplitter = true; }
         if (el.hasAttribute('data-scrollbar') && !el.__cjxtScrollbar) { this.attachScrollbar(el); el.__cjxtScrollbar = true; }
+        if (el.hasAttribute('data-anchor-active')) this.attachAnchor(el);
         if (el.hasAttribute('data-select') && !el.__cjxtSelect) { this.attachSelect(el); el.__cjxtSelect = true; }
         if (el.hasAttribute('data-rate') && !el.__cjxtRate) { this.attachRate(el); el.__cjxtRate = true; }
         if (el.hasAttribute('data-auto-dismiss') && !el.__cjxtAutoDismiss) { this.attachAutoDismiss(el); el.__cjxtAutoDismiss = true; }
@@ -1035,6 +1038,56 @@ class CangjieUI {
         // 首帧：DOM 可能还没布局完成，下一帧再算一次
         sync();
         if (typeof requestAnimationFrame !== 'undefined') requestAnimationFrame(sync);
+    }
+
+    // 锚点导航高亮：按 location.hash 给对应的 a.el-anchor__link 挂 is-active。
+    //
+    // 为什么不需要服务端参与：点击锚点后 hash 立刻变化，前端比对 href 就能决定高亮，
+    // 既不用算滚动高度，也不用往返一次。天然支持前进/后退、以及带 hash 直接打开页面。
+    // 服务端渲染的静态 current()/is-active 仍然保留——它在「没有 hash」时作为初始值。
+    attachAnchor(el) {
+        // 记录**首次**挂载时服务端渲染的高亮（静态 current()），hash 为空时沿用它。
+        // 只采样一次：之后 DOM 已被本函数改过，再采样会把「上次点击的高亮」当成默认值。
+        if (!el.__cjxtAnchorInitial) {
+            el.__cjxtAnchorInitial = Array.from(el.querySelectorAll('.el-anchor__link'))
+                .filter((a) => a.classList.contains('is-active'))
+                .map((a) => a.getAttribute('href') || '');
+        }
+        const initialActive = el.__cjxtAnchorInitial;
+        const apply = () => {
+            const hash = window.location.hash || '';
+            // 没有 hash：保留服务端渲染的静态高亮（可能是使用方的默认项），不动它。
+            if (hash === '') {
+                el.querySelectorAll('.el-anchor__link').forEach((a) => {
+                    const href = a.getAttribute('href') || '';
+                    if (initialActive.indexOf(href) >= 0) {
+                        a.classList.add('is-active');
+                        a.setAttribute('aria-current', 'true');
+                    }
+                });
+                return;
+            }
+            el.querySelectorAll('.el-anchor__link').forEach((a) => {
+                const href = a.getAttribute('href') || '';
+                if (href === hash) {
+                    a.classList.add('is-active');
+                    a.setAttribute('aria-current', 'true');
+                } else {
+                    a.classList.remove('is-active');
+                    a.removeAttribute('aria-current');
+                }
+            });
+        };
+        el.__cjxtAnchorApply = apply;
+        if (!el.__cjxtAnchorBound) {
+            el.__cjxtAnchorBound = true;
+            window.addEventListener('hashchange', () => {
+                document.querySelectorAll('[data-anchor-active]').forEach((n) => {
+                    if (typeof n.__cjxtAnchorApply === 'function') n.__cjxtAnchorApply();
+                });
+            });
+        }
+        apply();
     }
 
     getComponent(name) {

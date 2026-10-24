@@ -105,6 +105,10 @@ public class Anchor <: Component {
             ("class", this.rootClass()),
             ("role", "navigation"),
             ("aria-label", "Anchor"),
+            // 前端据此挂「按 location.hash 高亮」（data-anchor-active="hash"）。
+            // 高亮不需要滚动高度或服务端往返：点击后 hash 已变，前端直接比对 href 即可，
+            // 这样还天然支持前进/后退与直接带 hash 打开页面。
+            ("data-anchor-active", "hash"),
         ])
         if (this._style != "") { attrs["style"] = this._style }
 
