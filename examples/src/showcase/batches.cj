@@ -501,18 +501,26 @@ public func demoCarousel(st: ShowcaseState): Array<IComponent> {
                 CarouselItem([div([text("纵向 2")]).style("display:flex;align-items:center;justify-content:center;height:100%;background:#e1f3d8;color:#67c23a")]),
             ]).direction(CarouselDirection.Vertical).bind(st.carouselIndex2)]).style("height:160px;border-radius:6px;overflow:hidden"),
         ]),
-        demoSection("指示器位置 / 关闭箭头", [
+        demoSection("outside 指示器（同时保留箭头，可点击切换）", [
+            // 说明：outside 指示器在容器**外部下方**，所以外层不能再套
+            // 「固定高度 + overflow:hidden」的框——那样会把指示器连同箭头一起裁掉，
+            // 看上去就是「一片空白、无法操作」。这里只做圆角，不裁切。
             div([Carousel([
-                CarouselItem([div([text("Outside 指示器")]).style("display:flex;align-items:center;justify-content:center;height:100%;background:#faecd8;color:#e6a23c")]),
-                CarouselItem([div([text("第 2 页")]).style("display:flex;align-items:center;justify-content:center;height:100%;background:#d9ecff;color:#409eff")]),
-            ]).indicatorPosition("outside").arrow("never").bind(st.carouselIndex3)]).style("height:140px;border-radius:6px;overflow:hidden"),
+                CarouselItem([div([text("Outside 指示器")]).style("display:flex;align-items:center;justify-content:center;height:140px;background:#faecd8;color:#e6a23c")]),
+                CarouselItem([div([text("第 2 页")]).style("display:flex;align-items:center;justify-content:center;height:140px;background:#d9ecff;color:#409eff")]),
+            ]).indicatorPosition("outside").arrow("always").bind(st.carouselIndex3)]).style("border-radius:6px"),
+            div([text("↑ 指示器在容器下方；箭头常显（arrow: always），可点击左右箭头或指示器切换")])
+                .style("margin-top:8px;color:#909399;font-size:12px"),
         ]),
         demoSection("卡片模式（type: card）", [
             div([Carousel([
                 CarouselItem([div([text("卡片 1")]).style("display:flex;align-items:center;justify-content:center;height:100%;background:#d9ecff;color:#409eff")]),
                 CarouselItem([div([text("卡片 2")]).style("display:flex;align-items:center;justify-content:center;height:100%;background:#e1f3d8;color:#67c23a")]),
                 CarouselItem([div([text("卡片 3")]).style("display:flex;align-items:center;justify-content:center;height:100%;background:#faecd8;color:#e6a23c")]),
-            ]).carouselType(CarouselType.Card).bind(st.carouselIndex4)]).style("height:160px;border-radius:6px;overflow:hidden"),
+            ]).carouselType(CarouselType.Card).arrow("always").bind(st.carouselIndex4)])
+                .style("height:160px;border-radius:6px;overflow:hidden"),
+            div([text("↑ 卡片模式：左右两张卡片各露出一半属正常（EP 的 3D 效果）；箭头常显可点击切换")])
+                .style("margin-top:8px;color:#909399;font-size:12px"),
         ]),
         demoSection("说明（能力边界）", [
             div([text("无 autoplay——EP 用客户端 setInterval 推进，cjxt 组件无时钟；DOM 与 data-carousel 标记已备好供后续接线。")])

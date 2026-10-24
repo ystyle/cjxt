@@ -205,4 +205,25 @@ public class CarouselTest {
         let out = this.json(Carousel([]))
         @Expect(out.contains("el-carousel__container"), true)
     }
+
+    // ── 纵向指示器的类名必须**只有** --vertical（2026-10-24 修）──────
+    // 原缺陷：纵向时追加了 `el-carousel__indicators--right`（该类只有 right:0，
+    // 没有垂直居中/竖排语义），于是指示器落在容器下半部、且只露出一半。
+    // 旧用例只断言「包含 --vertical」，两个类同时存在时它照样通过 —— 所以没抓到。
+    // 这里改为断言「不得出现 --right」。
+
+    @TestCase
+    public func testVerticalIndicatorsUseVerticalClassOnly(): Unit {
+        let out = this.json(this.threeSlides().direction(CarouselDirection.Vertical).bind(Signal<Int64>(1)))
+        @Expect(out.contains("el-carousel__indicators--vertical"), true)
+        @Expect(out.contains("el-carousel__indicators--right"), false)
+    }
+
+    @TestCase
+    public func testHorizontalIndicatorsUseHorizontalClass(): Unit {
+        let out = this.json(this.threeSlides().bind(Signal<Int64>(1)))
+        @Expect(out.contains("el-carousel__indicators--horizontal"), true)
+        @Expect(out.contains("el-carousel__indicators--vertical"), false)
+        @Expect(out.contains("el-carousel__indicators--right"), false)
+    }
 }

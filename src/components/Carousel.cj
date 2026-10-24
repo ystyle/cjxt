@@ -209,10 +209,14 @@ public class Carousel <: Component {
         var hasLabel = false
         for (it in items) { if (it._label != "") { hasLabel = true } }
 
+        // 类名必须与方向一致：EP 的纵向指示器是 `.el-carousel__indicators--vertical`
+        // （scss 里给它 right:0 + top:50% + translateY(-50%)，竖排居中）。
+        // 原来纵向时错误地加了 `--right`（该类只有 right:0，没有垂直居中），
+        // 于是指示器落在容器下半部分、且只露出一半。
+        // layoutCls 已经是 "vertical"/"horizontal"，直接用即可。
         var cls = "el-carousel__indicators el-carousel__indicators--${layoutCls}"
         if (hasLabel) { cls = "${cls} el-carousel__indicators--labels" }
         if (this._indicatorPosition == "outside") { cls = "${cls} el-carousel__indicators--outside" }
-        if (isVertical) { cls = "${cls} el-carousel__indicators--right" }
 
         let lis = ArrayList<IComponent>()
         var i = 0
