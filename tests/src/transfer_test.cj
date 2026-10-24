@@ -242,61 +242,58 @@ public class TransferTest {
         @Expect(countOccurrences(out, "el-transfer__button is-disabled"), 1)
     }
 
-    // ── 箭头按钮方向：直接执行按钮 handler 验证移向（2026-10-23）──────
+    // ── 箭头方向：由纯函数锁定（2026-10-24 补）──────────────────────
     //
-    // 缺陷回顾：buildButton 把 isLeft 当 toRight 传给 moveMany，两个按钮方向全反；
-    // 且 moveMany 遍历所有选项，点一次就"全部跑过去"。
-    //
-    // 取 handler 的办法：按钮的 click handler 在 handlers 表里以 `h:<path>:click` 为键，
-    // 按渲染顺序，**最后两个** click handler 就是 ← 与 → 两个箭头。
-    func clickHandlersInOrder(node: IComponent): ArrayList<ActionHandler> {
-        let expanded = RenderContext.expandTree(node, "")
-        let hm = HashMap<String, ActionHandler>()
-        let _ = serializeSubtree(expanded, hm)
-        RenderContext.clearDirty()
-        // 按 key 里嵌入的路径数字排序，还原 DOM 顺序
-        let keys = ArrayList<String>()
-        for ((k, _) in hm) { keys.add(k) }
-        // ArrayList 没有 insert（AGENTS.md 已记），先摊平到普通数组再排序
-        let arr = keys.toArray()
-        var i = 0
-        while (i < arr.size) {
-            var j = i + 1
-            while (j < arr.size) {
-                if (arr[j] < arr[i]) {
-                    let tmp = arr[i]
-                    arr[i] = arr[j]
-                    arr[j] = tmp
-                }
-                j = j + 1
-            }
-            i = i + 1
-        }
-        let sorted = ArrayList<String>(arr)
-        let out = ArrayList<ActionHandler>()
-        for (k in sorted) {
-            match (hm.get(k)) { case Some(h) => out.add(h); case None => () }
-        }
+    // 历史两个缺陷都出在"往哪边移、移哪些"这一步：
+    //   ① buildButton 把 isLeft 当 toRight 传 → 按钮方向与图标相反
+    //   ② moveMany 遍历全部 options → 点一次"全部跑过去"
+    // 现该决策已抽成包级纯函数 pickSourceItems，这里直接测它。
+
+    func opts2(): ArrayList<TransferOption> {
+        ArrayList<TransferOption>([
+            TransferOption("1", "一"),
+            TransferOption("2", "二"),
+            TransferOption("3", "三"),
+        ])
+    }
+
+    func keysOf(items: ArrayList<TransferOption>): String {
+        var out = ""
+        for (o in items) { out = "${out}${o.key}" }
         out
     }
 
-    func ctxOf(): ActionContext {
-        ActionContext("s-tf", HashMap<String, String>(), HashMap<String, String>(),
-            Router("s-tf", { _ => () }))
+    @TestCase
+    public func testRightArrowSourceIsLeftPanel(): Unit {
+        // 选中的是 2（在右侧）；点右箭头（toRight=true）时源必须是**左侧未选中**的 1、3
+        let src = pickSourceItems(this.opts2(), ArrayList<String>(["2"]), true)
+        @Expect(this.keysOf(src), "13")
     }
 
     @TestCase
-    public func testRightArrowMovesLeftItemsToRight(): Unit {
-        // 初始：空（全在左）。点右箭头 → 全部移到右侧
-        let sig = Signal<ArrayList<String>>(ArrayList<String>(Array<String>()))
-        let opts = ArrayList<TransferOption>([
-            TransferOption("1", "一"), TransferOption("2", "二"),
-        ])
-        let hs = this.clickHandlersInOrder(Transfer(opts).bind(sig))
-        @Expect(hs.size > 0, true)
-        // 最后一个 click handler = 右箭头（← 在前、→ 在后）
-        let right = hs[hs.size - 1]
-        let _ = right(this.ctxOf())
-        @Expect(sig.get().size, 2)
+    public func testLeftArrowSourceIsRightPanel(): Unit {
+        // 点左箭头（toRight=false）时源必须是**右侧已选中**的项
+        let src = pickSourceItems(this.opts2(), ArrayList<String>(["2"]), false)
+        @Expect(this.keysOf(src), "2")
+    }
+
+    @TestCase
+    public func testRightArrowSourceEmptyWhenAllOnRight(): Unit {
+        // 全部已在右侧 → 右箭头没有可移的项（对应按钮应禁用）
+        let src = pickSourceItems(this.opts2(), ArrayList<String>(["1", "2", "3"]), true)
+        @Expect(src.size, 0)
+    }
+
+    @TestCase
+    public func testLeftArrowSourceEmptyWhenAllOnLeft(): Unit {
+        let src = pickSourceItems(this.opts2(), ArrayList<String>(Array<String>()), false)
+        @Expect(src.size, 0)
+    }
+
+    @TestCase
+    public func testSourcePreservesOptionOrder(): Unit {
+        // 源项按 options 原始顺序（不能按 selected 顺序漂移）
+        let src = pickSourceItems(this.opts2(), ArrayList<String>(["3", "1"]), false)
+        @Expect(this.keysOf(src), "13")
     }
 }

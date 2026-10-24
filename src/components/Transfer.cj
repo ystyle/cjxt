@@ -238,9 +238,7 @@ public class Transfer <: Component {
     func moveMany(toRight: Bool, ctx: ActionContext): PatchResult {
         let s = this.valueSignal()
         let selected = s.get()
-        // partitionItems(selected, wantSelected)：true = 右侧(已选中)，false = 左侧(未选中)。
-        // toRight=true（右箭头）→ 源是左面板 → wantSelected = false = !toRight。
-        let source = this.partitionItems(selected, !toRight)
+        let source = pickSourceItems(this._options, selected, toRight)
         var next = selected
         for (o in source) {
             if (o.disabled) { continue }
@@ -291,4 +289,22 @@ func wantedContains(m: HashMap<String, Bool>, key: String): Bool {
 func containsString(list: ArrayList<String>, key: String): Bool {
     for (v in list) { if (v == key) { return true } }
     false
+}
+
+// 箭头按钮「该移动哪些项」：纯函数，便于单测锁定方向。
+//
+// toRight=true（点右箭头）→ 源是**左面板**（尚未选中的项）
+// toRight=false（点左箭头）→ 源是**右面板**（已选中的项）
+// 历史缺陷：这里曾把两侧都算进来（遍历全部 options），导致点一次"全部跑过去"；
+// 也曾把 isLeft 当 toRight 传，导致按钮方向与图标相反。
+public func pickSourceItems(options: ArrayList<TransferOption>, selected: ArrayList<String>,
+                      toRight: Bool): ArrayList<TransferOption> {
+    let out = ArrayList<TransferOption>()
+    for (o in options) {
+        let inRight = containsString(selected, o.key)
+        // 要移向右侧 → 源必须是"当前在左侧"的项（inRight == false）
+        // 要移向左侧 → 源必须是"当前在右侧"的项（inRight == true）
+        if (inRight == !toRight) { out.add(o) }
+    }
+    out
 }
