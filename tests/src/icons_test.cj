@@ -78,4 +78,66 @@ public class IconsTest {
         @Expect(out.contains("viewBox"), true)
         @Expect(out.contains("0 0 1024 1024"), true)
     }
+
+    // ── 全量导入校验（2026-10-24）──────────────────────────────────
+    // 图标库已从「手抄 30 个」改为「官方全量 293 + 4 别名 = 296」。
+    // 下面几条确保导入是完整的，且没有退化（名字打错、path 空、别名丢失）。
+
+    // 抽样若干官方图标（覆盖不同类别：方向、状态、对象、媒体）
+    func sampleNames(): Array<String> {
+        [
+            "arrow-down", "arrow-up", "arrow-left", "arrow-right",
+            "arrow-down-bold", "circle-check", "circle-check-filled",
+            "success-filled", "warning-filled", "info-filled",
+            "message", "user", "lock", "search", "star",
+            "delete", "edit", "view", "hide", "loading",
+            "add-location", "aim", "alarm-clock", "apple", "bell",
+        ]
+    }
+
+    @TestCase
+    public func testImportedIconsAllResolve(): Unit {
+        for (n in this.sampleNames()) {
+            let d = getIconSvg(n)
+            @Expect(d.size > 10, true)
+        }
+    }
+
+    @TestCase
+    public func testAliasesStillWork(): Unit {
+        // 历史调用点用的是这几个别名，导入全量后必须仍然可用且指向官方图形。
+        // 注意 `more` 不是别名——它是官方自带的图标，与 `more-filled` 图形不同。
+        @Expect(getIconSvg("star-on") == getIconSvg("star-filled"), true)
+        @Expect(getIconSvg("star-off") == getIconSvg("star"), true)
+        @Expect(getIconSvg("error-filled") == getIconSvg("circle-close"), true)
+    }
+
+    @TestCase
+    public func testIconLibraryIsLarge(): Unit {
+        // 防止意外回退成「只有几个图标」：抽样 25 个全部命中，足以说明是全量导入
+        var hit = 0
+        for (n in this.sampleNames()) {
+            if (getIconSvg(n).size > 10) { hit = hit + 1 }
+        }
+        @Expect(hit, 25)
+    }
+
+    @TestCase
+    public func testNoDuplicatePathAmongKeyIcons(): Unit {
+        // 历史缺陷：success-filled / error-filled / circle-check 共用同一 path
+        let paths = [
+            getIconSvg("success-filled"), getIconSvg("error-filled"),
+            getIconSvg("circle-check"), getIconSvg("warning-filled"),
+            getIconSvg("info-filled"),
+        ]
+        var i = 0
+        while (i < paths.size) {
+            var j = i + 1
+            while (j < paths.size) {
+                @Expect(paths[i] != paths[j], true)
+                j = j + 1
+            }
+            i = i + 1
+        }
+    }
 }
