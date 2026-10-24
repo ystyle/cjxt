@@ -109,7 +109,7 @@ public class IconsTest {
         // 注意 `more` 不是别名——它是官方自带的图标，与 `more-filled` 图形不同。
         @Expect(getIconSvg("star-on") == getIconSvg("star-filled"), true)
         @Expect(getIconSvg("star-off") == getIconSvg("star"), true)
-        @Expect(getIconSvg("error-filled") == getIconSvg("circle-close"), true)
+        @Expect(getIconSvg("error-filled") == getIconSvg("circle-close-filled"), true)
     }
 
     @TestCase
@@ -139,5 +139,34 @@ public class IconsTest {
             }
             i = i + 1
         }
+    }
+
+    // ── Alert 四类图标的风格一致性（2026-10-24）──────────────────
+    // 缺陷：error 用的是 circle-close（裸叉号、无外圈），而 success/warning/info
+    // 都是带 448 外圈的实心圆，四个放在一起明显不搭。
+    // 修法：error-filled 别名指向 circle-close-filled。
+
+    @TestCase
+    public func testAlertIconsShareSameOuterCircle(): Unit {
+        // 四类提示图标必须以相同的圆外形起手（M512 64a448 448 = 直径 896 的圆）
+        let four = ["success-filled", "warning-filled", "info-filled", "error-filled"]
+        for (n in four) {
+            let d = getIconSvg(n)
+            @Expect(d.contains("M512 64a448 448"), true)
+        }
+    }
+
+    @TestCase
+    public func testErrorFilledIsNotBareCross(): Unit {
+        // error-filled 不能退化成裸叉（circle-close 的 path 以 m466.752 起手、无外圈）
+        let err = getIconSvg("error-filled")
+        let bareCross = getIconSvg("circle-close")
+        @Expect(err != bareCross, true)
+        @Expect(err.contains("M512 64a448 448"), true)
+    }
+
+    @TestCase
+    public func testErrorFilledMatchesCircleCloseFilled(): Unit {
+        @Expect(getIconSvg("error-filled") == getIconSvg("circle-close-filled"), true)
     }
 }
