@@ -204,7 +204,7 @@ public func demoForm(st: ShowcaseState): Array<IComponent> {
         .rule(FormRule(required: true, message: "密码不能为空"))
         .rule(FormRule(min: 6, message: "密码至少6个字符"))
         .errorSignal(st.formPwdError)
-    let itemEmail = FormItem([Input().placeholder("请输入邮箱").prefixIcon("info-filled").bind(st.formEmail)])
+    let itemEmail = FormItem([Input().placeholder("请输入邮箱").prefixIcon("message").bind(st.formEmail)])
         .label("邮箱")
         .bind(st.formEmail)
         .rule(FormRule(pattern: "^\\w+@\\w+\\.\\w+$", message: "邮箱格式不正确"))

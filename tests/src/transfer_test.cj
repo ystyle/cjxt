@@ -192,11 +192,19 @@ public class TransferTest {
 
     @TestCase
     public func testButtonIconsAreCorrectDirection(): Unit {
-        // 左按钮 = arrow-left，右按钮 = arrow-right（EP 结构：icon 在左/右各一侧）
+        // 左按钮 = arrow-left，右按钮 = arrow-right（EP 结构：icon 在左/右各一侧）。
+        // 不写死 path 字面量：图标 path 会随图标库更新而变（曾从手抄换为 EP 官方），
+        // 锁字面量会让这条用例在无关改动时误红。改为拿 getIconSvg 的实际输出比对。
+        let left = getIconSvg("arrow-left")
+        let right = getIconSvg("arrow-right")
+        @Expect(left.size > 10, true)
+        @Expect(right.size > 10, true)
+        @Expect(left != right, true)
+
         let opts = ArrayList<TransferOption>([TransferOption("1", "选项一")])
         let out = this.json(Transfer(opts))
-        @Expect(out.contains("M609.088"), true)   // arrow-left path
-        @Expect(out.contains("M340.864"), true)   // arrow-right path
+        @Expect(out.contains(left), true)
+        @Expect(out.contains(right), true)
     }
 
     // ── 箭头按钮方向（2026-10-23 修）──────────────────────────────
