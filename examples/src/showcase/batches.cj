@@ -295,16 +295,28 @@ public func propsInputTag(st: ShowcaseState): IComponent {
 
 // ── Affix ─────────────────────────────────────────────────────────
 public func demoAffix(st: ShowcaseState): Array<IComponent> {
+    // 演示必须放在**可滚动容器**里才能看出吸附效果：
+    // sticky 只在父容器的滚动范围内生效。之前直接放在页面里，
+    // 而演示页整体高度不足一屏（body scrollHeight == innerHeight）→ 页面根本不滚动，
+    // 看起来就是"Affix 没效果"。这里用一个固定高度的内层滚动容器来复现真实场景。
+    let rows = ArrayList<IComponent>()
+    for (i in 1..=14) {
+        rows.add(div([text("第 ${i} 行内容 —— 向下滚动这个灰色区域")])
+            .style("padding:9px 12px;border-bottom:1px solid #f0f0f0;font-size:13px;color:#606266"))
+    }
     [
         demoSection("吸顶（position: sticky，offset 10px）", [
+            // 滚动容器：overflow:auto + 固定高度 + 内含吸顶元素
             div([
-                Affix([PrimaryButton("我是吸顶按钮")]).offset(10),
-                div([text("↑ 向上滚动本页，这个按钮会吸附在距顶部 10px 处")])
-                    .style("margin-left:12px;color:#909399;font-size:12px;display:inline-block"),
-            ]).style("display:flex;align-items:center"),
+                Affix([PrimaryButton("我是吸顶按钮")]).offset(10)
+                    .style("padding:6px 12px 6px 0;background:#fff"),
+                div(rows.toArray()),
+            ]).style("height:220px;overflow:auto;border:1px solid #dcdfe6;border-radius:6px;background:#fafafa"),
+            div([text("↑ 在灰色区域内向下滚动，按钮会吸附在区域内距顶部 10px 处")])
+                .style("margin-top:8px;color:#909399;font-size:12px"),
         ]),
         demoSection("说明", [
-            div([text("Affix 走纯 CSS position:sticky，无需前端 JS。受祖先元素 overflow 约束——祖先有 overflow:hidden/auto 时 sticky 会失效，这是 CSS 语义而非组件缺陷。")])
+            div([text("Affix 走纯 CSS position:sticky，无需前端 JS。sticky 生效需要两个条件：① 存在可滚动的祖先（页面本身或 overflow:auto 的容器）；② 该祖先有富余高度。若祖先 overflow 为 hidden/auto 且没有滚动空间，sticky 不会出现吸附——这是 CSS 语义而非组件缺陷。")])
                 .style("color:#909399;font-size:12px;line-height:1.7"),
         ]),
     ]
