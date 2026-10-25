@@ -82,6 +82,15 @@ public class Select <: Component {
     var _clearable: Bool = false
     var _filterable: Bool = false
     var _open: Signal<Bool>
+    /**
+     * 是否使用外部传入的展开态（见 bindOpen）。
+     *
+     * 默认 false：`_open` 是构造时新建的，随组件实例生灭。
+     * 组件被重新构造时展开态就回到 false —— 对"每次 render 都 new 一个 Select"的
+     * 常规写法，这意味着一展开就被重置（服务端日志能看到 open false→true，
+     * 但下一次渲染又变回 false，界面上表现为点了没反应）。
+     */
+    var _externalOpen: Bool = false
     var _filterText: Signal<String>
     var _highlight: Signal<Int64>
     var _onChange: Option<ActionHandler> = None
@@ -93,6 +102,19 @@ public class Select <: Component {
         this._highlight = Signal<Int64>(-1)
     }
     public func bind(signal: Signal<String>): Select { this._signal = Some(signal); this }
+
+    /**
+     * 绑定**外部持有**的展开态。
+     *
+     * 用于"每次渲染都重新构造组件"的场景（cjxt 的常规写法）：把展开态放到
+     * 调用方的 AppState 里，重建组件也不会丢。不绑的话展开态跟着实例走，
+     * 重建即重置，表现为点开立刻收起。
+     */
+    public func bindOpen(signal: Signal<Bool>): Select {
+        this._open = signal
+        this._externalOpen = true
+        this
+    }
     public func bindMulti(signal: Signal<ArrayList<String>>): Select { this._multiSignal = Some(signal); this }
     public func placeholder(v: String): Select { this._placeholder = v; this }
     public func disabled(): Select { this._disabled = true; this }
@@ -200,16 +222,15 @@ public class Select <: Component {
         let keyHandler: ActionHandler = { ctx =>
             if (this.handleKeyEvent(ctx)) { PatchResult.ReRender } else { PatchResult.Patch([]) }
         }
+        // 注意：这里**不再**给 input 绑 click。
+        //
+        // 输入框在 wrapper 内部，给两者都绑 click 时，点输入框会触发两次：
+        // 先 input 的 "打开"，再冒泡到 wrapper 的 "切换" —— 一开一合，净结果等于没变，
+        // 表现为 filterable 的下拉点了不展开、选项里什么都没有（非 filterable 正常，
+        // 因为它没有 input 那一层）。
+        //
+        // 展开/收起统一由外层 wrapper 的 onClick 负责；input 只做搜索与键盘导航。
         let input = VNode("input", [], attrs: Some(pa), handlers: Some(hmap))
-            .on("click", { ctx =>
-                if (!this._open.get()) {
-                    this._open.set(true)
-                    this._highlight.set(-1)
-                    PatchResult.ReRender
-                } else {
-                    PatchResult.Patch([])
-                }
-            })
             .onKeydown(keyHandler)
         let calculator = VNode("span", [], attrs: Some(HashMap<String, String>([("class", "el-select__input-calculator"), ("aria-hidden", "true")])))
         VNode("div", [input, calculator], attrs: Some(HashMap<String, String>([("class", wrapperCls)])))
