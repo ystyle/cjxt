@@ -82,3 +82,36 @@ func countOf(hay: String, needle: String): Int64 {
     }
     n
 }
+
+/**
+ * 回归：分组下拉的选中项在**后面的分组**里时，要能显示出它的 label。
+ *
+ * 曾经的 bug：findLabel 里 `case g: SelectOptionGroup => return labelInGroup(...)`
+ * 在第一个分组就 return 了 —— 选中项属于后面的分组时永远找不到 label，
+ * 输入框显示空白（实测：绑定了值、选项里确实有该项，但界面是空的）。
+ */
+@Test
+public class SelectGroupLabelTest {
+    @TestCase
+    public func selectedItemInSecondGroupShowsLabel(): Unit {
+        let two = Select([
+            SelectOptionGroup([SelectOption([text("甲")], "a"),
+                SelectOption([text("乙")], "b")], "第一组"),
+            SelectOptionGroup([SelectOption([text("丙")], "c"),
+                SelectOption([text("丁")], "d")], "第二组"),
+        ]).bind(Signal<String>("d"))
+        let j = renderJson(two)
+        // 选中值是 d（在第二组）→ 选中文案应当是「丁」，且**不该**是 placeholder 态。
+        // 用 placeholder 类名判断比"文本里出现丁"更可靠（丁 作为选项文本本来就在 JSON 里）。
+        @Expect(!j.contains("el-select__placeholder"))
+    }
+
+    @TestCase
+    public func selectedItemInFirstGroupStillWorks(): Unit {
+        let two = Select([
+            SelectOptionGroup([SelectOption([text("甲")], "a")], "第一组"),
+            SelectOptionGroup([SelectOption([text("丙")], "c")], "第二组"),
+        ]).bind(Signal<String>("a"))
+        @Expect(!renderJson(two).contains("el-select__placeholder"))
+    }
+}

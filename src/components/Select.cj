@@ -469,8 +469,15 @@ public class Select <: Component {
     func findLabel(value: String): String {
         for (c in this._children) {
             match (c) {
-                case o: SelectOption => if (o._value == value) { return this.extractLabel(o) }
-                case g: SelectOptionGroup => return this.labelInGroup(g, value)
+                case o: SelectOption =>
+                    if (o._value == value) { return this.extractLabel(o) }
+                case g: SelectOptionGroup =>
+                    // 不能 `return labelInGroup(...)` —— 那会在**第一个分组**就返回，
+                    // 选中项在后面的分组时永远找不到 label，界面显示成空白/占位符
+                    // （实测：分组下拉绑定了值、选项里也有该项，但输入框是空的）。
+                    // 找不到就继续查后面的分组。
+                    let lbl = this.labelInGroup(g, value)
+                    if (lbl != "") { return lbl }
                 case _ => ()
             }
         }
