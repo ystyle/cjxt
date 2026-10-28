@@ -11,6 +11,12 @@ public struct RouteEntry {
         this.paramNames = extractParamNames(path)
     }
 
+    /// 请求路径与该条目的**字面路径**完全相同（不经过任何参数替换）。
+    /// 静态路由比参数路由更具体，解析时优先于参数路由——见 `RouteRegistry.resolve`。
+    public func isExactPath(requestPath: String): Bool {
+        this.path == requestPath
+    }
+
     public func doMatch(requestPath: String): Option<HashMap<String, String>> {
         if (path == requestPath) {
             return Some(HashMap<String, String>())
@@ -129,7 +135,21 @@ public class RouteRegistry {
         entries.size
     }
 
+    /**
+     * 解析请求路径到页面：**字面路径优先，参数路由兜底**。
+     *
+     * 不能只按注册顺序取第一个匹配：`/plans/create` 与 `/plans/[id]` 同深度时两者都
+     * "匹配"，而注册顺序由编译器决定（`@Page` 的注册语句按顶层初始化顺序执行，跨文件
+     * 顺序不属于源码契约）。取决于注册先后，静态页会被参数页吃掉——表现为点了某个
+     * 静态页的入口，打开的却是同级的参数页（参数值还拿该路径段，页面显示"不存在"）。
+     * 静态路径是更具体的意图，必须优先。
+     */
     public func resolve(path: String): Option<RouteMatch> {
+        for ((entry, factory) in entries) {
+            if (entry.isExactPath(path)) {
+                return Some(RouteMatch(factory(), HashMap<String, String>()))
+            }
+        }
         for ((entry, factory) in entries) {
             match (entry.doMatch(path)) {
                 case Some(params) => return Some(RouteMatch(factory(), params))
@@ -146,7 +166,26 @@ public class RouteRegistry {
         }
     }
 
+    /// 是否存在与请求路径**字面完全相同**的路由（不看参数路由）。
+    /// 标题/守卫/布局查表用它区分"静态页自己没配"与"该继承同级参数页的"。
+    private func hasExactRoute(path: String): Bool {
+        for ((entry, _) in entries) {
+            if (entry.isExactPath(path)) {
+                return true
+            }
+        }
+        false
+    }
+
     public func getTitle(path: String): Option<String> {
+        match (this.titles.get(path)) {
+            case Some(title) => return Some(title)
+            case None => ()
+        }
+        // 字面路由存在但没配标题 = 这页没有专属标题；不能借同深度参数页的标题
+        if (this.hasExactRoute(path)) {
+            return None
+        }
         for (p in titles.keys()) {
             let entry = RouteEntry(p)
             match (entry.doMatch(path)) {
@@ -160,8 +199,19 @@ public class RouteRegistry {
     /**
      * 执行路径守卫：None = 放行；Some(path) = 拒绝访问并跳转到守卫指定的路径。
      * 守卫的跳转目标由应用自己决定（可因页面/场景而异），框架不感知业务。
+     *
+     * 查表同样**字面路径优先**（`guards` 是 HashMap，迭代顺序不属于契约）。
+     * 字面路由存在却没登记守卫 = 这页本来就不设防：不能退到同深度参数路由的守卫，
+     * 否则静态页会被按参数页的规则拦下。
      */
     public func resolveGuard(path: String, ctx: HashMap<String, String>): Option<String> {
+        match (this.guards.get(path)) {
+            case Some(fn) => return fn(ctx)
+            case None => ()
+        }
+        if (this.hasExactRoute(path)) {
+            return None
+        }
         for (p in guards.keys()) {
             let entry = RouteEntry(p)
             match (entry.doMatch(path)) {
@@ -176,6 +226,14 @@ public class RouteRegistry {
     }
 
     public func getLayout(path: String): Option<LayoutFn> {
+        match (this.layouts.get(path)) {
+            case Some(fn) => return Some(fn)
+            case None => ()
+        }
+        // 同 getTitle/resolveGuard：字面路由自己没有布局就不继承参数路由的
+        if (this.hasExactRoute(path)) {
+            return None
+        }
         for (p in layouts.keys()) {
             let entry = RouteEntry(p)
             match (entry.doMatch(path)) {
