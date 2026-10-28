@@ -441,7 +441,7 @@ Element Plus 组件库样式走**同一条通道**：EP 原始 SCSS 由 `scripts
 - mount ack 不再触发 `onMount`（防止状态覆盖）
 - 导航时先 `onUnmount` 旧页面，再 `onMount` 新页面
 
-### 3.11 响应式状态管理（Signal / Store / AppState）
+### 3.11 响应式状态管理（Signal / AppState）
 
 框架提供四层状态管理。**先看这张表再选类型** —— 选错层级的典型后果是
 「状态莫名其妙串了」或「改了界面不动」（两者都是作用域选错，不是框架故障）。
@@ -450,7 +450,6 @@ Element Plus 组件库样式走**同一条通道**：EP 原始 SCSS 由 `scripts
 |------|------|--------|--------------|----------|
 | 局部状态 | `var` 字段 | Component 实例 | 组件 | 表单输入、临时变量 |
 | 响应式状态 | `Signal<T>` | 由定义位置决定（见 §3.11.1 的生存期表） | **你** | 需要自动追踪变更的状态 |
-| 容器状态 | `Store<S>` | **由定义位置决定**（见 §3.11.2） | **你** | 包级共享（站点配置、在线数） |
 | Session 级状态 | `AppState` 接口 | Session（跨导航持久、跨会话隔离） | **框架** | 用户信息、每会话购物车 |
 | 会话上下文 | `SessionContext` 接口（默认实现 `SessionContextState`） | 每会话唯一 | 框架 | 渲染期判断登录态/角色（鉴权权威仍是 `Session.context`） |
 
@@ -511,58 +510,64 @@ func renderWithScope(): Component {
 不需要为了"跨请求"就一律塞进 AppState。判据是：
 
 > **这个状态该不该跨浏览器标签页共享？**
-> 该 → 包级 `let`（或 Store）；不该、但要跨导航 → `AppState`；
+> 该 → 包级 `let`（配 `Computed` 做派生）；不该、但要跨导航 → `AppState`；
 > 只在本页面内、刷新可丢 → 页面实例字段。
 
 **反例（会让人误判为"框架 bug"）**：用原生 `<form method="post">` 做整页提交时，
 每次请求都会 `sessions.create` 新建页面实例 —— 页面字段上的 Signal 必然重置。
 这时不是 Signal 不能用，而是**那条路径本来就会换实例**。要保留状态就得改走 WS action。
 
-#### 3.11.2 Store\<S\>
+#### 3.11.2 并发与线程模型
 
-```cangjie
-public class Store<S> {
-    func get(): S
-    func set(updater: (S) -> S)   // 例: store.set({ v => v + 1 })
-    func subscribe(fn: () -> Unit)
-}
-```
+`Signal` 是**跨线程共享**的：cjxt 每条 WS 连接跑一个线程（`App.listenLoop`），
+所以两个浏览器标签页 = 两条线程，可能同时读写**同一个**包级 `Signal`。
 
-薄封装，内部基于 `Signal<S>`。
+框架把内部状态按「是否该跨线程共享」严格分成两类：
 
-##### Store 与 AppState 不是同一类东西
-
-两者都在解决"组件间共享状态"，但**机制完全不同**，选错会得到意外的作用域：
-
-| | `AppState` | `Store<S>` |
+| 状态 | 归属 | 理由 |
 |---|---|---|
-| 定义 | `public interface AppState {}` —— **零行代码的标记接口** | 普通泛型类，内部包一个 `Signal<S>` |
-| 框架支持 | **有**：`App.state<T>()` 注册 + `initStates` 每会话注入 + `ctx.getState<T>()` 取回 | **没有** —— 框架不认识它 |
-| 作用域 | 固定：**每 session 一个实例**（跨导航、跨整页刷新；会话之间隔离） | **由你放在哪决定** |
-| 跨会话共享 | ❌ 不能 | ✅ 包级定义时可以 |
+| `SignalTracker.scopeStack` / `collectorStack` / `batchDepth` / `untrackedDepth` | **线程局部**（`ThreadLocal`） | 语义是「本线程这一轮正在渲染什么」，跨线程共享会互相弹栈 |
+| `RenderContext` 渲染捕获（`beginCapture` / `endCapture` / `captureSid`） | **线程局部** | 「本线程这一轮渲染产出了哪些组件」 |
+| `ReactiveNode.subs`（订阅表） | **加锁共享**（每节点一把 `Mutex`） | 同一 Signal 被多线程同时订阅 / 退订 / 通知 |
+| `SignalTracker.dirtyComponents`（脏组件队列） | **加锁共享** | `sendPatch` 要按会话挑属于自己的组件 |
+
+##### 曾经的缺陷（2026-10 修复，值得记住）
+
+上一版把前两类也放在进程级静态变量里，后果是**用户数据串台 + 进程崩溃**：
+
+1. **渲染上下文串台**：A 线程 `enterScope` 后、B 线程 `exitScope` 会弹掉 A 的栈帧
+   → 组件被登记到**错误的会话**名下，订阅错乱 → `notify` 里调空指针 → **SIGSEGV**。
+2. **订阅表无保护**：`get()` 订阅（`subs.add`）与 `set()` 通知（复制遍历 `subs`）
+   跨线程并发 → `ArrayList` 内部结构被改坏 → **SIGSEGV**。
+3. **渲染捕获被覆盖**：`sendPatch` 的 `beginCapture → 渲染 → endCapture` 这段
+   **不总在 `execMutex` 内**（HTTP 首渲、推送合并线程都会进渲染）。两会话并发时
+   `endCapture` 取到对方的列表（本会话捕获为空）→ adopt 把**刚渲染的新组件当旧组件
+   dispose 掉** → 该会话的更新**静默丢失**。
+
+修复要点：前两类改 `ThreadLocal`（语义上本就是线程局部的），后两类加锁。
+`notify` 采用「锁内取快照、锁外回调」—— 回调里会再进来 `subscribe`/`unsubscribe`，
+持锁回调会自锁。
+
+**回归用例**：`src/concurrency_race_test.cj`（3 例）。两处变异验证确认用例不是空转：
+capture 改回静态 → 150 轮里 128 次归属串台 + 124 次空捕获；`subs` 去掉锁 → SIGSEGV。
+
+**对使用者的影响**：不需要自己加锁，框架已保证 `Signal` 的读写与订阅管理线程安全。
+但**写进 Signal 的业务对象**若被多线程改写，其内部一致性仍由调用方负责。
+
+##### 关于 `Store<S>`（已移除）
+
+早期有一个 `Store<S>`（`Signal` 的薄封装，只提供 `set(updater)`）。它的问题是
+**能力被 `Signal` 完全覆盖且更弱**：未实现 `Readable`，因此**传不进任何组件的
+`bind()`**；也没有 `compare`（相等性去重）、`unsubscribe`、直接 `set(值)`。
+全仓仅 4 处单测引用、零业务使用，已于 2026-10 移除。
+
+跨组件共享状态直接用**包级 `Signal`**（要派生就配 `Computed`）：
 
 ```cangjie
-// AppState：框架管，每会话一份（用户购物车、表单草稿）
-class CartState <: AppState { public var items = ArrayList<String>() }
-App().state<CartState>({ => CartState() })
-// handler / onMount 里：ctx.getState<CartState>()
-
-// Store：你自己管，放在包级 = 进程内全局（站点配置、在线人数）
-let globalCount = Store<Int64>(0)   // 包级 → **所有会话共享**
-// 任意组件里：globalCount.set({ v => v + 1 })
+let globalCount = Signal<Int64>(0)              // 包级 → 所有会话共享
+let globalDouble = Computed<Int64>({ => globalCount.get() * 2 })
+// 任意组件 render 里读，set 后自动标脏
 ```
-
-**Store 的作用域就是它被存放的位置**：
-
-- 包级 `let` → 进程级，所有会话共享（实测：标签页 A 点 3 次，新标签页 B 直接看到 3）
-- 组件字段 / 函数内 → 跟随那个作用域，`render()` 里 new 出来的只活一帧
-
-所以「Store 是跨组件的」这句话只在**包级定义**时成立。如果你要的是
-"每个用户各有一份但跨页面"，那该用 `AppState`，不是 `Store`。**
-
-> 注：`Store` 目前在本仓只被单元测试使用，示例站与实际应用都没有用它 ——
-> 它更像"给将来留的共享容器"，而不是现在的主力方案。需要共享状态时优先考虑
-> `AppState`（每会话）或包级 `Signal`（全局）。
 
 #### 3.11.3 AppState 接口
 
@@ -712,7 +717,7 @@ public func bind<T>(signal: Signal<T>): Component where T <: ToString & JsonDese
 - [x] 应用配置（title、favicon、cssBundle、componentsCss）
 
 ### Phase 5: 响应式系统 ✅
-- [x] `Signal<T>` + `Store<S>`
+- [x] `Signal<T>`（`Store<S>` 已于 2026-10 移除：能力被 Signal 覆盖且接不进 bind）
 - [x] SignalTracker 自动依赖追踪 + `renderWithScope`
 - [x] `AppState` 接口 + `ctx.getState<T>()`
 - [x] 数据绑定 `bind<T>()`

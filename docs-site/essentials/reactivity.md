@@ -87,61 +87,72 @@ class MyComponent <: Component {
 ## 脏标记系统
 
 ```cangjie
-
-public static var pendingRender: Bool       // 重渲挂起标记
-public static var dirtyComponents = ArrayList<Component>()  // 全局脏组件列表
-public static var execMutex = Mutex()        // 执行互斥锁
+SignalTracker.pendingRender: Bool            // 重渲挂起标记
+SignalTracker.execMutex: Mutex               // 执行互斥锁
 ```
 
-- `Component.markDirty()` 将组件加入 `dirtyComponents`
-- `RenderContext.collectDirty()` 收集脏组件（父覆盖子过滤）
-- `RenderContext.clearDirty()` 清理所有脏标记
-
-## Store
-
-`Store<S>` 是对 `Signal<S>` 的简单封装：
+脏组件队列**跨会话共享**（`sendPatch` 要按会话挑属于自己的），因此不暴露裸集合，
+只提供加锁的受控访问：
 
 ```cangjie
-let store = Store<Int64>(0)
-
-store.get()                                          // 读值
-store.set(fn: { v => v + 1 })                        // 更新
-store.subscribe({ () => println("store changed") })  // 订阅
+SignalTracker.addDirty(c: Component)         // 标记（markDirty 内部调用）
+SignalTracker.snapshotDirty(): ArrayList<Component>   // 查看（不清空）
+SignalTracker.dirtyCount(): Int64            // 数量
+RenderContext.collectDirty()                 // 收集（父覆盖子过滤）
+RenderContext.collectOwnedDirty(session)     // 只挑本会话当前树上的
+RenderContext.clearDirty()                   // 清理所有脏标记
+RenderContext.clearDirtyForSession(session)  // 只清本会话
 ```
 
-### ⚠️ Store 的作用域 = 它被放在哪里
+> 不要直接读写 `SignalTracker.dirtyComponents` —— 队列有锁保护，
+> 裸访问会绕过它（早期文档里的 `dirtyComponents = ArrayList<Component>()` 写法已失效）。
 
-框架**不管理** `Store` 的生命周期 —— 它就是一个普通对象，活多久取决于你把它存在什么位置：
+## 并发与线程模型（多会话安全）
 
-| 存放位置 | 实际作用域 |
-|---|---|
-| **包级 `let`** | **进程级** —— 所有会话、所有浏览器标签页共享 |
-| 页面组件字段 | 该页面实例（整个 WS 会话，整页刷新即重置） |
-| `render()` 里 new | **一次渲染**，下一帧就没了 |
+`Signal` 是**跨线程共享**的：cjxt 每条 WS 连接跑在一个线程上（`App.listenLoop`），
+所以两个浏览器标签页 = 两条线程，可能同时读写**同一个** 包级 `Signal`。
 
-实测过包级 `Store` 的跨会话行为：标签页 A 把值点到 3，**新开的标签页 B 直接读到 3**。
+框架内部把状态分两类处理，理解这条能解释很多「偶发」问题：
 
-所以「Store 是跨组件的」这句话，**只在包级定义时成立**。
-
-## Store 与 AppState 的选用
-
-两者都在解决「组件间共享状态」，但机制完全不同，容易混：
-
-| | `Store<S>` | `AppState` |
+| 状态 | 归属 | 为什么 |
 |---|---|---|
-| 是什么 | 普通类，包一个 `Signal<S>` | **空标记接口**（`public interface AppState {}`） |
-| 框架认识它吗 | **不认识** | 认识：`App.state<T>()` 注册 + 每会话注入 |
-| 作用域 | **由存放位置决定**（见上表） | 固定：**每会话一份**，跨导航、跨整页刷新，会话之间隔离 |
-| 跨浏览器标签页共享 | ✅ 包级定义时可以 | ❌ 不能 |
+| `scopeStack` / `collectorStack` / `batchDepth` / `untrackedDepth` | **线程局部** | 语义是「本线程这一轮正在渲染什么」，不该跨线程共享 |
+| `RenderContext` 的渲染捕获（`beginCapture`/`endCapture`） | **线程局部** | 「本线程这一轮渲染产出了哪些组件」 |
+| `ReactiveNode.subs`（订阅表） | **加锁共享** | 同一个 Signal 会被多线程同时订阅/退订/通知 |
+| `dirtyComponents`（脏组件队列） | **加锁共享** | `sendPatch` 要按会话挑属于自己的组件 |
+
+> ⚠️ **不要在渲染回调里假设「全局只有一个会话在渲染」**。早期版本把渲染上下文
+> 放在进程级静态变量里，多标签页并发操作时会出现：组件被登记到**错误的会话**名下、
+> 订阅错乱，最终 **SIGSEGV（进程崩溃）** 或某会话的更新**静默丢失**。
+> 已修复，回归用例见 `src/concurrency_race_test.cj`。
+
+**对使用者意味着什么**：你不需要自己加锁 —— 框架已保证 `Signal` 的读写与订阅管理是线程安全的。
+但你**写在 Signal 里的业务对象**如果被多线程改写，仍要自己保证其内部一致性。
+
+## Signal 与 AppState 的选用
+
+两者都在解决「组件间共享状态」，但机制和作用域完全不同：
+
+| | 包级 `Signal` / `Computed` | `AppState` |
+|---|---|---|
+| 是什么 | 普通响应式值，放在包级 `let` | **空标记接口**（`public interface AppState {}`） |
+| 框架认识它吗 | 不认识（就是普通对象） | 认识：`App.state<T>()` 注册 + 每会话注入 |
+| 作用域 | **进程级** —— 所有会话、所有标签页共享 | 固定：**每会话一份**，跨导航；整页刷新重置 |
+| 会话之间隔离 | ❌ 共享同一份 | ✅ 各一份 |
+| 能派生（`Computed`） | ✅ | ✅（字段里放 Signal/Computed） |
 
 **选用判据**：
 
 - 状态**每个用户各一份**（购物车、表单草稿、当前选中项）→ **`AppState`**
-- 状态**全站唯一**（站点配置、在线人数、缓存）→ **包级 `Store`** 或包级 `Signal`
+- 状态**全站唯一**（站点配置、在线人数、缓存）→ **包级 `Signal`**（要派生就配 `Computed`）
 - 状态只在本页、刷新可丢 → 页面实例字段
 
-> 现状：`Store` 目前只在框架单测里用到，示例站与实际应用都没用它。需要共享状态时，
-> 优先考虑 `AppState`（每会话）或包级 `Signal`（全局）。
+**关于「跨组件的状态容器」**：不需要额外的 `Store` 类型。包级 `Signal` 已经提供了
+跨组件/跨页面共享所需的一切（读写、订阅、派生、`bind()` 直连组件、相等性去重、精确退订）。
+早期版本曾有一个 `Store<S>`（`Signal` 的薄封装），因其能力被 `Signal` 完全覆盖、
+且**无法传给组件的 `bind()`**（未实现 `Readable`），已移除。若你仍在旧代码里看到它，
+直接把 `Store<Int64>(0)` 换成 `Signal<Int64>(0)`、`store.set({ v => ... })` 换成
+`store.update({ v => ... })` 即可。
 
 ## 会话级全局状态（AppState）
 

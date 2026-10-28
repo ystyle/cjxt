@@ -97,7 +97,7 @@ public abstract class Component <: IComponent {
     public func markDirty(): Unit {
         if (!this._dirty) {
             this._dirty = true
-            SignalTracker.dirtyComponents.add(this)
+            SignalTracker.addDirty(this)
         }
         SignalTracker.pendingRender = true
     }

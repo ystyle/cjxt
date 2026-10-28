@@ -3,8 +3,9 @@
 // 契约：包级 `let` 上定义的 `Signal` 是所有组件共享的同一份状态——
 // 一个组件的 handler 写它，**另一个页面**上读它的组件会收到补丁。
 //
-// 这是"是否需要 Store 专门类"的判据：如果 Signal 本身已经够用，
-// Store 就只是它的一层更弱的壳。
+// 判据依据：包级 Signal 本身就能承担跨组件/跨页面共享，
+// 不需要额外的"状态容器"类型（早期曾有 Store<S>，因其能力被 Signal 完全覆盖且
+// 接不进组件的 bind()，已移除）。
 package cjxt
 
 import std.collection.{ArrayList, HashMap}
@@ -16,9 +17,9 @@ import stdx.encoding.url.URL
 import stdx.net.http.{Client, ClientBuilder, WebSocket, WebSocketFrameType}
 import stdx.net.http.WebSocketFrame
 
-// 包级共享状态：进程内所有会话共用同一份（等价于文档里 Store 的"包级 = 全局"）
+// 包级共享状态：进程内所有会话共用同一份（"全局"的唯一写法）
 let e2eSharedCount = Signal<Int64>(0)
-// 派生状态：由两个源算出来（Store 做不到这件事）
+// 派生状态：由源信号算出来（Computed 的能力，非 Signal 单独可比）
 let e2eSharedDouble = Computed<Int64>({ => e2eSharedCount.get() * 2 })
 
 class XCompPageA <: Component {

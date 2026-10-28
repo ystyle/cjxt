@@ -67,7 +67,7 @@ Counter(42, "计数")
 Tooltip(contentSignal.get(), triggerSignal.get())
 ```
 
-Signal 变化驱动父组件重新 `render()`，新建子组件实例时传新值。如需在组件外部持久化状态，由调用方在父组件或 Store 中管理 Signal。
+Signal 变化驱动父组件重新 `render()`，新建子组件实例时传新值。如需在组件外部持久化状态，由调用方在父组件、`AppState` 或包级 `Signal` 中管理它。
 
 ## 前端实现
 

@@ -53,7 +53,6 @@ src/
 ├── component.cj            Component 接口 / 生命周期定义
 ├── action.cj               ActionContext / PatchResult / Router
 ├── signal.cj               Signal<T> 响应式信号 + SignalTracker 自动追踪
-├── store.cj                Store<S> 基于 Signal 的状态管理
 ├── css.cj                  CssModule 结构 + cssModule 辅助函数
 ├── config.cj               AppConfig 应用配置
 ├── diff.cj                 diff / patch 引擎（已废弃，待移除）
@@ -64,7 +63,7 @@ src/
 ├── app.cj                  App 类 + 会话循环 + initSignals 信号集成
 ├── macros/                 宏定义目录（macro package）
 ├── demo/                   演示应用（demo 子包）
-├── signal_test.cj          Signal / Store 单元测试
+├── signal_test.cj          Signal 单元测试
 ├── vnode_test.cj           vnode 单元测试
 ├── action_test.cj          action 单元测试
 ├── registry_test.cj        registry 单元测试
@@ -191,6 +190,64 @@ agent-browser eval "document.querySelector('p').textContent"  # 读取更新后�
 - **Props 类型支持**：`_props: HashMap<String, JsonSerializable>`，`@Prop` 字段可声明 `String` / `Int64` / `Bool` / `Float64` 等类型，宏生成带正确类型的构造器参数。`writeValue(this._props)` 输出正确 JSON 类型（数字、布尔值不会变字符串）。
 
 ## 代码总结
+
+### 2026-10-29 多会话并发：渲染上下文必须线程局部（否则数据串台 + SIGSEGV）
+
+**现象**：两个浏览器标签页（= 两条 WS 连接 = 两条线程）并发操作时，某一个的更新
+**偶发静默丢失**；压力大时整个进程 **SIGSEGV**。
+
+**三个根因**（都是"进程内单份"假设在多线程下崩了）：
+
+1. `SignalTracker.scopeStack` / `collectorStack` / `batchDepth` / `untrackedDepth`
+   是进程级静态**栈**。A 线程 `enterScope` 后、B 线程 `exitScope` 执行
+   `remove(size-1..size)` 会弹掉 A 的栈帧 → 组件被登记到**错误的会话**名下、
+   订阅错乱 → `notify` 里调空指针 → SIGSEGV。
+2. `ReactiveNode.subs` 是裸 `ArrayList`。`get()` 订阅（`add`）与 `set()` 通知
+   （复制并遍历）跨线程并发 → 内部结构改坏 → SIGSEGV。
+3. `RenderContext.capture` 是进程级静态。`sendPatch` 的
+   `beginCapture → 渲染 → endCapture` 这段**不总在 `execMutex` 内**
+   （HTTP 首渲 `renderPageTree`、推送合并线程都会进渲染）。两会话并发时
+   `endCapture` 取到对方的列表（本会话捕获为空）→ `adopt` 把**刚渲染的新组件
+   当旧组件 dispose 掉** → 该会话更新静默丢失。
+
+**修复原则：按语义分「线程局部」还是「加锁共享」，不要一刀切。**
+
+| 状态 | 归属 | 判据 |
+|---|---|---|
+| scope/collector/batch/untracked 栈 | `ThreadLocal` | 语义是"**本线程**这一轮正在渲染什么" |
+| 渲染捕获 capture/captureSid | `ThreadLocal` | 语义是"**本线程**这一轮产出了哪些组件" |
+| `ReactiveNode.subs` | 每节点一把 `Mutex` | 同一 Signal 被多线程订阅/退订/通知 |
+| `dirtyComponents` | 全局一把 `Mutex` + 受控方法 | `sendPatch` 要**按会话**挑属于自己的 |
+
+**关键细节**：`notify()` 必须"**锁内取快照、锁外回调**"——回调里会再进来
+`subscribe`/`unsubscribe`（effect 重跑、组件重渲），持锁回调会自锁。
+`dirtyComponents` 不再暴露裸集合，改 `addDirty/snapshotDirty/drainDirtyAll/
+putBackDirty/replaceDirty/clearDirty/dirtyCount`，测试里的 `dirtyComponents.size`
+一并换成 `dirtyCount()`。
+
+**验证**：`src/concurrency_race_test.cj` 3 例（一读一写 200 轮 / 订阅-退订-通知
+三方 150 轮 / 两会话并发捕获 150 轮）。**两处变异验证**（否则分不清"锁住缺陷"与
+"用例空转"）：capture 改回静态 → 128 次归属串台 + 124 次空捕获；`subs` 去掉锁 →
+两个用例直接 SIGSEGV。全量 362/362。
+
+**坑**：
+- **`SyncCounter` 在测试里会把用例挂死**（第一次复现时整轮超时 124）；
+  改自建 `Gate`（`Mutex` + 计数 + 超时轮询），失败时能报"未完成 N 轮"而不是卡住。
+- **`import std.time.{sleep, Duration}` 编译不过**（"not accessible in package"），
+  必须 `import std.time.*`。
+- 线程局部用 `ThreadLocal<T>()` + `get(): Option<T>` / `set(v)`；首次用时 `None`，
+  要写成"取不到就新建并 set 回去"的惰性初始化。
+
+### 同时移除 `Store<S>`
+
+`Store<S>` 是 `Signal<S>` 的薄封装（只有 `get` / `set(updater)` / `subscribe`），
+实测能力是 Signal 的**严格子集**：未实现 `Readable` 所以**传不进任何组件的 `bind()`**，
+也没有 `compare`（相等性去重）、`unsubscribe`、直接 `set(值)`。
+全仓仅 4 处单测引用、零业务使用 → 删除。
+
+迁移方式：`Store<Int64>(0)` → `Signal<Int64>(0)`；
+`store.set({ v => v + 1 })` → `store.update({ v => v + 1 })`。
+跨组件共享状态直接用包级 `Signal`（要派生就配 `Computed`）。
 
 ### 2026-10-28 路由：静态路径优先于同深度的参数路径
 

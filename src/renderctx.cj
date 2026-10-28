@@ -159,31 +159,42 @@ func hasDirtyParent(c: IComponent, all: ArrayList<IComponent>): Bool {
 
 public class RenderContext {
     // 本轮渲染归属：登记本会话页面树上渲染过的组件（换页时据此退订旧组件）。
-    // 渲染在 SignalTracker.execMutex 内串行进行，故单份捕获即可。
-    static var capture: Option<ArrayList<Component>> = None
-    static var captureSid: String = ""
+    //
+    // ⚠️ 用**线程局部**而非进程级静态：`sendPatch` 的 beginCapture → 渲染 →
+    // endCapture 这段并不总在 `execMutex` 内（HTTP 首渲、推送合并线程都会进渲染）。
+    // 两个会话并发渲染时，共享一份 capture 会互相覆盖：
+    //   · 组件被打上**别的会话**的 ownerSid；
+    //   · endCapture 取到对方的列表（或已被对方清空）→ 本会话捕获为空；
+    //   · adopt 认为"本轮无组件"，把刚渲染的新组件当旧组件 dispose → 更新静默丢失。
+    // 捕获是"本线程这一轮渲染产出了什么"，语义上就是线程局部的。
+    static let captureTL = ThreadLocal<ArrayList<Component>>()
+    static let captureSidTL = ThreadLocal<String>()
 
     // 开始捕获本轮渲染出的组件（会话 id 用于给组件打归属标记）
     public static func beginCapture(sid: String): Unit {
-        capture = Some(ArrayList<Component>())
-        captureSid = sid
+        captureTL.set(ArrayList<Component>())
+        captureSidTL.set(sid)
     }
 
     // 结束捕获并取走本轮渲染出的组件（异常路径也必须调用，否则捕获状态残留）
     public static func endCapture(): ArrayList<Component> {
-        let list = match (capture) {
+        let list = match (captureTL.get()) {
             case Some(l) => l
             case None => ArrayList<Component>()
         }
-        capture = None
-        captureSid = ""
+        captureTL.set(ArrayList<Component>())
+        captureSidTL.set("")
         list
     }
 
     // 组件渲染时自报家门：打上归属会话 + 登记到本轮捕获
     static func registerRendered(c: Component): Unit {
-        c.setOwnerSid(captureSid)
-        match (capture) {
+        let sid = match (captureSidTL.get()) {
+            case Some(v) => v
+            case None => ""
+        }
+        c.setOwnerSid(sid)
+        match (captureTL.get()) {
             case Some(l) => l.add(c)
             case None => ()
         }
@@ -254,7 +265,7 @@ public class RenderContext {
 
     // 收集脏组件（父覆盖子过滤：如果父组件也脏，子组件不单独处理）
     public static func collectDirty(): ArrayList<IComponent> {
-        let all = SignalTracker.dirtyComponents
+        let all = SignalTracker.snapshotDirty()
         let dirtyList = ArrayList<IComponent>()
         for (c in all) {
             if (c.isDirty()) {
@@ -273,9 +284,7 @@ public class RenderContext {
 
     // 取出全局脏队列并清空（脏标记的清理由调用方按组件进行）
     public static func drainDirty(): ArrayList<Component> {
-        let all = SignalTracker.dirtyComponents
-        SignalTracker.dirtyComponents = ArrayList<Component>()
-        all
+        SignalTracker.drainDirtyAll()
     }
 
     // 挑出属于本会话**当前页面树**的脏组件：
@@ -296,9 +305,7 @@ public class RenderContext {
                 otherSession.add(c)
             }
         }
-        for (c in otherSession) {
-            SignalTracker.dirtyComponents.add(c)
-        }
+        SignalTracker.putBackDirty(otherSession)
         let result = ArrayList<IComponent>()
         for (c in owned) {
             if (!hasDirtyParent(c, owned)) {
@@ -310,10 +317,10 @@ public class RenderContext {
 
     // 清理所有脏标记
     public static func clearDirty(): Unit {
-        for (c in SignalTracker.dirtyComponents) {
+        for (c in SignalTracker.snapshotDirty()) {
             c.clearDirty()
         }
-        SignalTracker.dirtyComponents.clear()
+        SignalTracker.clearDirty()
     }
 
     // 清理本会话（以及无归属组件）的脏标记。
@@ -321,7 +328,7 @@ public class RenderContext {
     // 被这里顺手清掉就等于丢更新。
     public static func clearDirtyForSession(session: Session): Unit {
         let remain = ArrayList<Component>()
-        for (c in SignalTracker.dirtyComponents) {
+        for (c in SignalTracker.snapshotDirty()) {
             let sid = c.ownerSid()
             if (sid == "" || sid == session.id) {
                 c.clearDirty()
@@ -329,6 +336,6 @@ public class RenderContext {
                 remain.add(c)
             }
         }
-        SignalTracker.dirtyComponents = remain
+        SignalTracker.replaceDirty(remain)
     }
 }

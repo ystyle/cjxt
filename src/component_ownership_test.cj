@@ -80,7 +80,7 @@ func ownerProbeRenderSubtree(session: Session, comp: Component, path: String): I
 }
 
 func ownerProbeDirtyContains(c: Component): Bool {
-    for (x in SignalTracker.dirtyComponents) {
+    for (x in SignalTracker.snapshotDirty()) {
         if (x.uid() == c.uid()) { return true }
     }
     false

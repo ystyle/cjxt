@@ -29,37 +29,65 @@ public struct DepEntry {
 }
 
 // 可订阅节点基类：Signal / Computed 共享订阅管理
+//
+// ⚠️ 订阅表是**跨线程共享**的：cjxt 每条 WS 连接一个线程，同一个 Signal 被
+// 多个会话同时读写。以下三方会并发访问 `subs`，故全部加锁：
+//   · subscribe   —— `render()` 里 `get()` 时订阅
+//   · unsubscribe —— 组件 dispose / 重渲前退订
+//   · notify      —— `set()` 时通知全部订阅者
+//
+// 不加锁的后果是**进程 SIGSEGV**（ArrayList 内部结构被并发改坏），不是可捕获异常。
+// 见 `concurrency_race_test.cj`。
 public open class ReactiveNode {
     var subs = ArrayList<SubEntry>()
     var nextSubId: Int64 = 1
     // 批量模式去重标记
     public var _pending: Bool = false
+    // 保护 subs / nextSubId（见类注释）
+    let subsLock = Mutex()
 
     public func subscribe(fn: () -> Unit): Int64 {
-        let id = this.nextSubId
-        this.nextSubId += 1
-        this.subs.add(SubEntry(id, fn))
-        id
+        subsLock.lock()
+        try {
+            let id = this.nextSubId
+            this.nextSubId += 1
+            this.subs.add(SubEntry(id, fn))
+            id
+        } finally {
+            subsLock.unlock()
+        }
     }
 
     public func unsubscribe(id: Int64): Unit {
-        var i = 0
-        for (s in this.subs) {
-            if (s.id == id) {
-                this.subs.remove(i..i + 1)
-                return
+        subsLock.lock()
+        try {
+            var i = 0
+            for (s in this.subs) {
+                if (s.id == id) {
+                    this.subs.remove(i..i + 1)
+                    return
+                }
+                i += 1
             }
-            i += 1
+        } finally {
+            subsLock.unlock()
         }
     }
 
     public func clearSubs(): Unit {
-        this.subs.clear()
+        subsLock.lock()
+        try {
+            this.subs.clear()
+        } finally {
+            subsLock.unlock()
+        }
     }
 
     public func notify(): Unit {
-        // 迭代快照：通知期间若订阅者退订/改订阅（如 effect 重跑），不破坏迭代
-        let snapshot = ArrayList<SubEntry>(this.subs)
+        // 快照在锁内取（拷贝期间不允许别人改 subs），遍历/回调在锁外执行 ——
+        // 回调里会再进来 subscribe/unsubscribe（如 effect 重跑、组件重渲），
+        // 持锁回调会自锁。
+        let snapshot = copySubs()
         for (s in snapshot) {
             s.fn()
         }
@@ -67,6 +95,26 @@ public open class ReactiveNode {
 
     public func clearPendingFlag(): Unit {
         this._pending = false
+    }
+
+    // 取订阅表快照（供 notify 与测试读数量）
+    func copySubs(): ArrayList<SubEntry> {
+        subsLock.lock()
+        try {
+            ArrayList<SubEntry>(this.subs)
+        } finally {
+            subsLock.unlock()
+        }
+    }
+
+    // 当前订阅数（测试/诊断用）
+    public func subCount(): Int64 {
+        subsLock.lock()
+        try {
+            this.subs.size
+        } finally {
+            subsLock.unlock()
+        }
     }
 }
 
@@ -76,66 +124,218 @@ public interface Readable<T> {
     func get(): T
 }
 
-// 追踪上下文：scope 栈（自动追踪）+ collector 栈（computed 依赖收集）+ batch/untracked 深度
+// 追踪上下文
+//
+// ⚠️ 线程模型（2026-10 修复）：cjxt 每条 WS 连接一个线程。下面这些状态分两类，
+// 混在一起会导致**用户数据串台**甚至进程崩溃：
+//
+//   · 「我现在正在渲染什么」——scope 栈 / collector 栈 / batch 深度 / untracked 深度。
+//     这些是**单线程的渲染上下文**，必须线程局部（ThreadLocal）。
+//     否则 A 线程 enterScope 后、B 线程 exitScope 会弹掉 A 的栈帧：
+//     组件被登记到别的会话名下、订阅错乱，随后 `notify` 里调空指针 → SIGSEGV。
+//
+//   · 「有哪些组件脏了」——dirtyComponents。这是**跨线程共享**的队列
+//     （sendPatch 按会话挑属于自己的），必须加锁，不能线程局部。
 public class SignalTracker {
-    static var scopeStack = ArrayList<() -> Unit>()
+    // ── 线程局部：渲染上下文 ──────────────────────────────────
+    static let scopeStackTL = ThreadLocal<ArrayList<() -> Unit>>()
     // computed/effect 重算时的依赖收集器：收到 (源, 订阅id) 以支持退订
-    static var collectorStack = ArrayList<(ReactiveNode, Int64) -> Unit>()
+    static let collectorStackTL = ThreadLocal<ArrayList<(ReactiveNode, Int64) -> Unit>>()
+    // 批量模式：变更延迟到 batch 结束一次性通知
+    static let batchDepthTL = ThreadLocal<Int64>()
+    static let batchChangedTL = ThreadLocal<ArrayList<ReactiveNode>>()
+    // untracked 读取深度：>0 时 get() 不订阅
+    static let untrackedDepthTL = ThreadLocal<Int64>()
 
     public static var pendingRender: Bool = false
     public static var execMutex = Mutex()
-    public static var dirtyComponents = ArrayList<Component>()
 
-    // 批量模式：变更延迟到 batch 结束一次性通知
-    public static var batchDepth: Int64 = 0
-    public static var batchChanged = ArrayList<ReactiveNode>()
-    // untracked 读取深度：>0 时 get() 不订阅
-    public static var untrackedDepth: Int64 = 0
+    // ── 跨线程共享：脏组件队列（加锁保护） ──────────────────────
+    static var dirtyComponents = ArrayList<Component>()
+    static let dirtyLock = Mutex()
+
+    // 供 uiState 等兼容访问（测试也用）——读写一律走下面的受控方法
+    public static func scopeStack(): ArrayList<() -> Unit> {
+        match (scopeStackTL.get()) {
+            case Some(v) => v
+            case None =>
+                let v = ArrayList<() -> Unit>()
+                scopeStackTL.set(v)
+                v
+        }
+    }
+
+    static func collectorStack(): ArrayList<(ReactiveNode, Int64) -> Unit> {
+        match (collectorStackTL.get()) {
+            case Some(v) => v
+            case None =>
+                let v = ArrayList<(ReactiveNode, Int64) -> Unit>()
+                collectorStackTL.set(v)
+                v
+        }
+    }
+
+    static func batchChanged(): ArrayList<ReactiveNode> {
+        match (batchChangedTL.get()) {
+            case Some(v) => v
+            case None =>
+                let v = ArrayList<ReactiveNode>()
+                batchChangedTL.set(v)
+                v
+        }
+    }
+
+    public static func batchDepth(): Int64 {
+        match (batchDepthTL.get()) {
+            case Some(v) => v
+            case None => 0
+        }
+    }
+
+    public static func setBatchDepth(v: Int64): Unit {
+        batchDepthTL.set(v)
+    }
+
+    public static func untrackedDepth(): Int64 {
+        match (untrackedDepthTL.get()) {
+            case Some(v) => v
+            case None => 0
+        }
+    }
+
+    public static func setUntrackedDepth(v: Int64): Unit {
+        untrackedDepthTL.set(v)
+    }
+
+    // ── 脏组件队列：受控访问 ──────────────────────────────────
+    public static func addDirty(c: Component): Unit {
+        dirtyLock.lock()
+        try {
+            dirtyComponents.add(c)
+        } finally {
+            dirtyLock.unlock()
+        }
+    }
+
+    // 取走全部脏组件并清空（原子：谁取谁负责处理）
+    static func drainDirtyAll(): ArrayList<Component> {
+        dirtyLock.lock()
+        try {
+            let all = ArrayList<Component>(dirtyComponents)
+            dirtyComponents = ArrayList<Component>()
+            all
+        } finally {
+            dirtyLock.unlock()
+        }
+    }
+
+    // 查看脏组件（不清空）。会先处理"组件已清脏则移出队列"。
+    public static func snapshotDirty(): ArrayList<Component> {
+        dirtyLock.lock()
+        try {
+            ArrayList<Component>(dirtyComponents)
+        } finally {
+            dirtyLock.unlock()
+        }
+    }
+
+    // 放回队列（别的会话的组件留给它自己处理）
+    static func putBackDirty(list: ArrayList<Component>): Unit {
+        dirtyLock.lock()
+        try {
+            for (c in list) {
+                dirtyComponents.add(c)
+            }
+        } finally {
+            dirtyLock.unlock()
+        }
+    }
+
+    // 全量替换（保留未下发的）
+    static func replaceDirty(list: ArrayList<Component>): Unit {
+        dirtyLock.lock()
+        try {
+            dirtyComponents = ArrayList<Component>(list)
+        } finally {
+            dirtyLock.unlock()
+        }
+    }
+
+    public static func clearDirty(): Unit {
+        dirtyLock.lock()
+        try {
+            dirtyComponents.clear()
+        } finally {
+            dirtyLock.unlock()
+        }
+    }
+
+    public static func dirtyCount(): Int64 {
+        dirtyLock.lock()
+        try {
+            dirtyComponents.size
+        } finally {
+            dirtyLock.unlock()
+        }
+    }
 
     public static func enterScope(cb: () -> Unit): Unit {
-        scopeStack.add(cb)
+        scopeStack().add(cb)
     }
 
     public static func exitScope(): Unit {
-        scopeStack.remove(scopeStack.size - 1..scopeStack.size)
+        let st = scopeStack()
+        if (st.size > 0) {
+            st.remove(st.size - 1..st.size)
+        }
     }
 
     // 把组件移出脏队列（组件离树后不再参与补丁）。
     // 按 uid 比对：语言层没有引用相等算子，不能拿组件实例直接比较。
     public static func removeDirty(c: Component): Unit {
-        var i = 0
-        while (i < dirtyComponents.size) {
-            if (dirtyComponents[i].uid() == c.uid()) {
-                dirtyComponents.remove(i..i + 1)
-            } else {
-                i += 1
+        dirtyLock.lock()
+        try {
+            var i = 0
+            while (i < dirtyComponents.size) {
+                if (dirtyComponents[i].uid() == c.uid()) {
+                    dirtyComponents.remove(i..i + 1)
+                } else {
+                    i += 1
+                }
             }
+        } finally {
+            dirtyLock.unlock()
         }
     }
 
     public static func currentSub(): Option<() -> Unit> {
-        if (scopeStack.size > 0) { Some(scopeStack[scopeStack.size - 1]) } else { None }
+        let st = scopeStack()
+        if (st.size > 0) { Some(st[st.size - 1]) } else { None }
     }
 
     public static func pushCollector(cb: (ReactiveNode, Int64) -> Unit): Unit {
-        collectorStack.add(cb)
+        collectorStack().add(cb)
     }
 
     public static func popCollector(): Unit {
-        collectorStack.remove(collectorStack.size - 1..collectorStack.size)
+        let st = collectorStack()
+        if (st.size > 0) {
+            st.remove(st.size - 1..st.size)
+        }
     }
 
     public static func topCollector(): Option<(ReactiveNode, Int64) -> Unit> {
-        if (collectorStack.size > 0) { Some(collectorStack[collectorStack.size - 1]) } else { None }
+        let st = collectorStack()
+        if (st.size > 0) { Some(st[st.size - 1]) } else { None }
     }
 
     public static func isUntracked(): Bool {
-        untrackedDepth > 0
+        untrackedDepth() > 0
     }
 
     public static func flushBatch(): Unit {
-        let nodes = batchChanged
-        batchChanged = ArrayList<ReactiveNode>()
+        let nodes = batchChanged()
+        batchChangedTL.set(ArrayList<ReactiveNode>())
         for (n in nodes) {
             n.clearPendingFlag()
             n.notify()
@@ -145,12 +345,12 @@ public class SignalTracker {
 
 // 批量原子更新：batch 内多次 set 只触发一次通知（流式/多字段更新的地基）
 public func batch<T>(fn: () -> T): T {
-    SignalTracker.batchDepth += 1
+    SignalTracker.setBatchDepth(SignalTracker.batchDepth() + 1)
     try {
         fn()
     } finally {
-        SignalTracker.batchDepth -= 1
-        if (SignalTracker.batchDepth == 0) {
+        SignalTracker.setBatchDepth(SignalTracker.batchDepth() - 1)
+        if (SignalTracker.batchDepth() == 0) {
             SignalTracker.flushBatch()
         }
     }
@@ -158,11 +358,11 @@ public func batch<T>(fn: () -> T): T {
 
 // 不追踪读取：作用域内 get() 不建立订阅（处理器里读取但不触发重渲染时用）
 public func untracked<T>(fn: () -> T): T {
-    SignalTracker.untrackedDepth += 1
+    SignalTracker.setUntrackedDepth(SignalTracker.untrackedDepth() + 1)
     try {
         fn()
     } finally {
-        SignalTracker.untrackedDepth -= 1
+        SignalTracker.setUntrackedDepth(SignalTracker.untrackedDepth() - 1)
     }
 }
 
@@ -202,10 +402,10 @@ public class Signal<T> <: ReactiveNode & Readable<T> {
             case None => ()
         }
         this.value = v
-        if (SignalTracker.batchDepth > 0) {
+        if (SignalTracker.batchDepth() > 0) {
             if (!this._pending) {
                 this._pending = true
-                SignalTracker.batchChanged.add(this)
+                SignalTracker.batchChanged().add(this)
             }
         } else {
             this.notify()

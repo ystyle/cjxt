@@ -103,17 +103,17 @@ class RenderContextTest {
         let probe = DirtyProbe()
         RenderContext.expandTree(probe, "")
         RenderContext.clearDirty()
-        @Expect(SignalTracker.dirtyComponents.size, 0)
+        @Expect(SignalTracker.dirtyCount(), 0)
 
         // action 中 set 信号 → 订阅组件被标记脏
         probe.sig.set("done")
         @Expect(probe.isDirty(), true)
-        @Expect(SignalTracker.dirtyComponents.size, 1)
+        @Expect(SignalTracker.dirtyCount(), 1)
 
         // 渲染出口清理残留（修复点）
         RenderContext.clearDirty()
         @Expect(probe.isDirty(), false)
-        @Expect(SignalTracker.dirtyComponents.size, 0)
+        @Expect(SignalTracker.dirtyCount(), 0)
 
         // 后续增量补丁不再包含残留脏组件
         @Expect(RenderContext.collectDirty().size, 0)

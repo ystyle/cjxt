@@ -55,7 +55,7 @@ AppConfig(
 )
 ```
 
-## Signal / Store
+## Signal
 
 ```cangjie
 
@@ -74,10 +74,20 @@ SignalTracker.dirtyComponents            // 脏组件列表
 SignalTracker.execMutex                  // 执行互斥锁
 
 
-Store<S>(initial)                        // 创建 store
-store.get()                              // 读值
-store.set(fn: (S) -> S)                  // 更新
-store.subscribe({ () => ... })           // 订阅
+// 兼容性去重：set 相同值时不通知
+Signal<T>(value, compare: { a, b => a == b })
+
+// 精确退订
+let id = s.subscribe({ () => ... })
+s.unsubscribe(id)
+s.subCount()                             // 当前订阅数
+
+// 派生（只读、惰性、依赖变化自动失效）
+Computed<T>({ => ... })
+
+// 批量 / 不追踪
+batch({ => ... })
+untracked({ => ... })
 ```
 
 ## IComponent / Component

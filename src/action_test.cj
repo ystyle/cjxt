@@ -68,7 +68,7 @@ public class ActionTest {
         let ctx = ActionContext("s1", HashMap<String, String>(), HashMap<String, String>(), router, sessionStates: st)
         let s = ctx.getState<CounterState>()
         @Expect(s.counter.get(), 0)
-        s.counter.set({ _ => 42 })
+        s.counter.set(42)
         @Expect(s.counter.get(), 42)
     }
 
@@ -81,5 +81,5 @@ public class ActionTest {
 }
 
 class CounterState <: AppState {
-    var counter = Store<Int64>(0)
+    var counter = Signal<Int64>(0)
 }

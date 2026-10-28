@@ -241,7 +241,7 @@ public class SignalFullTest {
     }
 }
 
-// ============ 原有兼容性测试（Signal 基础 + Store） ============
+// ============ 原有兼容性测试（Signal 基础） ============
 
 @Test
 public class SignalTest {
@@ -295,18 +295,18 @@ public class SignalTest {
     }
 
     @TestCase
-    public func testStoreSet() {
-        let st = Store<Int64>(0)
-        st.set({ v => v + 1 })
-        @Expect(st.get(), 1)
+    public func testUpdateChain() {
+        let s = Signal<Int64>(0)
+        s.update({ v => v + 1 })
+        @Expect(s.get(), 1)
     }
 
     @TestCase
-    public func testStoreSetMulti() {
-        let st = Store<Int64>(0)
-        st.set({ v => v + 5 })
-        st.set({ v => v * 2 })
-        @Expect(st.get(), 10)
+    public func testUpdateChainMulti() {
+        let s = Signal<Int64>(0)
+        s.update({ v => v + 5 })
+        s.update({ v => v * 2 })
+        @Expect(s.get(), 10)
     }
 
     @TestCase
@@ -322,26 +322,26 @@ public class SignalTest {
     }
 
     @TestCase
-    public func testStoreAutoSubscribe() {
-        let st = Store<Int64>(0)
+    public func testAutoSubscribe() {
+        let s = Signal<Int64>(0)
         let captured = Box<Int64>(-1)
         SignalTracker.enterScope({ => captured.value = 77 })
-        let v = st.get()
+        let v = s.get()
         SignalTracker.exitScope()
         @Expect(v, 0)
-        st.set({ v => v + 1 })
-        @Expect(st.get(), 1)
+        s.update({ v => v + 1 })
+        @Expect(s.get(), 1)
         @Expect(captured.value, 77)
     }
 
     @TestCase
-    public func testStoreSubscribeOnSet() {
-        let st = Store<Int64>(10)
+    public func testSubscribeOnSet() {
+        let s = Signal<Int64>(10)
         let captured = Box<Int64>(-1)
-        st.subscribe({ => captured.value = st.get() })
-        st.set({ v => v * 2 })
+        s.subscribe({ => captured.value = s.get() })
+        s.update({ v => v * 2 })
         @Expect(captured.value, 20)
-        @Expect(st.get(), 20)
+        @Expect(s.get(), 20)
     }
 
     @TestCase
