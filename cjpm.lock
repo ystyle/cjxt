@@ -7,5 +7,5 @@ version = 0
   cjpminfo = {version = "1.2.1"}
   seajson = {version = "1.4.7", output-type = "static"}
   tang = {version = "1.0.6"}
-  embed = {version = "1.0.8"}
   "opencj::ulid" = {version = "0.1.2"}
+  embed = {version = "1.0.8"}
