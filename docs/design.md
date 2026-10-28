@@ -519,37 +519,40 @@ func renderWithScope(): Component {
 
 #### 3.11.2 并发与线程模型
 
-`Signal` 是**跨线程共享**的：cjxt 每条 WS 连接跑一个线程（`App.listenLoop`），
-所以两个浏览器标签页 = 两条线程，可能同时读写**同一个**包级 `Signal`。
+**完整分类见 [`docs/concurrency-model.md`](concurrency-model.md)（单一出处）**，这里只给索引。
 
-框架把内部状态按「是否该跨线程共享」严格分成两类：
+cjxt 的并发执行体：HTTP 请求协程（stdx 协程池）、WS 连接协程、推送 flush 协程、
+巡检协程、业务自起协程。它们可能同时访问同一份框架状态，故按「该串行化还是该隔离」
+分成四类：
 
-| 状态 | 归属 | 理由 |
-|---|---|---|
-| `SignalTracker.scopeStack` / `collectorStack` / `batchDepth` / `untrackedDepth` | **线程局部**（`ThreadLocal`） | 语义是「本线程这一轮正在渲染什么」，跨线程共享会互相弹栈 |
-| `RenderContext` 渲染捕获（`beginCapture` / `endCapture` / `captureSid`） | **线程局部** | 「本线程这一轮渲染产出了哪些组件」 |
-| `ReactiveNode.subs`（订阅表） | **加锁共享**（每节点一把 `Mutex`） | 同一 Signal 被多线程同时订阅 / 退订 / 通知 |
-| `SignalTracker.dirtyComponents`（脏组件队列） | **加锁共享** | `sendPatch` 要按会话挑属于自己的组件 |
+| 类 | 名称 | 状态 | 机制 |
+|---|---|---|---|
+| **A** | 执行上下文 | scope/collector/batch/untracked 栈、渲染捕获 | `ThreadLocal` |
+| **B** | 共享可变状态 | `ReactiveNode.subs`、`dirtyComponents`、`PushCoalescer` | 每实例一把 `Mutex` |
+| **C** | 会话拓扑 | `SessionManager` 的会话表 | 16 分片 + 每片 `ReadWriteLock` |
+| **D** | 会话执行序 | `Session.renderLock`（handler 执行与渲染） | 每会话一把 `Mutex` |
+
+判据一句话：**回答「我这一轮在干什么」→ A；一份被多方共享的数据 → B；
+「哪些会话存在」→ C；「某会话内部的执行顺序」→ D**。
 
 ##### 曾经的缺陷（2026-10 修复，值得记住）
 
-上一版把前两类也放在进程级静态变量里，后果是**用户数据串台 + 进程崩溃**：
+1. **执行上下文被放进静态变量**（原 A 类不该共享的）：A 执行体 `enterScope` 后、
+   B 执行体 `exitScope` 弹掉 A 的栈帧 → 组件登记到**错误的会话** → `notify`
+   调空指针 → **SIGSEGV**。
+2. **订阅表无保护**：`get()` 订阅与 `set()` 通知跨线程并发 → `ArrayList`
+   内部结构改坏 → **SIGSEGV**。
+3. **渲染捕获被覆盖**：`sendPatch` 的捕获三步不总在同一把锁内
+   （HTTP 首渲、推送合并、各会话 renderLock 并发）→ 本会话捕获为空 →
+   adopt 把刚渲染的新组件当旧组件 dispose → 该会话更新**静默丢失**。
+4. **会话表裸 HashMap**：一边遍历一边增删 → 进程**卡死**（迭代器迷路）。
 
-1. **渲染上下文串台**：A 线程 `enterScope` 后、B 线程 `exitScope` 会弹掉 A 的栈帧
-   → 组件被登记到**错误的会话**名下，订阅错乱 → `notify` 里调空指针 → **SIGSEGV**。
-2. **订阅表无保护**：`get()` 订阅（`subs.add`）与 `set()` 通知（复制遍历 `subs`）
-   跨线程并发 → `ArrayList` 内部结构被改坏 → **SIGSEGV**。
-3. **渲染捕获被覆盖**：`sendPatch` 的 `beginCapture → 渲染 → endCapture` 这段
-   **不总在 `execMutex` 内**（HTTP 首渲、推送合并线程都会进渲染）。两会话并发时
-   `endCapture` 取到对方的列表（本会话捕获为空）→ adopt 把**刚渲染的新组件当旧组件
-   dispose 掉** → 该会话的更新**静默丢失**。
+修复要点：前两类第 1/3 条改 `ThreadLocal`；第 2 条加锁；第 4 条分片加读写锁。
+`notify` 一律「锁内取快照、锁外回调」——回调里会再进来 subscribe，持锁会自锁。
 
-修复要点：前两类改 `ThreadLocal`（语义上本就是线程局部的），后两类加锁。
-`notify` 采用「锁内取快照、锁外回调」—— 回调里会再进来 `subscribe`/`unsubscribe`，
-持锁回调会自锁。
-
-**回归用例**：`src/concurrency_race_test.cj`（3 例）。两处变异验证确认用例不是空转：
-capture 改回静态 → 150 轮里 128 次归属串台 + 124 次空捕获；`subs` 去掉锁 → SIGSEGV。
+**回归用例**：`src/concurrency_race_test.cj`（3 例）、
+`src/session_manager_concurrency_test.cj`（2 例）。都做过变异验证
+（回退修复即红），确认不是空转。
 
 **对使用者的影响**：不需要自己加锁，框架已保证 `Signal` 的读写与订阅管理线程安全。
 但**写进 Signal 的业务对象**若被多线程改写，其内部一致性仍由调用方负责。
