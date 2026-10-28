@@ -2,6 +2,7 @@ package cjxt
 
 import std.collection.{HashMap, ArrayList}
 import std.time.{DateTime, TimeZone}
+import std.sync.{Mutex, ReadWriteLock}
 import stdx.net.http.WebSocket
 import opencj::ulid.*
 
@@ -35,6 +36,25 @@ public class Session {
     var refPaths: HashMap<String, String>
     var createdAt: Int64
     var lastActiveAt: Int64
+
+    /**
+     * 本会话的执行锁：串行化**本会话**的 handler 执行与渲染。
+     *
+     * 分类：**D 类**（会话执行序，见 `docs/concurrency-model.md`）。
+     *
+     * 为什么是每会话而不是全局一把：
+     * cjxt 每条 WS 连接一个执行体，同一会话的消息本身是串行的；
+     * 需要防的是"本会话的渲染"与"本会话的其它入口（推送合并、DOM 事务续体）"
+     * 交叉写 `tree` / 组件订阅。**不同会话之间没有共享的可变渲染状态**
+     * （渲染上下文是 ThreadLocal、订阅表各有锁、捕获也是 ThreadLocal），
+     * 所以全局锁纯属过度保护，还会把多用户吞吐压成串行。
+     *
+     * 但有两处仍需**跨会话**协调，见 App 的 pushFlushLock / 说明：
+     *   · 推送合并 flush 会一次处理若干会话；
+     *   · 巡检回收会 dispose 任意会话的组件订阅。
+     * 这两处按"各自要碰的会话集合"取锁，不靠单一全局锁。
+     */
+    let renderLock = Mutex()
     let context: HashMap<String, String>
     var states: HashMap<String, AppState>
     // 会话上下文视图（框架契约，每会话唯一）：默认实现 SessionContextState，
@@ -225,11 +245,109 @@ public class Session {
     }
 }
 
+// 会话表分片。
+//
+// 分类：**C 类**（会话拓扑，见 `docs/concurrency-model.md`）。
+//
+// 每片自带一把 ReadWriteLock 与一张表：读（查找/统计）走读锁可并发，
+// 写（建/删/回收）走写锁独占**本片**。会话 id 是 ulid（高位是时间戳、
+// 低位随机），取低位做分片能均匀打散。
+class SessionShard {
+    let rw = ReadWriteLock()
+    let table = HashMap<String, Session>()
+
+    public init() {}
+
+    func add(id: String, s: Session): Unit {
+        synchronized(rw.writeLock) {
+            table.add(id, s)
+        }
+    }
+
+    func get(id: String): Option<Session> {
+        synchronized(rw.readLock) {
+            table.get(id)
+        }
+    }
+
+    func remove(id: String): Unit {
+        synchronized(rw.writeLock) {
+            table.remove(id)
+        }
+    }
+
+    func size(): Int64 {
+        synchronized(rw.readLock) {
+            Int64(table.size)
+        }
+    }
+
+    func allIds(): ArrayList<String> {
+        synchronized(rw.readLock) {
+            let ids = ArrayList<String>()
+            for ((id, _) in table) { ids.add(id) }
+            ids
+        }
+    }
+
+    func removeAll(): Unit {
+        synchronized(rw.writeLock) {
+            table.clear()
+        }
+    }
+
+    // 回收本片的过期会话。遍历 + 删除都在**同一把写锁**内完成，
+    // 不会出现「边遍历边改表」。
+    func sweep(ttlMillis: Int64, detachedTtlMillis: Int64): Int64 {
+        synchronized(rw.writeLock) {
+            let expired = ArrayList<String>()
+            for ((id, session) in table) {
+                let ttl = match (session.wsState) {
+                    case WsState.Connected => continue
+                    case WsState.Disconnected => ttlMillis
+                    case WsState.Connecting =>
+                        if (session.everConnected()) { ttlMillis } else { detachedTtlMillis }
+                }
+                if (session.isExpired(ttl)) { expired.add(id) }
+            }
+            for (id in expired) { table.remove(id) }
+            Int64(expired.size)
+        }
+    }
+}
+
+/**
+ * 会话表：按 id 分片，每片一把 ReadWriteLock。
+ *
+ * 分类：**C 类**（见 `docs/concurrency-model.md` 的总表与判据）。
+ *
+ * ## 为什么分片而不是单锁 / 不用 Go 式 Hub
+ *
+ * 会话表被三类执行体并发访问：HTTP 请求（`create`）、WS 连接（`get`/`remove`）、
+ * 巡检（`cleanup` 遍历+删除）。裸 `HashMap` 在「一边遍历一边增删」下行为未定义，
+ * 实测会让进程**卡死**（迭代器在扩容/搬移中迷路）或 SIGSEGV。
+ *
+ * Go 的 hub 模式（单 goroutine 独占 map + channel 投递）在仓颉上不成立：
+ * 标准库没有 `Channel`，只能自建「投递 → 等回传 → 被唤醒」机制，而实测该往返
+ * 是 1130–1610 ns/次；会话查找处在每次 WS 消息的热路径上，不该付这个代价
+ * （数据见 chan-bench-cj/docs/patterns.md §5，其"反模式"表也明确列了用队列传任务）。
+ *
+ * 采用分片 + 每片读写锁（同 patterns 模式 D：多消费者各用私有结构，
+ * 比共享单锁快约 1.5x，且天然没有惊群/唤醒错人）：
+ *   · 读读并发：不同会话的查找互不阻塞；
+ *   · 写只锁一片：建会话不阻塞查别的片；
+ *   · `cleanup` 各片独立回收，无跨片锁顺序问题（代价：不是原子的全局快照，
+ *     但"回收过期"本就允许这点误差）。
+ */
 public class SessionManager {
-    let sessions = HashMap<String, Session>()
+    // 16 片：读写冲突概率降到 1/16，同时片数不至于多到遍历成本变高
+    static const SHARD_BITS: Int64 = 4
+    static const SHARD_COUNT: Int64 = 16
+
+    let shards: Array<SessionShard>
     let ttlMillis: Int64
     // 未建立 WebSocket 的会话（一次性 HTTP 请求，如健康检查）用更短的 TTL。
-    // 这类会话不会走 WS 关闭路径（sessions.remove 只在 WS 断开时调用），若不单独回收
+    // 这类会话不会走 WS 关闭路径（remove 只在 WS 断开时调用），若不单独回收
     // 就会长期驻留 —— 而每个会话持有一整棵渲染树（生产实测 ~338KB/会话），
     // 高频探活下会累积到撑爆堆（2026-10-16 忆时塔生产事故的根因）。
     let detachedTtlMillis: Int64
@@ -237,68 +355,82 @@ public class SessionManager {
     public init(ttlMillis: Int64, detachedTtlMillis!: Int64 = 60000) {
         this.ttlMillis = ttlMillis
         this.detachedTtlMillis = detachedTtlMillis
+        this.shards = Array<SessionShard>(SessionManager.SHARD_COUNT, { _ => SessionShard() })
+    }
+
+    // 会话 id 的高位是 ulid 时间戳（短时间内生成的 id 高位相同），
+    // 取**低位**字符做分片才能打散到各片。
+    func shardOf(id: String): SessionShard {
+        if (id.size == 0) {
+            return this.shards[0]
+        }
+        // 取最后 4 个字符当 16 进制（ulid 是 Crockford base32，这里只求均匀，不求精确）
+        var h: Int64 = 0
+        var n = 0
+        var i = id.size - 1
+        while (i >= 0 && n < 4) {
+            h = h * 31 + Int64(UInt32(id[i]))
+            i--
+            n++
+        }
+        if (h < 0) { h = -h }
+        this.shards[h % SessionManager.SHARD_COUNT]
     }
 
     public func create(page: IComponent, tree: IComponent): Session {
         let id = this.generateId()
         let session = Session(id, page, tree)
-        sessions.add(id, session)
+        this.shardOf(id).add(id, session)
         session
     }
 
     public func save(id: String, page: IComponent, tree: IComponent): Session {
         let session = Session(id, page, tree)
-        sessions.add(id, session)
+        this.shardOf(id).add(id, session)
         session
     }
 
     public func get(id: String): Option<Session> {
-        sessions.get(id)
+        this.shardOf(id).get(id)
     }
 
     public func remove(id: String): Unit {
-        sessions.remove(id)
+        this.shardOf(id).remove(id)
     }
 
     /// 清空全部会话（服务器停止 / 测试清理用）
     public func clearAll(): Unit {
-        let ids = ArrayList<String>()
-        for ((id, _) in sessions) { ids.add(id) }
-        for (id in ids) { sessions.remove(id) }
+        for (s in this.shards) {
+            s.removeAll()
+        }
     }
 
-    /// 回收过期会话（由 App 的后台巡检线程周期调用，也可手动调用）。
+    /// 回收过期会话（由 App 的后台巡检协程周期调用，也可手动调用）。
     ///
-    /// **不能边遍历边删**：HashMap 迭代期间修改容器行为未定义（可能跳过元素或崩溃）。
-    /// 故先收集待删 key，再逐个 remove —— 与 clearAll 同一写法。
-    ///
-    /// 三类会话的判据：
+    /// 三类会话的判据（详见 `SessionShard.sweep`）：
     /// 1. **当前仍连着**（`wsState == Connected`）：**永不回收**。不能按 lastActiveAt 判 ——
     ///    用户开着页面只读不动（不发消息）时 lastActiveAt 不更新，按时间判会误杀活跃会话。
     /// 2. **曾连接、现已断开**：ttlMillis。客户端断线后每 3s 自动重连（复用同一 sessionId），
     ///    故必须留宽限期；超过宽限仍未回来（关页面/刷新后不再回来）即可回收。
     /// 3. **从未连接**（一次性 HTTP 请求，如健康检查 curl /）：detachedTtlMillis，
     ///    这类请求不会走 WS 关闭路径，必须靠短 TTL 回收。
+    ///
+    /// 各片独立回收：每片在自己的写锁内完成「遍历 + 删除」，互不干扰。
     public func cleanup(): Int64 {
-        let expired = ArrayList<String>()
-        for ((id, session) in sessions) {
-            let ttl = match (session.wsState) {
-                case WsState.Connected => continue
-                case WsState.Disconnected => this.ttlMillis
-                case WsState.Connecting =>
-                    if (session.everConnected()) { this.ttlMillis } else { this.detachedTtlMillis }
-            }
-            if (session.isExpired(ttl)) { expired.add(id) }
+        var total: Int64 = 0
+        for (s in this.shards) {
+            total += s.sweep(this.ttlMillis, this.detachedTtlMillis)
         }
-        for (id in expired) {
-            sessions.remove(id)
-        }
-        Int64(expired.size)
+        total
     }
 
     /// 当前会话数（监控/测试用）
     public func size(): Int64 {
-        Int64(sessions.size)
+        var n: Int64 = 0
+        for (s in this.shards) {
+            n += s.size()
+        }
+        n
     }
 
     public func generateId(): String {

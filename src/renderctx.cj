@@ -161,7 +161,8 @@ public class RenderContext {
     // 本轮渲染归属：登记本会话页面树上渲染过的组件（换页时据此退订旧组件）。
     //
     // ⚠️ 用**线程局部**而非进程级静态：`sendPatch` 的 beginCapture → 渲染 →
-    // endCapture 这段并不总在 `execMutex` 内（HTTP 首渲、推送合并线程都会进渲染）。
+    // endCapture 这段并不总在同一把锁内（HTTP 首渲、推送合并、各会话自己的
+    // renderLock 都会进渲染，彼此并发）。
     // 两个会话并发渲染时，共享一份 capture 会互相覆盖：
     //   · 组件被打上**别的会话**的 ownerSid；
     //   · endCapture 取到对方的列表（或已被对方清空）→ 本会话捕获为空；

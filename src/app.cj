@@ -1056,7 +1056,7 @@ public class App {
     }
 
     private func runAction(sink: PageSink, state: SessionState, session: Session, name: String, fn: ActionHandler, params: HashMap<String, String>): Unit {
-        SignalTracker.execMutex.lock()
+        session.renderLock.lock()
         let flag = NavFlag()
         let router = Router("", { path => this.execNavAction(sink, state, session, flag, path) })
         let keyEvent = parseKeyEvent(params)
@@ -1080,9 +1080,9 @@ public class App {
         } catch (e: Error) {
             println("cjxt runAction ERROR(Error): " + e.toString())
         } finally {
-            // 必须保证释放 execMutex：handler 抛非 Error 异常时
-            // 若跳过 unlock，静态锁永久泄漏 → 后续所有会话/测试死锁
-            SignalTracker.execMutex.unlock()
+            // 必须保证释放 renderLock：handler 抛非 Error 异常时
+            // 若跳过 unlock，该会话永久卡死（后续消息全阻塞）
+            session.renderLock.unlock()
         }
     }
 
@@ -1167,7 +1167,8 @@ public class App {
         let state = SessionState(session.page, session.path)
         session.refreshHandlers(session.tree)
         session.refreshRefs(session.tree)
-        SignalTracker.execMutex.lock()
+        // 单会话推送：只锁本会话（别的会话的渲染不受影响）
+        session.renderLock.lock()
         let flag = NavFlag()
         let router = Router("", { path => this.execNavAction(sink, state, session, flag, path) })
         let ctx = ActionContext(sid, session.context, HashMap<String, String>(), router, pushFn: { patches =>
@@ -1198,7 +1199,7 @@ public class App {
             println("cjxt-diag stack " + e.getStackTrace().toString())
             state.page.onError(ErrorContext("", "push", e))
         } finally {
-            SignalTracker.execMutex.unlock()
+            session.renderLock.unlock()
         }
     }
 
@@ -1219,12 +1220,12 @@ public class App {
         let flushMs = this.config.pushFlushMs
         spawn {
             sleep(Duration.millisecond * flushMs)
-            SignalTracker.execMutex.lock()
+            // 合并器本身是共享状态（多个 push 调用方都会 mark），单独加锁
             let sids = app.pushCoalescer.beginFlush()
+            // 每个会话只锁它自己：不同会话的 flush 互不阻塞
             for (sid in sids) {
                 app.flushSessionPush(sid)
             }
-            SignalTracker.execMutex.unlock()
         }
     }
 
@@ -1248,14 +1249,11 @@ public class App {
                     slept += 1
                 }
                 if (!app.sweeperRunning) { break }
-                // 与推送/渲染同一把执行锁：清理会话时会丢弃组件订阅，
-                // 必须避免与正在进行的渲染/补丁下发交叉
-                SignalTracker.execMutex.lock()
-                try {
-                    app.sessions.cleanup()
-                } finally {
-                    SignalTracker.execMutex.unlock()
-                }
+                // 会话表已按分片加锁（见 SessionManager），cleanup 每片在自己的
+                // 写锁内完成「遍历 + 删除」，不再需要一把全局执行锁。
+                // 注意 dispose 掉的组件订阅是各会话自己的（ReactiveNode.subs 有锁），
+                // 不需要跨会话协调。代价：不是原子的全局快照，但"回收过期"允许这点误差。
+                app.sessions.cleanup()
             }
         }
     }
@@ -1284,7 +1282,12 @@ public class App {
             case None => return
         }
         let state = SessionState(session.page, session.path)
-        this.sendPatch(sink, state, session)
+        session.renderLock.lock()
+        try {
+            this.sendPatch(sink, state, session)
+        } finally {
+            session.renderLock.unlock()
+        }
     }
 
     // 超时/取消分发：若 tx 仍 pending 则跑其续体（ReRender→sendPatch）；已正常完成则忽略
@@ -1302,7 +1305,7 @@ public class App {
 
     // DOM 事务结果分发：dom_result 到达 → 取 session.pendingTx 续体 → 锁内跑 → ReRender 则 sendPatch
     private func dispatchDomResult(sink: PageSink, state: SessionState, session: Session, txId: String, results: HashMap<String, String>): Unit {
-        SignalTracker.execMutex.lock()
+        session.renderLock.lock()
         try {
             match (session.pendingTx.get(txId)) {
                 case Some(k) =>
@@ -1322,19 +1325,19 @@ public class App {
             // 续体异常不杀连接：捕获并走 onError（与 runAction 一致）
             state.page.onError(ErrorContext("", "dom_result", e))
         } finally {
-            SignalTracker.execMutex.unlock()
+            session.renderLock.unlock()
         }
     }
 
     private func dispatchBind(sink: PageSink, state: SessionState, session: Session, name: String, value: String): Unit {
-        SignalTracker.execMutex.lock()
+        session.renderLock.lock()
         try {
             match (session.handlers.get(name)) {
                 case Some(fn) => this.doBind(sink, state, session, fn, value, name)
                 case None => ()
             }
         } finally {
-            SignalTracker.execMutex.unlock()
+            session.renderLock.unlock()
         }
     }
 
@@ -1407,7 +1410,6 @@ public class App {
 
     private func sendPatch(sink: PageSink, state: SessionState, session: Session): Unit {
         App.sendPatchCount += 1
-        SignalTracker.pendingRender = false
         // 只补丁本会话**当前页面树**上的组件：补丁路径是会话树内的位置，
         // 旧页面/其它会话的组件按同路径套用会替换掉本页面的节点
         let dirty = RenderContext.collectOwnedDirty(session)

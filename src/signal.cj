@@ -126,16 +126,13 @@ public interface Readable<T> {
 
 // 追踪上下文
 //
-// ⚠️ 线程模型（2026-10 修复）：cjxt 每条 WS 连接一个线程。下面这些状态分两类，
-// 混在一起会导致**用户数据串台**甚至进程崩溃：
+// 并发约定见 `docs/concurrency-model.md`（总表）：
+//   · 渲染上下文（scope/collector/batch/untracked）→ **A 类**，ThreadLocal
+//   · dirtyComponents 脏队列                      → **B 类**，Mutex 保护
 //
-//   · 「我现在正在渲染什么」——scope 栈 / collector 栈 / batch 深度 / untracked 深度。
-//     这些是**单线程的渲染上下文**，必须线程局部（ThreadLocal）。
-//     否则 A 线程 enterScope 后、B 线程 exitScope 会弹掉 A 的栈帧：
-//     组件被登记到别的会话名下、订阅错乱，随后 `notify` 里调空指针 → SIGSEGV。
-//
-//   · 「有哪些组件脏了」——dirtyComponents。这是**跨线程共享**的队列
-//     （sendPatch 按会话挑属于自己的），必须加锁，不能线程局部。
+// A 类用线程局部的原因：这些栈是「我这一轮在渲染什么」，曾被放进进程级静态变量，
+// 导致 A 执行体 enterScope 后、B 执行体 exitScope 弹掉 A 的栈帧 → 组件登记到
+// 错误的会话 → `notify` 调空指针 → SIGSEGV。
 public class SignalTracker {
     // ── 线程局部：渲染上下文 ──────────────────────────────────
     static let scopeStackTL = ThreadLocal<ArrayList<() -> Unit>>()
@@ -146,9 +143,6 @@ public class SignalTracker {
     static let batchChangedTL = ThreadLocal<ArrayList<ReactiveNode>>()
     // untracked 读取深度：>0 时 get() 不订阅
     static let untrackedDepthTL = ThreadLocal<Int64>()
-
-    public static var pendingRender: Bool = false
-    public static var execMutex = Mutex()
 
     // ── 跨线程共享：脏组件队列（加锁保护） ──────────────────────
     static var dirtyComponents = ArrayList<Component>()

@@ -13,14 +13,13 @@ public interface IComponent <: JsonSerializable {
     func getComponentKey(): String { "" }
 
     // dirty 标记 + 路径追踪（默认空实现，Component 类覆写）
-    func markDirty(): Unit { SignalTracker.pendingRender = true }
+    func markDirty(): Unit {}
     func isDirty(): Bool { false }
     func clearDirty(): Unit {}
     func getPath(): String { "" }
     func setPath(p: String): Unit {}
 
     func reRender(): Unit {
-        SignalTracker.pendingRender = true
     }
 
     // 渲染作用域进入/退出钩子（默认空实现）。Component 覆写它登记
@@ -99,7 +98,6 @@ public abstract class Component <: IComponent {
             this._dirty = true
             SignalTracker.addDirty(this)
         }
-        SignalTracker.pendingRender = true
     }
 
     public func isDirty(): Bool { this._dirty }
