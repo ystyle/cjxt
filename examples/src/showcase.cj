@@ -32,7 +32,7 @@ let menuGroups: Array<MenuCategory> = [
     MenuCategory("高级", ["Markdown", "AutoScroll", "Reactive", "VirtualList", "DomTx", "Tour", "ColorPicker", "ConfigProvider"]),
 ]
 
-@Page["/showcase"]
+@Page["/showcase", "组件库", noGuard, siteLayout]
 class ShowcasePage <: Component {
     var state: ShowcaseState
 
@@ -45,7 +45,6 @@ class ShowcasePage <: Component {
         let sel = this.state.selected.get()
         let wrapCls = HashMap<String, String>([("class", cls("showcase-wrap"))])
         div([
-            renderTabs("/showcase"),
             div([
                 this.sidebar(sel),
                 div([

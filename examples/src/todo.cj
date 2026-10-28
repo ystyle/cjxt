@@ -10,7 +10,7 @@ class TodoState <: AppState {
     var todoItems = Signal<ArrayList<String>>(ArrayList<String>())
 }
 
-@Page["/todo"]
+@Page["/todo", "Todo", noGuard, siteLayout]
 class TodoPage <: Component {
     var data: Option<TodoState> = None
 
@@ -27,7 +27,6 @@ class TodoPage <: Component {
         let attrCard = HashMap<String, String>([("class", cls("card"))])
         let attrRow = HashMap<String, String>([("class", cls("row"))])
         div([
-            renderTabs("/todo"),
             div([
                 div([
                     div([text("添加待办")], attrs: Some(HashMap<String, String>([("class", cls("card-title"))]))),

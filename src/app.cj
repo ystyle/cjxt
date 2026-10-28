@@ -24,6 +24,15 @@ class SessionState {
     }
 }
 
+/// 渲染期临时变量：当前正在应用 layout 的路径（见 applyLayout）。
+/// layout 函数内通过 `layoutPath()` 读；渲染结束即清空。
+var currentLayoutPath: String = ""
+
+/// layout 里读当前页面路径（导航高亮用）。不在 layout 上下文里时返回空串。
+public func layoutPath(): String {
+    currentLayoutPath
+}
+
 public class App {
     var tangApp: Tang
     let sessions = SessionManager(300000)
@@ -424,7 +433,12 @@ public class App {
     private func renderPageIntoInner(ctx: TangHttpContext, session: Session, page: IComponent, routeParams: HashMap<String, String>): Unit {
         this.initStates(session)
         page.onMount(LifecycleContext(session.id, routeParams, None, None, states: session.states, sessionContext: session.sessionContext))
-        let tree = this.renderPageTree(session, { => RenderContext.expandTree(page.renderWithScope(), "") })
+        // 首渲必须套 layout：否则 HTTP 出来的页面没有侧栏/外壳，
+        // 而 WS 恢复那条路径会套 —— 两条路径形态不一致（曾经表现为
+        // "layout 只在 WS 之后才出现"且每次连接都整树重发）。
+        // applyLayout 的唯一职责就是套一次壳，页面渲染入口处调用它是对的。
+        let tree = this.renderPageTree(session,
+            { => RenderContext.expandTree(applyLayout(session.path, page.renderWithScope()), "") })
         session.page = page
         session.tree = tree
         session.refreshHandlers(tree)
@@ -648,7 +662,14 @@ public class App {
             this.rerenderInPlace(session)
         }
         let state = SessionState(session.page, session.path)
-        let tree = RenderContext.expandTree(applyLayout(session.path, session.tree), "")
+        // session.tree **已经**在产生它的那条路径上套过 layout 了：
+        //   · HTTP 首渲 → renderPageTree({ => expandTree(applyLayout(path, page.render())) })
+        //   · rerenderInPlace / rerenderDeferred 同样在渲染时套过
+        // 这里只做 expandTree，不能再 applyLayout —— 否则页面被 layout 包两次，
+        // 侧栏/菜单出现两遍（这就是"@Page 的 layout 会二次包裹"的根因）。
+        // 注意与上面的 inlinedMatches 指纹判断配合：早先正是"两条路径形态不同"
+        // 让指纹永远对不上、每次连接都整树下发。
+        let tree = RenderContext.expandTree(session.tree, "")
         session.refreshHandlers(tree)
         session.refreshRefs(tree)
         // 初始渲染/恢复后清理脏标记（渲染出口统一清理，防止残留污染后续补丁）。
@@ -749,7 +770,16 @@ public class App {
 
     private func applyLayout(path: String, raw: IComponent): IComponent {
         match (RouteRegistry.global().getLayout(path)) {
-            case Some(fn) => fn(raw)
+            case Some(fn) =>
+                // 把当前路径交给 layout：`LayoutFn` 的签名只有 (IComponent) -> IComponent，
+                // 拿不到"这是哪一页"，而导航高亮、按页裁剪侧栏都需要它。
+                // 用渲染期临时变量传递（layout 在 fn(raw) 里同步执行完，不跨请求）。
+                currentLayoutPath = path
+                try {
+                    fn(raw)
+                } finally {
+                    currentLayoutPath = ""
+                }
             case None => raw
         }
     }

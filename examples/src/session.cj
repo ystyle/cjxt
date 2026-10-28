@@ -225,7 +225,7 @@ public class SessionDemoState <: AppState {
 
 // ==================== 1. 公开首页：按登录态渲染入口 ====================
 
-@Page["/session", "会话示例"]
+@Page["/session", "会话示例", noGuard, siteLayout]
 class SessionHomePage <: Component {
     var state: Option<SessionDemoState> = None
     var sctx: Option<SessionContext> = None
@@ -302,7 +302,6 @@ class SessionHomePage <: Component {
         sessionRows.add(infoRow("上下文变更", "${changes} 次（自定义实现的审计钩子）"))
 
         div([
-            renderTabs("/session"),
             div([
                 div([text("会话与权限示例")], attrs: Some(HashMap<String, String>([("class", cls("card-title"))]))),
                 Alert()
@@ -338,7 +337,7 @@ func spanText(v: String, extraCls: String): IComponent {
 
 // ==================== 2. 登录页：写会话上下文 ====================
 
-@Page["/session/login", "登录"]
+@Page["/session/login", "登录", noGuard, siteLayout]
 class SessionLoginPage <: Component {
     var state: Option<SessionDemoState> = None
     var form = Form([])
@@ -397,7 +396,6 @@ class SessionLoginPage <: Component {
         this.form = form
 
         div([
-            renderTabs("/session"),
             div([
                 div([text("登录")], attrs: Some(HashMap<String, String>([("class", cls("card-title"))]))),
                 Alert()
@@ -421,7 +419,7 @@ class SessionLoginPage <: Component {
 
 // ==================== 3. 受保护页：按角色渲染 + 操作级校验 ====================
 
-@Page["/session/profile", "个人中心", requireLogin]
+@Page["/session/profile", "个人中心", requireLogin, siteLayout]
 class SessionProfilePage <: Component {
     var state: Option<SessionDemoState> = None
     var sctx: Option<SessionContext> = None
@@ -507,7 +505,6 @@ class SessionProfilePage <: Component {
         rows.add(infoRow("isAdmin", this.textOf("isAdmin")))
 
         div([
-            renderTabs("/session"),
             div([
                 div([text("个人中心（受守卫保护）")], attrs: Some(HashMap<String, String>([("class", cls("card-title"))]))),
                 Alert()

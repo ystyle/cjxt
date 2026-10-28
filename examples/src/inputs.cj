@@ -11,7 +11,7 @@ class InputsState <: AppState {
     var inputSearch = Signal<String>("")
 }
 
-@Page["/inputs"]
+@Page["/inputs", "Inputs", noGuard, siteLayout]
 class InputsPage <: Component {
     var data: Option<InputsState> = None
 
@@ -26,7 +26,6 @@ class InputsPage <: Component {
         }
         let attrCard = HashMap<String, String>([("class", cls("card"))])
         div([
-            renderTabs("/inputs"),
             div([
                 inputCard("文本输入", st.inputText, "输入任意文字...", "实时回显: ${st.inputText.get()}"),
                 inputCard("Email", st.inputEmail, "name@example.com", "值: ${st.inputEmail.get()}"),

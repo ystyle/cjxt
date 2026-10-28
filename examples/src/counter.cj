@@ -10,7 +10,7 @@ class CounterState <: AppState {
     var value = Signal<Int64>(0)
 }
 
-@Page["/"]
+@Page["/", "Counter", noGuard, siteLayout]
 class CounterPage <: Component {
     var state: CounterState
 
@@ -26,7 +26,6 @@ class CounterPage <: Component {
         let st = this.state
         let attrContainer = HashMap<String, String>([("class", cls("container"))])
         div([
-            renderTabs("/"),
             div([
                 div([text("Global Counter")], attrs: Some(HashMap<String, String>([("class", cls("card-title"))]))),
                 div([text("${st.value.get()}")], attrs: Some(HashMap<String, String>([("class", cls("counter-value"))]))),
@@ -43,23 +42,3 @@ class CounterPage <: Component {
     }
 }
 
-func renderTabs(active: String): IComponent {
-    div([
-        navTab("/", "Counter", active == "/"),
-        navTab("/inputs", "Inputs", active == "/inputs"),
-        navTab("/todo", "Todo", active == "/todo"),
-        navTab("/showcase", "组件库", active == "/showcase"),
-        navTab("/session", "用户会话", active == "/session"),
-    ], attrs: Some(HashMap<String, String>([("class", cls("tabs"))])))
-}
-
-func navTab(path: String, title: String, isActive: Bool): IComponent {
-    let clsName = if (isActive) { cls("tab") + " " + cls("active") } else { cls("tab") }
-    button(
-        [text(title)],
-        attrs: Some(HashMap<String, String>([("class", clsName)]))
-    ).onClick({ ctx =>
-        ctx.route.push(path)
-        PatchResult.ReRender
-    })
-}

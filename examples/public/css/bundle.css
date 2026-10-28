@@ -1,37 +1,41 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif; background: #f0f2f5; color: #333; min-height: 100vh; }
-.container_8387104332281640942 { max-width: 640px; margin: 0 auto; padding: 24px 16px; }
-.tabs_8387104332281640942 { display: flex; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 20px; }
-.tab_8387104332281640942 { flex: 1; padding: 14px 20px; text-align: center; border: none; background: transparent; font-size: 15px; font-weight: 500; cursor: pointer; color: #666; }
-.tab_8387104332281640942.active_8387104332281640942 { color: #4f46e5; background: #f5f3ff; box-shadow: inset 0 -2px 0 #4f46e5; }
-.card_8387104332281640942 { background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 16px; }
-.card-title_8387104332281640942 { font-size: 16px; font-weight: 600; color: #111; margin-bottom: 16px; }
-.counter-value_8387104332281640942 { font-size: 48px; font-weight: 700; color: #4f46e5; text-align: center; padding: 20px 0; }
-.row_8387104332281640942 { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; }
-.btn_8387104332281640942 { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; }
-.btn-primary_8387104332281640942 { background: #4f46e5; color: #fff; }
-.btn-outline_8387104332281640942 { background: transparent; border: 1px solid #d1d5db; color: #374151; }
-.btn-sm_8387104332281640942 { padding: 6px 12px; font-size: 13px; }
-.btn-danger_8387104332281640942 { background: #fee2e2; color: #dc2626; }
-.input_8387104332281640942 { flex: 1; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; outline: none; min-width: 120px; }
-.input_8387104332281640942:focus { border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,0.1); }
-.label_8387104332281640942 { font-size: 13px; font-weight: 500; color: #6b7280; margin-bottom: 6px; }
-.desc_8387104332281640942 { font-size: 13px; color: #9ca3af; margin-top: 4px; }
-.todo-item_8387104332281640942 { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f3f4f6; }
-.todo-text_8387104332281640942 { flex: 1; font-size: 14px; color: #333; }
-.todo-empty_8387104332281640942 { text-align: center; color: #9ca3af; padding: 40px 0; font-size: 14px; }
-.footer_8387104332281640942 { text-align: center; font-size: 12px; color: #d1d5db; margin-top: 24px; }
-.input-group_8387104332281640942 { margin-bottom: 14px; }
-select.input_8387104332281640942 { appearance: auto; }
+.container_5993739676746494571 { max-width: 640px; margin: 0 auto; padding: 24px 16px; }
+/* 站点外壳（由 examples/src/layout.cj_5993739676746494571 的 siteLayout 提供） */
+.site-header_5993739676746494571 { background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.08); padding: 16px 24px 0; }
+.site-header_5993739676746494571 .brand_5993739676746494571 { font-size: 17px; font-weight: 700; color: #4f46e5; margin-bottom: 12px; }
+.site-header_5993739676746494571 .tabs_5993739676746494571 { margin-bottom: 0; box-shadow: none; border-radius: 0; }
+.tabs_5993739676746494571 { display: flex; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 20px; }
+.tab_5993739676746494571 { flex: 1; padding: 14px 20px; text-align: center; border: none; background: transparent; font-size: 15px; font-weight: 500; cursor: pointer; color: #666; }
+.tab_5993739676746494571.active_5993739676746494571 { color: #4f46e5; background: #f5f3ff; box-shadow: inset 0 -2px 0 #4f46e5; }
+.card_5993739676746494571 { background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 16px; }
+.card-title_5993739676746494571 { font-size: 16px; font-weight: 600; color: #111; margin-bottom: 16px; }
+.counter-value_5993739676746494571 { font-size: 48px; font-weight: 700; color: #4f46e5; text-align: center; padding: 20px 0; }
+.row_5993739676746494571 { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; }
+.btn_5993739676746494571 { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; }
+.btn-primary_5993739676746494571 { background: #4f46e5; color: #fff; }
+.btn-outline_5993739676746494571 { background: transparent; border: 1px solid #d1d5db; color: #374151; }
+.btn-sm_5993739676746494571 { padding: 6px 12px; font-size: 13px; }
+.btn-danger_5993739676746494571 { background: #fee2e2; color: #dc2626; }
+.input_5993739676746494571 { flex: 1; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; outline: none; min-width: 120px; }
+.input_5993739676746494571:focus { border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,0.1); }
+.label_5993739676746494571 { font-size: 13px; font-weight: 500; color: #6b7280; margin-bottom: 6px; }
+.desc_5993739676746494571 { font-size: 13px; color: #9ca3af; margin-top: 4px; }
+.todo-item_5993739676746494571 { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f3f4f6; }
+.todo-text_5993739676746494571 { flex: 1; font-size: 14px; color: #333; }
+.todo-empty_5993739676746494571 { text-align: center; color: #9ca3af; padding: 40px 0; font-size: 14px; }
+.footer_5993739676746494571 { text-align: center; font-size: 12px; color: #d1d5db; margin-top: 24px; }
+.input-group_5993739676746494571 { margin-bottom: 14px; }
+select.input_5993739676746494571 { appearance: auto; }
 
 /* ============ Showcase ============ */
-.showcase-wrap_8387104332281640942 { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
-.showcase-body_8387104332281640942 { display: flex; gap: 20px; margin-top: 20px; align-items: flex-start; }
-.showcase-sidebar_8387104332281640942 { width: 200px; flex-shrink: 0; position: fixed; top: 90px; left: max(16px, calc(50% - 534px)); height: calc(100vh - 90px); overflow-y: auto; }
-.showcase-content_8387104332281640942 { flex: 1; min-width: 0; margin-left: 220px; }
+.showcase-wrap_5993739676746494571 { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+.showcase-body_5993739676746494571 { display: flex; gap: 20px; margin-top: 20px; align-items: flex-start; }
+.showcase-sidebar_5993739676746494571 { width: 200px; flex-shrink: 0; position: fixed; top: 90px; left: max(16px, calc(50% - 534px)); height: calc(100vh - 90px); overflow-y: auto; }
+.showcase-content_5993739676746494571 { flex: 1; min-width: 0; margin-left: 220px; }
 
 /* 演示卡片：内容统一左对齐、区块撑满、区块间 ≥20px 间隔 */
-.showcase-demo_8387104332281640942 {
+.showcase-demo_5993739676746494571 {
   background: #fff; border-radius: 12px; padding: 32px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 16px;
   display: flex; flex-direction: column; align-items: stretch; gap: 24px;
@@ -39,19 +43,19 @@ select.input_8387104332281640942 { appearance: auto; }
 
 /* 统一演示区块骨架（SectionTitle 组件 + demoSection 助手）：
    所有 demo 都由「标题（左对齐）+ 内容（撑满、左对齐）」的区块组成 */
-.demo-section_8387104332281640942 { display: flex; flex-direction: column; gap: 12px; width: 100%; align-items: stretch; }
-.demo-section-title_8387104332281640942 { font-size: 14px; font-weight: 600; color: #303133; }
-.demo-content_8387104332281640942 { display: flex; flex-direction: column; gap: 16px; align-items: stretch; width: 100%; }
+.demo-section_5993739676746494571 { display: flex; flex-direction: column; gap: 12px; width: 100%; align-items: stretch; }
+.demo-section-title_5993739676746494571 { font-size: 14px; font-weight: 600; color: #303133; }
+.demo-content_5993739676746494571 { display: flex; flex-direction: column; gap: 16px; align-items: stretch; width: 100%; }
 
-.showcase-props_8387104332281640942 { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
-.showcase-props-title_8387104332281640942 { font-size: 14px; font-weight: 600; color: #111; margin-bottom: 12px; }
-.showcase-prop-row_8387104332281640942 { display: flex; padding: 8px 0; border-bottom: 1px solid #f9fafb; font-size: 13px; gap: 12px; }
-.showcase-prop-name_8387104332281640942 { width: 160px; color: #6b7280; font-weight: 500; flex-shrink: 0; word-break: break-all; }
-.showcase-prop-type_8387104332281640942 { width: 260px; color: #111; flex-shrink: 0; word-break: break-all; }
-.showcase-prop-desc_8387104332281640942 { flex: 1; color: #6b7280; }
+.showcase-props_5993739676746494571 { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.showcase-props-title_5993739676746494571 { font-size: 14px; font-weight: 600; color: #111; margin-bottom: 12px; }
+.showcase-prop-row_5993739676746494571 { display: flex; padding: 8px 0; border-bottom: 1px solid #f9fafb; font-size: 13px; gap: 12px; }
+.showcase-prop-name_5993739676746494571 { width: 160px; color: #6b7280; font-weight: 500; flex-shrink: 0; word-break: break-all; }
+.showcase-prop-type_5993739676746494571 { width: 260px; color: #111; flex-shrink: 0; word-break: break-all; }
+.showcase-prop-desc_5993739676746494571 { flex: 1; color: #6b7280; }
 
 /* 内容级布局类（demo 内部排版） */
-.divider-group_8387104332281640942 { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-.progress-line-group_8387104332281640942 { display: flex; flex-direction: column; gap: 18px; width: 100%; }
-.progress-circle-group_8387104332281640942 { display: flex; flex-wrap: wrap; gap: 32px; }
-.statistic-row_8387104332281640942 { display: flex; gap: 48px; flex-wrap: wrap; }
+.divider-group_5993739676746494571 { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.progress-line-group_5993739676746494571 { display: flex; flex-direction: column; gap: 18px; width: 100%; }
+.progress-circle-group_5993739676746494571 { display: flex; flex-wrap: wrap; gap: 32px; }
+.statistic-row_5993739676746494571 { display: flex; gap: 48px; flex-wrap: wrap; }

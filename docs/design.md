@@ -443,14 +443,16 @@ Element Plus 组件库样式走**同一条通道**：EP 原始 SCSS 由 `scripts
 
 ### 3.11 响应式状态管理（Signal / Store / AppState）
 
-框架提供三层状态管理：
+框架提供四层状态管理。**先看这张表再选类型** —— 选错层级的典型后果是
+「状态莫名其妙串了」或「改了界面不动」（两者都是作用域选错，不是框架故障）。
 
-| 层级 | 类型 | 作用域 | 适合场景 |
-|------|------|--------|----------|
-| 局部状态 | `var` 字段 | Component 实例 | 表单输入、临时变量 |
-| 响应式状态 | `Signal<T>` / `Store<S>` | Component 字段或模块级 | 需要自动追踪变更的状态 |
-| Session 级状态 | `AppState` 接口 | Session 级别，跨导航持久 | 用户信息、全局配置 |
-| 会话上下文 | `SessionContext` 接口（默认实现 `SessionContextState`） | 每会话唯一 | 渲染期判断登录态/角色（鉴权权威仍是 `Session.context`） |
+| 层级 | 类型 | 作用域 | 谁管生命周期 | 适合场景 |
+|------|------|--------|--------------|----------|
+| 局部状态 | `var` 字段 | Component 实例 | 组件 | 表单输入、临时变量 |
+| 响应式状态 | `Signal<T>` | 由定义位置决定（见 §3.11.1 的生存期表） | **你** | 需要自动追踪变更的状态 |
+| 容器状态 | `Store<S>` | **由定义位置决定**（见 §3.11.2） | **你** | 包级共享（站点配置、在线数） |
+| Session 级状态 | `AppState` 接口 | Session（跨导航持久、跨会话隔离） | **框架** | 用户信息、每会话购物车 |
+| 会话上下文 | `SessionContext` 接口（默认实现 `SessionContextState`） | 每会话唯一 | 框架 | 渲染期判断登录态/角色（鉴权权威仍是 `Session.context`） |
 
 #### 3.11.1 Signal\<T\>
 
@@ -493,6 +495,29 @@ func renderWithScope(): Component {
 - 订阅者 `reRender()` 只设 `pendingRender = true`，不做其他操作
 - `sendPatch()` 清 `pendingRender` + 重新 render + diff + 发送
 
+##### ⚠️ Signal 的生存期：由**定义位置**决定，不是由类型决定
+
+这是最容易踩错的地方。`Signal<T>` 本身没有生命周期管理，它能活多久完全看
+它被存在什么对象上。
+
+| 定义位置 | 实际存活 | 说明 |
+|---|---|---|
+| 页面组件的**实例字段** | **整个 WS 会话** | 看似只有一次请求，实际不是：HTTP 首渲建的 session 会被随后的 WS 连接沿用，页面实例是同一个。只有当页面**整页重新加载**（新 HTTP 请求 → `sessions.create` 新实例）才重置 |
+| `AppState` 的字段 | 整个 session（跨导航、跨整页刷新） | 框架按会话注入，`statesInitialized` 守卫保证不重建 |
+| 函数内局部变量 / `render()` 里 new | **一次渲染** | 下一帧就是新对象，值必然丢 |
+| **包级 `let`** | **进程存活期** | 所有会话共享 —— 这是"全局"的唯一写法 |
+
+**关键结论**：把 Signal 放在页面实例字段上**是有效的**（WS 交互能持续累加），
+不需要为了"跨请求"就一律塞进 AppState。判据是：
+
+> **这个状态该不该跨浏览器标签页共享？**
+> 该 → 包级 `let`（或 Store）；不该、但要跨导航 → `AppState`；
+> 只在本页面内、刷新可丢 → 页面实例字段。
+
+**反例（会让人误判为"框架 bug"）**：用原生 `<form method="post">` 做整页提交时，
+每次请求都会 `sessions.create` 新建页面实例 —— 页面字段上的 Signal 必然重置。
+这时不是 Signal 不能用，而是**那条路径本来就会换实例**。要保留状态就得改走 WS action。
+
 #### 3.11.2 Store\<S\>
 
 ```cangjie
@@ -504,6 +529,40 @@ public class Store<S> {
 ```
 
 薄封装，内部基于 `Signal<S>`。
+
+##### Store 与 AppState 不是同一类东西
+
+两者都在解决"组件间共享状态"，但**机制完全不同**，选错会得到意外的作用域：
+
+| | `AppState` | `Store<S>` |
+|---|---|---|
+| 定义 | `public interface AppState {}` —— **零行代码的标记接口** | 普通泛型类，内部包一个 `Signal<S>` |
+| 框架支持 | **有**：`App.state<T>()` 注册 + `initStates` 每会话注入 + `ctx.getState<T>()` 取回 | **没有** —— 框架不认识它 |
+| 作用域 | 固定：**每 session 一个实例**（跨导航、跨整页刷新；会话之间隔离） | **由你放在哪决定** |
+| 跨会话共享 | ❌ 不能 | ✅ 包级定义时可以 |
+
+```cangjie
+// AppState：框架管，每会话一份（用户购物车、表单草稿）
+class CartState <: AppState { public var items = ArrayList<String>() }
+App().state<CartState>({ => CartState() })
+// handler / onMount 里：ctx.getState<CartState>()
+
+// Store：你自己管，放在包级 = 进程内全局（站点配置、在线人数）
+let globalCount = Store<Int64>(0)   // 包级 → **所有会话共享**
+// 任意组件里：globalCount.set({ v => v + 1 })
+```
+
+**Store 的作用域就是它被存放的位置**：
+
+- 包级 `let` → 进程级，所有会话共享（实测：标签页 A 点 3 次，新标签页 B 直接看到 3）
+- 组件字段 / 函数内 → 跟随那个作用域，`render()` 里 new 出来的只活一帧
+
+所以「Store 是跨组件的」这句话只在**包级定义**时成立。如果你要的是
+"每个用户各有一份但跨页面"，那该用 `AppState`，不是 `Store`。**
+
+> 注：`Store` 目前在本仓只被单元测试使用，示例站与实际应用都没有用它 ——
+> 它更像"给将来留的共享容器"，而不是现在的主力方案。需要共享状态时优先考虑
+> `AppState`（每会话）或包级 `Signal`（全局）。
 
 #### 3.11.3 AppState 接口
 
