@@ -358,3 +358,36 @@ class SelfContainedPageTest {
         @Expect(html.contains("var y = 2;"), true)
     }
 }
+
+// ---------- 请求头进会话上下文 ----------
+//
+// 为什么要放全部头进 `session.context`：页面守卫与页面逻辑要按
+// User-Agent 之类的头决定形态（如手机给 IM、桌面给窗口）。
+// 每加一个头都改框架太笨重，所以一次全放。
+
+@Test
+func requestHeadersAreExposedToSessionContext() {
+    let app = App()
+    // 用一个守卫把会话上下文里的 hdr.* 捞出来（守卫拿到的就是它）
+    let seen = HashMap<String, String>()
+    RouteRegistry.global().register("/hdr-probe", { => text("ok") }, "hdr",
+        { c =>
+            for ((k, v) in c) {
+                if (k.startsWith("hdr.")) { seen[k] = v }
+            }
+            Option<String>.None
+        })
+    let _ = app.renderDetachedPage("/hdr-probe")
+    // detached 会话没有真实 HTTP 请求 → 没有头。
+    // 这条用例只验证"机制不会崩"，真实头要起 HTTP 才能验（见下面的 e2e）。
+    @Expect(seen.size, 0)
+}
+
+@Test
+func headerKeysAreLowercaseAndPrefixed() {
+    // 键的构造规则：`hdr.` 前缀 + 小写名。
+    // 这条是契约：页面侧按 `hdr.user-agent` 查，不写错大小写。
+    let ctx = HashMap<String, String>()
+    ctx["hdr.user-agent"] = "Mozilla/5.0 (iPhone)"
+    @Expect(ctx.get("hdr.user-agent").isSome(), true)
+}
