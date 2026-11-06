@@ -399,6 +399,23 @@ public class App {
     private func servePage(ctx: TangHttpContext, p: IComponent, routeParams: HashMap<String, String>): Unit {
         let session = sessions.create(p, text(""))
         session.path = ctx.path()
+        // 把请求头放进会话上下文，供页面守卫与页面逻辑判断
+        // （典型用途：按 User-Agent 区分手机/平板/桌面，给出不同的界面形态）。
+        //
+        // 为什么要一次放**全部**头而不是按需加：每加一个都改框架太笨重；
+        // 而请求头本身不含机密（机密在 Cookie/Authorization，那两个已有专门通路）。
+        //
+        // 键统一加 `hdr.` 前缀：`session.context` 里已经有 `token` / `user`
+        // 这类短键，直接拿头名做键会撞（HTTP 头名大小写不敏感，也有叫 `user` 的）。
+        // 名统一转小写，查询时不用记原始大小写。
+        for ((hname, hvals) in ctx.request.headers) {
+            let lower = hname.toAsciiLower()
+            // Collection<String> 不支持下标，用迭代器取第一个
+            for (v in hvals) {
+                session.context["hdr." + lower] = v
+                break
+            }
+        }
         // HTTP 阶段没有凭据（token 在前端 localStorage，随 WS 连接回传），
         // 因此受守卫保护的路径在此渲染登录页占位；WS 连接令牌校验成功后
         // 再按 session.path 重新渲染真实页面（见 resumeSession/rerenderDeferred）
