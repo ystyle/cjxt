@@ -111,7 +111,7 @@ public class Dialog <: Component {
         // dialog 在遮罩层上方（使用 el-overlay-dialog 滚动容器，避免 flex stretch 导致弹窗被拉长）
         let dialogWrapper = VNode("div", [dialog], attrs: Some(HashMap<String, String>([
             ("class", "el-overlay-dialog"),
-            ("style", "position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 2001; overflow: auto;")
+            ("style", "position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: ${nextZIndex()}; overflow: auto;")
         ])))
         content.add(dialogWrapper)
 
