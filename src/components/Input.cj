@@ -79,11 +79,14 @@ public class Input <: Component {
         if (this._readonly) { attrs["readonly"] = "readonly" }
         if (this._maxLength > 0) { attrs["maxlength"] = this._maxLength.toString() }
         let inner = VNode("textarea", [], attrs: Some(attrs))
-        match (this._signal) {
+        // bind **返回新的 VNode**（不可变），必须接住返回值。
+        // 丢掉的话 textarea 既不带初值、也不带 data-bind-id——
+        // 表现为"已有的提示词显示不出来，而且改了也存不进去"（两边都没有绑定）。
+        let innerEl = match (this._signal) {
             case Some(s) => inner.bind(s)
             case None => inner
         }
-        VNode("div", [inner], attrs: Some(HashMap<String, String>([("class", cls)])))
+        VNode("div", [innerEl], attrs: Some(HashMap<String, String>([("class", cls)])))
     }
 
     func makeInner(): IComponent {
