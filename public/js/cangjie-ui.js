@@ -710,6 +710,11 @@ class CangjieUI {
             if (closer) self.send({ type: 'action', name: closer, params: {}, sessionId: self.sessionId });
         });
         // 2) 选项 hover：客户端切换 is-hovering 类（服务端键盘高亮走同一类，patch 会重置为服务端状态）
+        // 0) 弹层逃出滚动容器：服务端给的是 `position:absolute;top:100%`，
+        //    一旦祖先有 overflow:auto（窗口正文、设置面板…），列表往下就被裁剪。
+        //    改成 fixed + 按 select 的矩形定位，并观察 style 变化（每次补丁都会
+        //    把服务端那份 style 写回来，不重算就跳回被裁剪的位置）。
+        this.fixSelectPopper(el);
         const list = el.querySelector('.el-select-dropdown__list');
         if (list) {
             list.addEventListener('mousemove', (e) => {
@@ -729,6 +734,35 @@ class CangjieUI {
             });
         }
     }
+    // 把 select 的弹层定位成 fixed，避免被滚动容器裁掉；空间不够时向上弹。
+    fixSelectPopper(el) {
+        const popper = el.querySelector('.el-select__popper');
+        if (!popper || popper.__cjxtFixed) return;
+        popper.__cjxtFixed = true;
+        const apply = () => {
+            if (getComputedStyle(popper).display === 'none') return;
+            const r = el.getBoundingClientRect();
+            const h = popper.offsetHeight || 200;
+            const below = window.innerHeight - r.bottom;
+            const above = r.top;
+            popper.style.position = 'fixed';
+            popper.style.left = r.left + 'px';
+            popper.style.width = r.width + 'px';
+            popper.style.right = 'auto';
+            // 下方放不下、上方更宽裕 → 向上弹
+            if (below < h && above > below) {
+                popper.style.top = Math.max(4, r.top - Math.min(h, above - 4)) + 'px';
+            } else {
+                popper.style.top = r.bottom + 4 + 'px';
+            }
+        };
+        // 服务端每次补丁都会把 style 写回来 → 观察后重算
+        new MutationObserver(apply).observe(popper, { attributes: true, attributeFilter: ['style', 'class'] });
+        window.addEventListener('scroll', apply, true);
+        window.addEventListener('resize', apply);
+        apply();
+    }
+
     // 滑块（EP DOM 结构）：pointer 拖动/点击 + 键盘 → 位置/键码换算值 → bind 消息回传（rAF 节流）
     attachSlider(el) {
         const bid = el.getAttribute('data-bind-id');
