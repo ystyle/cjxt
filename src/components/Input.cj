@@ -14,6 +14,9 @@ public class Input <: Component {
     var _suffixIcon: String = ""
     var _rows: Int64 = 2
     var _textarea: Bool = false
+    // 自适应高度：默认 minRows 行，内容多了长到 maxRows 行封顶
+    var _autosizeMin: Int64 = 0
+    var _autosizeMax: Int64 = 0
     var _prepend: String = ""
     var _append: String = ""
     var _readonly: Bool = false
@@ -30,6 +33,22 @@ public class Input <: Component {
     public func suffixIcon(v: String): Input { this._suffixIcon = v; this }
     public func textarea(): Input { this._textarea = true; this }
     public func rows(v: Int64): Input { this._rows = v; this }
+    /**
+     * 自适应高度（仅对 textarea 有效）：默认 `minRows` 行，长到 `maxRows` 行封顶。
+     *
+     * 为什么需要：固定 rows 的两个极端都不好用——给 1 行长文本看不见自己在写什么，
+     * 给 5 行则平时空一大块。聊天输入框尤其明显。
+     *
+     * 实现是 CSS `field-sizing: content` + 一条兜底 JS（见 cangjie-ui.js 的 autosize）：
+     * 纯 CSS 在新浏览器够用，JS 兜住不支持的。
+     */
+    public func autosize(minRows!: Int64, maxRows!: Int64): Input {
+        this._autosizeMin = minRows
+        this._autosizeMax = if (maxRows < minRows) { minRows } else { maxRows }
+        this._textarea = true
+        this._rows = minRows
+        this
+    }
     public func prepend(v: String): Input { this._prepend = v; this }
     public func append(v: String): Input { this._append = v; this }
     public func readonly(): Input { this._readonly = true; this }
@@ -74,6 +93,9 @@ public class Input <: Component {
         var cls = "el-textarea"
         if (this._disabled) { cls = "${cls} is-disabled" }
         let attrs = HashMap<String, String>([("class", "el-textarea__inner"), ("rows", this._rows.toString())])
+        if (this._autosizeMin > 0) {
+            attrs["data-autosize"] = this._autosizeMin.toString() + "," + this._autosizeMax.toString()
+        }
         if (this._placeholder != "") { attrs["placeholder"] = this._placeholder }
         if (this._disabled) { attrs["disabled"] = "disabled" }
         if (this._readonly) { attrs["readonly"] = "readonly" }

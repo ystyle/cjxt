@@ -119,6 +119,7 @@ class CangjieUI {
         if (this.tree) this.renderTree(this.tree, this.container);
         this.attachClickDelegate();
         this.attachKeyDelegate();
+        this.attachAutosize();
         this.attachHistoryHandler();
         this.transport.connect();
     }
@@ -143,6 +144,50 @@ class CangjieUI {
         } catch (e) {
             console.error('cjxt receive: frame failed', msg && msg.kind, e && e.message);
         }
+    }
+    /**
+     * 自适应高度的文本域。
+     *
+     * 为什么用 JS 兜一层：`field-sizing: content` 只有较新的 Chrome 支持，
+     * 而这块的期望行为很具体——**平时一行，长到三行封顶**。
+     * 只靠 rows 属性做不到"随内容长"，只靠 CSS 又在旧浏览器上退化成一整块空白。
+     *
+     * 输入/粘贴后都要重算（粘贴是最容易一次性超过三行的路径）。
+     */
+    attachAutosize() {
+        const resize = (el) => {
+            const spec = el.getAttribute('data-autosize');
+            if (!spec) return;
+            const [minRows, maxRows] = spec.split(',').map((v) => parseInt(v, 10));
+            if (!minRows) return;
+            const cs = getComputedStyle(el);
+            const line = parseFloat(cs.lineHeight) || 20;
+            const pad = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+            const border = (parseFloat(cs.borderTopWidth) || 0) + (parseFloat(cs.borderBottomWidth) || 0);
+            const minPx = line * minRows + pad + border;
+            const maxPx = line * maxRows + pad + border;
+            el.style.height = 'auto';
+            const want = el.scrollHeight + border;
+            const h = Math.max(minPx, Math.min(maxPx, want));
+            el.style.height = h + 'px';
+            el.style.overflowY = want > maxPx ? 'auto' : 'hidden';
+        };
+        const resizeAll = (root) => {
+            (root || document).querySelectorAll('textarea[data-autosize]').forEach(resize);
+        };
+        // 初次渲染 + 每次补丁后（MutationObserver 覆盖动态插入的节点）
+        resizeAll(this.container);
+        if (this._autosizeObserver) this._autosizeObserver.disconnect();
+        this._autosizeObserver = new MutationObserver(() => resizeAll(this.container));
+        this._autosizeObserver.observe(this.container, { childList: true, subtree: true });
+        // 输入与粘贴
+        const onEdit = (e) => {
+            const el = e.target;
+            if (el && el.tagName === 'TEXTAREA' && el.hasAttribute('data-autosize')) resize(el);
+        };
+        this.container.addEventListener('input', onEdit, true);
+        this.container.addEventListener('paste', () => setTimeout(() => resizeAll(this.container), 0), true);
+        this.resizeAutosize = resizeAll;
     }
     attachKeyDelegate() {
         this.attachKeyEvent('keydown');
