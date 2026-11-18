@@ -860,8 +860,14 @@ public class App {
             while (true) {
                 let frame = ws.read()
                 if (frame.frameType == WebSocketFrameType.TextWebFrame) {
-                    let raw = String.fromUtf8(frame.payload)
-                    this.dispatchInbound(sink, state, session, raw)
+                    // 文本消息也可能被分段：浏览器/代理会把长消息拆成
+                    // TextWebFrame(fin=false) + 若干 Continuation + 末片(fin=true)。
+                    // 只读第一片 = **长输入被静默截断**（贴一整份人格文件只到第一片末尾），
+                    // 而截断处看不出是截断，看起来像"模型只收到这些"。
+                    match (App.collectTextFrom(ws, frame)) {
+                        case Some(raw) => this.dispatchInbound(sink, state, session, raw)
+                        case None => break
+                    }
                 } else if (frame.frameType == WebSocketFrameType.BinaryWebFrame) {
                     this.handleUploadBinary(ws, state, session, frame)
                 } else if (frame.frameType == WebSocketFrameType.PingWebFrame) {
@@ -973,6 +979,42 @@ public class App {
                 }
         }
     }
+
+    /// 拼接一个完整的文本消息（见 `collectText`）。
+    ///
+    /// 抽成"帧源 + 拼接"两层是为了能**测**：`WebSocket` 是 stdx 的具体类型，
+    /// 没法在单测里假造；而"分片怎么拼"恰恰是这段逻辑里唯一容易错的部分。
+    public static func collectTextFrom(ws: WebSocket, first: WebSocketFrame): Option<String> {
+        App.collectText(RealFrameSource(ws), Frame.of(first))
+    }
+
+    static func collectText(src: FrameSource, first: Frame): Option<String> {
+        if (first.fin) {
+            return Some(String.fromUtf8(first.payload))
+        }
+        let data = ArrayList<UInt8>()
+        appendBytes(data, first.payload)
+        var f = first
+        while (!f.fin) {
+            f = src.read()
+            match (f.kind) {
+                case FrameKind.Continuation => appendBytes(data, f.payload)
+                case FrameKind.Ping => src.pong(f.payload)
+                case FrameKind.Close =>
+                    src.close()
+                    return None
+                case _ => return None
+            }
+        }
+        Some(String.fromUtf8(data.toArray()))
+    }
+
+    /// 读取并拼接一个完整的**文本**消息（浏览器可能把单个消息分段发送）。
+    ///
+    /// 与 `collectBinaryPayload` 同一套逻辑，只是字节来源不同：
+    /// 后者用于上传（边收边写盘），这里用于控制消息（收齐再解析）。
+    /// 帧间穿插 Ping 时要回 Pong，否则对端会判定连接已死。
+
 
     /// 读取并拼接一个完整的二进制消息（浏览器可能把单个消息分段发送）。
     /// 帧间穿插 Ping 控制帧时回 Pong；收到 Close / 非法帧 → None（调用方中止）。
@@ -1383,16 +1425,21 @@ public class App {
     }
 
     private func handleNavigate(sink: PageSink, state: SessionState, session: Session, path: String): Unit {
+        eprintln("[nav] handleNavigate path=" + path + " sid=" + session.id)
         match (RouteRegistry.global().resolveGuard(path, session.context)) {
             case Some(target) =>
+                eprintln("[nav] guard 拒绝 -> " + target)
                 // 拒绝导航并告知守卫指定的跳转目标，前端据此自动跳转
                 sinkSendJson(sink, DenyMsg("无权限访问", path: target))
                 return
             case None => ()
         }
+        eprintln("[nav] guard 通过，unmount 旧页")
         state.page.onUnmount(LifecycleContext("", HashMap<String, String>(), None, None))
         match (RouteRegistry.global().resolve(path)) {
-            case Some(rm) => this.applyNav(sink, state, session, rm.component, path, rm.params)
+            case Some(rm) =>
+                eprintln("[nav] resolve 到页面，applyNav")
+                this.applyNav(sink, state, session, rm.component, path, rm.params)
             case None => ()
         }
     }
@@ -1691,4 +1738,62 @@ func extractQuotedAfter(text: String, key: String): String {
             }
         case None => ""
     }
+}
+
+/// 帧的种类（只关心拼接需要区分的几种）。
+///
+/// 为什么不直接用 `WebSocketFrame`：它是 stdx 的具体类且**没有公开构造**，
+/// 单测里造不出来。而"分片怎么拼"恰恰是这段逻辑里唯一容易错的部分，
+/// 必须能测，所以把它压成一个自己的小类型。
+public enum FrameKind {
+    | Text
+    | Continuation
+    | Ping
+    | Close
+    | Binary
+    | Other
+}
+
+public class Frame {
+    public let kind: FrameKind
+    public let payload: Array<UInt8>
+    public let fin: Bool
+
+    public init(kind: FrameKind, payload: Array<UInt8>, fin: Bool) {
+        this.kind = kind
+        this.payload = payload
+        this.fin = fin
+    }
+
+    static func of(f: WebSocketFrame): Frame {
+        let kind = match (f.frameType) {
+            case WebSocketFrameType.TextWebFrame => FrameKind.Text
+            case WebSocketFrameType.ContinuationWebFrame => FrameKind.Continuation
+            case WebSocketFrameType.PingWebFrame => FrameKind.Ping
+            case WebSocketFrameType.CloseWebFrame => FrameKind.Close
+            case WebSocketFrameType.BinaryWebFrame => FrameKind.Binary
+            case _ => FrameKind.Other
+        }
+        Frame(kind, f.payload, f.fin)
+    }
+}
+
+/// 帧源：`collectText` 只要这三件事，因此可以用假实现来测分片拼接。
+public interface FrameSource {
+    func read(): Frame
+    func pong(payload: Array<UInt8>): Unit
+    func close(): Unit
+}
+
+/// 真实帧源：包一层 stdx 的 WebSocket
+class RealFrameSource <: FrameSource {
+    private let ws: WebSocket
+
+    init(ws: WebSocket) {
+        this.ws = ws
+    }
+
+    public func read(): Frame { Frame.of(this.ws.read()) }
+    public func pong(payload: Array<UInt8>): Unit { this.ws.writePongFrame(payload) }
+    public func close(): Unit { this.ws.writeCloseFrame() }
 }
