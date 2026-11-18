@@ -167,7 +167,13 @@ class CangjieUI {
             if (!name) return;
             // keydown_enter 是显式回车命令：阻止默认行为（避免触发表单提交等）；
             // 通用 keydown 不 preventDefault，否则会破坏输入（backspace/字符键）。
-            if (type === 'keydown' && !el.getAttribute('data-action-keydown')) e.preventDefault();
+            //
+            // **Shift+Enter 例外**：多行输入框里它是"换行"，不是"提交"。
+            // 一律 preventDefault 的话，Shift+Enter 既发不出去也换不了行——
+            // 用户看到的是"按了没反应"，而长消息因此无法分段写。
+            if (type === 'keydown' && !el.getAttribute('data-action-keydown') && !e.shiftKey) {
+                e.preventDefault();
+            }
             const params = this.collectParams(el);
             params.key = e.key;
             params.code = e.code;
