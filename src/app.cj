@@ -1540,6 +1540,13 @@ class StateReg {
 
 let CH_QUOTE: UInt32 = 34
 let CH_BACKSLASH: UInt32 = 92
+let CH_SLASH: UInt32 = 47
+let CH_n: UInt32 = 110
+let CH_r: UInt32 = 114
+let CH_t: UInt32 = 116
+let CH_b: UInt32 = 98
+let CH_f: UInt32 = 102
+let CH_u: UInt32 = 117
 let CH_LBRACE: UInt32 = 123
 let CH_RBRACE: UInt32 = 125
 let CH_COLON: UInt32 = 58
@@ -1563,6 +1570,90 @@ func findRune(runes: Array<Rune>, ch: UInt32, from: Int64): Option<Int64> {
     None
 }
 
+/// 从 `start`（指向开引号**之后**的第一个字符）读一个 JSON 字符串体。
+///
+/// 返回 (反转义后的值, 结束引号之后的下标)；找不到结束引号返回 None。
+///
+/// ## 为什么必须处理转义
+///
+/// 入站消息是 `JSON.stringify` 出来的：值里的 `"` 变成 `\"`，换行变成 `\n`。
+/// 旧实现"找到下一个 `"` 就断"——**值里只要有一个双引号，内容就在那里被截断**，
+/// 而截断处看起来完全正常（像"用户只输入了这么多"）。
+/// 实测：贴一整份人格文件，卡在 `为了"像鲸鱼娘"` 的第一个引号处。
+func readJsonStringBody(runes: Array<Rune>, start: Int64): Option<(String, Int64)> {
+    let sb = StringBuilder()
+    var i = start
+    while (i < runes.size) {
+        let c = UInt32(runes[i])
+        if (c == CH_QUOTE) {
+            return Some((sb.toString(), i + 1))
+        }
+        if (c != CH_BACKSLASH) {
+            sb.append(String(runes[i]))
+            i += 1
+            continue
+        }
+        // 转义序列
+        if (i + 1 >= runes.size) { return None }
+        let n = UInt32(runes[i + 1])
+        if (n == CH_QUOTE) {
+            sb.append("\"")
+            i += 2
+        } else if (n == CH_BACKSLASH) {
+            sb.append("\\")
+            i += 2
+        } else if (n == CH_SLASH) {
+            sb.append("/")
+            i += 2
+        } else if (n == CH_n) {
+            sb.append("\n")
+            i += 2
+        } else if (n == CH_r) {
+            sb.append("\r")
+            i += 2
+        } else if (n == CH_t) {
+            sb.append("\t")
+            i += 2
+        } else if (n == CH_b) {
+            sb.append(String(Rune(8)))
+            i += 2
+        } else if (n == CH_f) {
+            sb.append(String(Rune(12)))
+            i += 2
+        } else if (n == CH_u) {
+            if (i + 5 >= runes.size) { return None }
+            var code: Int64 = 0
+            var ok = true
+            for (k in 0..4) {
+                let h = hexVal(UInt32(runes[i + 2 + k]))
+                if (h < 0) { ok = false; break }
+                code = code * 16 + h
+            }
+            if (ok) {
+                sb.append(String(Rune(code)))
+                i += 6
+            } else {
+                // 非法 \u 转义：按字面保留，不猜也别丢内容
+                sb.append("\\u")
+                i += 2
+            }
+        } else {
+            // 未知转义：去掉反斜杠、保留字符（JSON 里不该出现，但不该因此丢内容）
+            sb.append(String(runes[i + 1]))
+            i += 2
+        }
+    }
+    None
+}
+
+/// 十六进制字符 → 数值；非法返回 -1
+func hexVal(c: UInt32): Int64 {
+    if (c >= 48 && c <= 57) { return Int64(c - 48) }        // 0-9
+    if (c >= 97 && c <= 102) { return Int64(c - 97 + 10) }  // a-f
+    if (c >= 65 && c <= 70) { return Int64(c - 65 + 10) }   // A-F
+    -1
+}
+
 /// 读 `"key": "value"` / `"key":"value"` 的字符串值（容忍冒号后空白）
 private func readField(raw: String, field: String): String {
     let runes = raw.toRuneArray()
@@ -1571,8 +1662,8 @@ private func readField(raw: String, field: String): String {
             var from = markStart + "\"${field}\":".toRuneArray().size
             while (from < runes.size && isJsonSpaceRune(runes[from])) { from += 1 }
             if (from >= runes.size || UInt32(runes[from]) != CH_QUOTE) { return "" }
-            match (findRune(runes, CH_QUOTE, from + 1)) {
-                case Some(e) => String(runes[(from + 1)..e])
+            match (readJsonStringBody(runes, from + 1)) {
+                case Some((v, _)) => v
                 case None => ""
             }
         case None => ""
@@ -1690,11 +1781,10 @@ func parseStringPairs(body: String, out: HashMap<String, String>): Unit {
             if (c == CH_SPACE || c == CH_COLON || c == CH_TAB || c == CH_LF || c == CH_CR) { j += 1 } else { break }
         }
         if (j < runes.size && UInt32(runes[j]) == CH_QUOTE) {
-            let vs = j + 1
-            match (findRune(runes, CH_QUOTE, vs)) {
-                case Some(ve) =>
-                    out[key] = String(runes[vs..ve])
-                    i = ve + 1
+            match (readJsonStringBody(runes, j + 1)) {
+                case Some((v, next)) =>
+                    out[key] = v
+                    i = next
                 case None => break
             }
         } else {
